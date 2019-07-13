@@ -102,3 +102,9 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# ProtoBuf generated files
+*_pb2.py
+
+# PyCharm
+.idea/

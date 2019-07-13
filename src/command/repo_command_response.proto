@@ -1,0 +1,19 @@
+syntax = "proto2";
+package ndn_message;
+
+// Protobuf has no "outer" message type, so we need to put the TLV XXX
+// message inside an outer "typeless" XXXMessage.
+
+message RepoCommandResponseMessage {
+    message RepoCommandResponse {
+        optional uint64 process_id = 206;
+        optional uint64 status_code = 208;
+        optional uint64 start_block_id = 204;
+        optional uint64 end_block_id = 205;
+        optional uint64 insert_num = 209;
+        optional uint64 delete_num = 210;
+    }
+
+    // A RepoCommandResponseMessage has one RepoCommandResponse.
+    required RepoCommandResponse repo_command_response = 207;
+}
