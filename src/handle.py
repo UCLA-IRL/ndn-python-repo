@@ -4,8 +4,8 @@ import logging
 import asyncio
 import random
 import pickle
-from typing import Union, Dict, List, Optional
-from pyndn import Face, Name, Data, Interest
+from typing import Optional
+from pyndn import Blob, Face, Name, Data, Interest
 from pyndn.security import KeyChain
 from pyndn.encoding import ProtobufTlv
 from asyncndn import fetch_data_packet
@@ -22,16 +22,28 @@ class ReadHandle(object):
 
     def listen(self, name: Name):
         """
-        Start listening for command interests.
-        This function needs to be called explicitly before being used.
+        This function needs to be called for prefix of all data stored.
         """
-        pass
+        self.face.registerPrefix(name, None,
+                                 lambda prefix: logging.error("Prefix registration failed: %s", prefix))
+        self.face.setInterestFilter(self.on_interest)
+
+    def on_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
+        name = interest.getName()
+        raw_data = self.storage.get(str(name))
+
+        if not isinstance(raw_data, bytes):
+            return
+
+        data = Data()
+        data.wireDecode(Blob(pickle.loads(raw_data)))
+        self.face.putData(data)
 
 
 class CommandHandle(object):
     """
     Interface for command interest handles
-    TODO: insertion check command
+    TODO: implement insertion check command
     """
     def __init__(self, face: Face, keychain: KeyChain, storage: Storage):
         self.face = face
@@ -79,6 +91,7 @@ class WriteCommandHandle(CommandHandle):
     WriteHandle processes command interests, and fetches corresponding data to
     store them into the database.
     TODO: Add validator
+    TODO: Register interest for read handler
     """
     def __init__(self, face: Face, keychain: KeyChain, storage: Storage):
         super(WriteCommandHandle, self).__init__(face, keychain, storage)
@@ -93,16 +106,13 @@ class WriteCommandHandle(CommandHandle):
         logging.info("Set interest filter: {}".format(Name(name).append("insert")))
 
     def on_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
-        """
-        On receiving command interest for data insertion
-        """
-        # TODO: Add segmented interest procssing
+        # TODO: Add segmented interest processing
         event_loop = asyncio.get_event_loop()
         event_loop.create_task(self.process_segmented_insert_command(interest))
 
     # async def process_single_insert_command(self, interest: Interest):
     #     """
-    #     Process a single insertion command..
+    #     Process a single insertion command.
     #     Return to client with status code 100 immediately, and then start data fetching process.
     #     TODO: Command verification and authentication
     #     TODO: Remove hard-coded part
@@ -134,19 +144,25 @@ class WriteCommandHandle(CommandHandle):
     #
     #     if process_id in self.m_processes:
     #         if self.m_processes[process_id].repo_command_response.insert_num == 0:
-    #             self.storage.put(fetch_data.getName(), pickle.dumps(fetch_data))
     #             self.m_processes[process_id].repo_command_response.status_code = 200
     #             self.m_processes[process_id].repo_command_response.insert_num = 1
     #
-    #             logging.info("Stored data: {}".format(fetch_data.getName()))
+    #             self.storage.put(fetch_data.getName(), pickle.dumps(fetch_data))
+    #             logging.info("Inserted data: {}".format(fetch_data.getName()))
     #
     #             await self.delete_process(process_id)
 
     async def process_segmented_insert_command(self, interest: Interest):
+        """
+        Process segmented insertion command.
+        Return to client with status code 100 immediately, and then start data fetching process.
+        """
         parameter = self.decode_cmd_param_blob(interest)
-        name = parameter.repo_command_parameter.name
         start_block_id = parameter.repo_command_parameter.start_block_id
         end_block_id = parameter.repo_command_parameter.end_block_id
+        name = Name()
+        for compo in parameter.repo_command_parameter.name.component:
+            name.append(compo)
 
         logging.info("Write handle processing single interest: {}, {}, {}"
                      .format(name, start_block_id, end_block_id))
@@ -166,17 +182,17 @@ class WriteCommandHandle(CommandHandle):
 
         n_inserted = await self.fetch_segmented_data(name, start_block_id, end_block_id, semaphore)
 
+        # If both start_block_id and end_block_id are specified, check if all data have being fetched
         if not end_block_id or n_inserted == (end_block_id - (start_block_id if start_block_id else 0) + 1):
             self.m_processes[process_id].repo_command_response.status_code = 200
-            logging.info('Segment insertion success')
+            logging.info('Segment insertion success, {} items inserted'.format(n_inserted))
         else:
             self.m_processes[process_id].repo_command_response.status_code = 400
-            logging.info('Segment insertion failure')
+            logging.info('Segment insertion failure, {} items inserted'.format(n_inserted))
         self.m_processes[process_id].repo_command_response.insert_num = 1
 
         if process_id in self.m_processes:
             await self.delete_process(process_id)
-
 
     async def delete_process(self, process_id: int):
         """
@@ -195,7 +211,7 @@ class WriteCommandHandle(CommandHandle):
         Maintain a fixed size window using semaphore.
         Return number of inserted elements
         TODO: Remove hard-coded part
-        TODO: When to stop if end_block_id doesn't exist?
+        TODO: Break when some n_fail reaches a threshold
         """
         FETCHER_RETRY_INTERVAL = 1
         FETCHER_MAX_ATTEMPT_NUMBER = 3
@@ -204,8 +220,8 @@ class WriteCommandHandle(CommandHandle):
             """
             Retry for up to FETCHER_MAX_ATTEMPT_NUMBER times, and write to storage
             """
-            logging.info('fetch_or_fail(): {}'.format(interest.getName()))
-            nonlocal n_inserted, n_requested, done, final_id
+            logging.info('retry_or_fail(): {}'.format(interest.getName()))
+            nonlocal n_success, n_fail, done, final_id
             success = False
             for _ in range(FETCHER_MAX_ATTEMPT_NUMBER):
                 response = await fetch_data_packet(self.face, interest)
@@ -215,24 +231,24 @@ class WriteCommandHandle(CommandHandle):
                 else:
                     await asyncio.sleep(FETCHER_RETRY_INTERVAL / 1000.0)
             semaphore.release()
-            n_requested += 1
 
             # If success, save to storage
             if success:
-                n_inserted += 1
+                n_success += 1
                 final_id_component = response.metaInfo.getFinalBlockId()
                 if final_id_component.isSegment():
                     final_id = final_id_component.toSegment()
-                if n_requested >= final_id - start_block_id:
+                if n_success + n_fail >= final_id - start_block_id + 1:
                     done.set()
-
-                logging.info('Writing to storage: {}'.format(response.getName()))
-                self.storage.put(response.getName(), pickle.dumps(response))
+                logging.info('Inserted data: {}'.format(response.getName()))
+                self.storage.put(str(response.getName()), pickle.dumps(response.wireEncode().toBytes()))
+            else:
+                n_fail += 1
 
         cur_id = (start_block_id if start_block_id else 0)
         final_id = (end_block_id if end_block_id else 0x7fffffff)
-        n_requested = 0
-        n_inserted = 0
+        n_success = 0
+        n_fail = 0
         event_loop = asyncio.get_event_loop()
         done = asyncio.Event()
 
@@ -245,7 +261,7 @@ class WriteCommandHandle(CommandHandle):
             cur_id += 1
         await done.wait()
 
-        return n_inserted
+        return n_success
 
 
 class DeleteCommandHandle(CommandHandle):
@@ -260,8 +276,13 @@ class DeleteCommandHandle(CommandHandle):
         self.face.setInterestFilter(Name(name).append("delete"), self.on_interest)
 
     def on_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
+        event_loop = asyncio.get_event_loop()
+        event_loop.create_task(self.process_segmented_insert_command(interest))
+
+    def process_segmented_insert_command(self, interest: Interest):
         """
-        On receiving command interest for data deletion
+        Process segmented insertion command.
+        Return to client with status code 100 immediately, and then start data fetching process.
+        TODO
         """
-        pass
 

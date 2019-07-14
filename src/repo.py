@@ -26,7 +26,6 @@ class Repo(object):
         self.running = True
 
         self.face.registerPrefix(self.prefix, None, self.on_register_failed)
-        self.read_handle.listen(self.prefix)
         self.write_handle.listen(self.prefix)
         self.delete_handle.listen(self.prefix)
 

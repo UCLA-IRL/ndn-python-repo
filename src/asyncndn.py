@@ -11,18 +11,15 @@ async def fetch_data_packet(face: Face, interest: Interest) -> Union[Data, Netwo
     def on_data(_interest, data: Data):
         nonlocal done, result
         result = data
-        print("on_data")
         done.set()
 
     def on_timeout(_interest):
         nonlocal done
-        print("on_timeout")
         done.set()
 
     def on_network_nack(_interest, network_nack: NetworkNack):
         nonlocal done, result
         result = network_nack
-        print("on_nack")
         done.set()
 
     async def wait_for_event():
@@ -33,6 +30,7 @@ async def fetch_data_packet(face: Face, interest: Interest) -> Union[Data, Netwo
 
     try:
         face.expressInterest(interest, on_data, on_timeout, on_network_nack)
+        print('Express interest: {}'.format(interest.getName()))
         await wait_for_event()
         return result
     except (ConnectionRefusedError, BrokenPipeError) as error:
