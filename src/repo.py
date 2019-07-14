@@ -6,12 +6,12 @@ from pyndn import Face, Name, Data, Interest
 from pyndn.security import KeyChain
 
 from storage import Storage
-from handle import WriteHandle, ReadHandle, DeleteHandle
+from handle import ReadHandle, WriteCommandHandle, DeleteCommandHandle
 
 
 class Repo(object):
-    def __init__(self, prefix: Name, face: Face, storage: Storage, write_handle: WriteHandle,
-                 read_handle: ReadHandle, delete_handle: DeleteHandle):
+    def __init__(self, prefix: Name, face: Face, storage: Storage, read_handle: ReadHandle,
+                 write_handle: WriteCommandHandle, delete_handle: DeleteCommandHandle):
         """
         Registers routable prefix, and calls listen() on all handles
         TODO: Remove face as input, put it in handles only
@@ -26,8 +26,8 @@ class Repo(object):
         self.running = True
 
         self.face.registerPrefix(self.prefix, None, self.on_register_failed)
-        self.write_handle.listen(self.prefix)
         self.read_handle.listen(self.prefix)
+        self.write_handle.listen(self.prefix)
         self.delete_handle.listen(self.prefix)
 
     @staticmethod

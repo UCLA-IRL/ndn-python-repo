@@ -10,13 +10,13 @@ from command.repo_command_parameter_pb2 import RepoCommandParameterMessage
 from command.repo_command_response_pb2 import RepoCommandResponseMessage
 
 
-class SingleInsertClient(object):
+class SegmentedInsertClient(object):
     def __init__(self):
         self.face = Face()
         self.keychain = KeyChain()
         self.face.setCommandSigningInfo(self.keychain, self.keychain.getDefaultCertificateName())
 
-    async def insert_single_data(self, repo_prefix: Name, data_prefix: Name):
+    async def insert_segmented_data(self, repo_prefix: Name, data_prefix: Name):
         face = self.face
         running = True
 
@@ -32,6 +32,8 @@ class SingleInsertClient(object):
         parameter = RepoCommandParameterMessage()
         for compo in data_prefix:
             parameter.repo_command_parameter.name.component.append(compo.getValue().toBytes())
+        parameter.repo_command_parameter.start_block_id = 0
+        parameter.repo_command_parameter.end_block_id = 10
         param_blob = ProtobufTlv.encode(parameter)
 
         # Prepare cmd interest
@@ -51,7 +53,7 @@ class SingleInsertClient(object):
             response = RepoCommandResponseMessage()
             try:
                 ProtobufTlv.decode(response, ret.content)
-                print('Insertion command succeeded: status code {}'.format(response.repo_command_response.status_code))
+                print('Insertion command accepted: status code {}'.format(response.repo_command_response.status_code))
             except RuntimeError as exc:
                 print('Response decoding failed', exc)
 
@@ -60,10 +62,10 @@ class SingleInsertClient(object):
 
 
 def main():
-    client = SingleInsertClient()
+    client = SegmentedInsertClient()
     event_loop = asyncio.get_event_loop()
     try:
-        event_loop.run_until_complete(client.insert_single_data(Name('testrepo'), Name('testdata')))
+        event_loop.run_until_complete(client.insert_segmented_data(Name('testrepo'), Name('testdata')))
     finally:
         event_loop.close()
 

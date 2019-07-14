@@ -1,6 +1,6 @@
 import asyncio
 import threading
-from typing import Union, Dict, List
+from typing import Union, Dict, List, Optional
 from pyndn import Face, Interest, NetworkNack, Data, Name
 
 

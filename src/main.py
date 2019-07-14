@@ -3,7 +3,7 @@ import logging
 from pyndn import Face, Name
 from pyndn.security import KeyChain
 from repo import Repo
-from handle import WriteHandle, ReadHandle, DeleteHandle
+from handle import ReadHandle, WriteCommandHandle, DeleteCommandHandle
 from storage import MongoDBStorage
 
 
@@ -23,11 +23,11 @@ def main():
     face.setCommandSigningInfo(keychain, keychain.getDefaultCertificateName())
     storage = MongoDBStorage('repo', 'data')
 
-    write_handle = WriteHandle(face, keychain, storage)
     read_handle = ReadHandle(face, keychain, storage)
-    delete_handle = DeleteHandle(face, keychain, storage)
+    write_handle = WriteCommandHandle(face, keychain, storage)
+    delete_handle = DeleteCommandHandle(face, keychain, storage)
 
-    repo = Repo(Name('testrepo'), face, storage, write_handle, read_handle, delete_handle)
+    repo = Repo(Name('testrepo'), face, storage, read_handle, write_handle, delete_handle)
 
     event_loop = asyncio.get_event_loop()
     try:
