@@ -4,11 +4,11 @@ import logging
 import asyncio
 import random
 import pickle
-from typing import Optional
-from pyndn import Blob, Face, Name, Data, Interest
+from typing import Optional, Callable, Union
+from pyndn import Blob, Face, Name, Data, Interest, NetworkNack
 from pyndn.security import KeyChain
 from pyndn.encoding import ProtobufTlv
-from asyncndn import fetch_data_packet
+from asyncndn import fetch_segmented_data
 from storage import Storage
 from command.repo_command_parameter_pb2 import RepoCommandParameterMessage
 from command.repo_command_response_pb2 import RepoCommandResponseMessage
@@ -157,6 +157,16 @@ class WriteCommandHandle(CommandHandle):
         Process segmented insertion command.
         Return to client with status code 100 immediately, and then start data fetching process.
         """
+        def after_fetched(data: Union[Data, NetworkNack, None]):
+            nonlocal n_success, n_fail
+            # If success, save to storage
+            if isinstance(data, Data):
+                n_success += 1
+                self.storage.put(str(data.getName()), pickle.dumps(data.wireEncode().toBytes()))
+                logging.info('Inserted data: {}'.format(data.getName()))
+            else:
+                n_fail += 1
+
         parameter = self.decode_cmd_param_blob(interest)
         start_block_id = parameter.repo_command_parameter.start_block_id
         end_block_id = parameter.repo_command_parameter.end_block_id
@@ -179,16 +189,19 @@ class WriteCommandHandle(CommandHandle):
         # Start data fetching process
         self.m_processes[process_id].repo_command_response.status_code = 300
         semaphore = asyncio.Semaphore(7)
+        n_success = 0
+        n_fail = 0
 
-        n_inserted = await self.fetch_segmented_data(name, start_block_id, end_block_id, semaphore)
+        await fetch_segmented_data(self.face, name, start_block_id, end_block_id,
+                                   semaphore, after_fetched)
 
         # If both start_block_id and end_block_id are specified, check if all data have being fetched
-        if not end_block_id or n_inserted == (end_block_id - (start_block_id if start_block_id else 0) + 1):
+        if not end_block_id or n_success == (end_block_id - (start_block_id if start_block_id else 0) + 1):
             self.m_processes[process_id].repo_command_response.status_code = 200
-            logging.info('Segment insertion success, {} items inserted'.format(n_inserted))
+            logging.info('Segment insertion success, {} items inserted'.format(n_success))
         else:
             self.m_processes[process_id].repo_command_response.status_code = 400
-            logging.info('Segment insertion failure, {} items inserted'.format(n_inserted))
+            logging.info('Segment insertion failure, {} items inserted'.format(n_success))
         self.m_processes[process_id].repo_command_response.insert_num = 1
 
         if process_id in self.m_processes:
@@ -202,66 +215,6 @@ class WriteCommandHandle(CommandHandle):
         await asyncio.sleep(10)
         if process_id in self.m_processes:
             del self.m_processes[process_id]
-
-    async def fetch_segmented_data(self, prefix: Name, start_block_id: Optional[int],
-                                   end_block_id: Optional[int], semaphore: asyncio.Semaphore) -> int:
-        """
-        Fetch segmented data from start_block_id or 0, to end_block_id or FinalBlockId returned
-        in data, whichever is smaller.
-        Maintain a fixed size window using semaphore.
-        Return number of inserted elements
-        TODO: Remove hard-coded part
-        TODO: Break when some n_fail reaches a threshold
-        """
-        FETCHER_RETRY_INTERVAL = 1
-        FETCHER_MAX_ATTEMPT_NUMBER = 3
-
-        async def retry_or_fail(interest):
-            """
-            Retry for up to FETCHER_MAX_ATTEMPT_NUMBER times, and write to storage
-            """
-            logging.info('retry_or_fail(): {}'.format(interest.getName()))
-            nonlocal n_success, n_fail, done, final_id
-            success = False
-            for _ in range(FETCHER_MAX_ATTEMPT_NUMBER):
-                response = await fetch_data_packet(self.face, interest)
-                if isinstance(response, Data):
-                    success = True
-                    break
-                else:
-                    await asyncio.sleep(FETCHER_RETRY_INTERVAL / 1000.0)
-            semaphore.release()
-
-            # If success, save to storage
-            if success:
-                n_success += 1
-                final_id_component = response.metaInfo.getFinalBlockId()
-                if final_id_component.isSegment():
-                    final_id = final_id_component.toSegment()
-                if n_success + n_fail >= final_id - start_block_id + 1:
-                    done.set()
-                logging.info('Inserted data: {}'.format(response.getName()))
-                self.storage.put(str(response.getName()), pickle.dumps(response.wireEncode().toBytes()))
-            else:
-                n_fail += 1
-
-        cur_id = (start_block_id if start_block_id else 0)
-        final_id = (end_block_id if end_block_id else 0x7fffffff)
-        n_success = 0
-        n_fail = 0
-        event_loop = asyncio.get_event_loop()
-        done = asyncio.Event()
-
-        # Need to acquire semaphore before adding task to event loop, otherwise an unlimited
-        # number of tasks would be added
-        while cur_id <= final_id:
-            await semaphore.acquire()
-            interest = Interest(Name(prefix).appendSegment(cur_id))
-            event_loop.create_task(retry_or_fail(interest))
-            cur_id += 1
-        await done.wait()
-
-        return n_success
 
 
 class DeleteCommandHandle(CommandHandle):

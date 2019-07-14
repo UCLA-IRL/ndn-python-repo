@@ -64,9 +64,10 @@ class SegmentedInsertClient(object):
             except RuntimeError as exc:
                 logging.warning('Response decoding failed', exc)
 
-        # Wait extra time for data to be served
-        await asyncio.gather(face_task, asyncio.sleep(10))
-        running = False
+        # Keep face running for a while for data to be served
+        await asyncio.sleep(5)
+        self.running = False
+        await face_task
 
     def serve_data(self):
         logging.info('Serving data')
@@ -92,9 +93,8 @@ def main():
 
     client = SegmentedInsertClient(Name('testdata'))
     event_loop = asyncio.get_event_loop()
-    event_loop.create_task(client.insert_segmented_data(Name('testrepo')))
     try:
-        event_loop.run_until_complete(client.face_loop())
+        event_loop.run_until_complete(client.insert_segmented_data(Name('testrepo')))
     finally:
         event_loop.close()
 
