@@ -70,6 +70,7 @@ async def fetch_segmented_data(face: Face, prefix: Name, start_block_id: Optiona
                 final_id_component = response.metaInfo.getFinalBlockId()
                 if final_id_component.isSegment():
                     final_id = final_id_component.toSegment()
+                    print('final_id is set to {}'.format(final_id))
                 success = True
                 break
             else:

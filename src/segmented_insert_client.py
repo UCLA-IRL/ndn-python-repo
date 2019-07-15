@@ -10,7 +10,7 @@ from asyncndn import fetch_data_packet
 from command.repo_command_parameter_pb2 import RepoCommandParameterMessage
 from command.repo_command_response_pb2 import RepoCommandResponseMessage
 
-MAX_BYTES_IN_DATA_PACKET = 1000
+MAX_BYTES_IN_DATA_PACKET = 2000
 
 
 class SegmentedInsertClient(object):
@@ -42,22 +42,28 @@ class SegmentedInsertClient(object):
     def prepare_data(self):
         """
         Shard file into data packets.
-        TODO: Crash if file is 0 bytes
         """
         logging.info('preparing data')
         with open(self.file_path, 'rb') as binary_file:
             b_array = bytearray(binary_file.read())
 
+        if len(b_array) == 0:
+            logging.warning("File is 0 bytes")
+            return
+
+        self.n_packets = int((len(b_array) - 1) / MAX_BYTES_IN_DATA_PACKET + 1)
+        print('There are {} packets in total'.format(self.n_packets))
         seq = 0
         for i in range(0, len(b_array), MAX_BYTES_IN_DATA_PACKET):
             print(i)
             data = Data(Name(self.name_at_repo).append(str(seq)))
             data.setContent(b_array[i : min(i + MAX_BYTES_IN_DATA_PACKET, len(b_array))])
+            data.metaInfo.setFinalBlockId(Name.Component.fromSegment(self.n_packets - 1))
             self.keychain.signWithSha256(data)
             self.m_name_str_to_data[str(data.getName())] = data
             seq += 1
 
-        self.n_packets = seq
+        # self.n_packets = seq
 
     @staticmethod
     def on_register_failed(prefix):
@@ -105,7 +111,7 @@ class SegmentedInsertClient(object):
                 logging.warning('Response decoding failed', exc)
 
         # Keep face running for a while for data to be served
-        await asyncio.sleep(20)
+        await asyncio.sleep(30)
         self.running = False
         await face_task
 

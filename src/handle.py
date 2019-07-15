@@ -197,7 +197,7 @@ class WriteCommandHandle(CommandHandle):
 
         # Start data fetching process
         self.m_processes[process_id].repo_command_response.status_code = 300
-        semaphore = asyncio.Semaphore(7)
+        semaphore = asyncio.Semaphore(500)
         n_success = 0
         n_fail = 0
 
@@ -205,7 +205,7 @@ class WriteCommandHandle(CommandHandle):
                                    semaphore, after_fetched)
 
         # If both start_block_id and end_block_id are specified, check if all data have being fetched
-        if not end_block_id or n_success == (end_block_id - (start_block_id if start_block_id else 0) + 1):
+        if end_block_id is None or n_success == (end_block_id - (start_block_id if start_block_id else 0) + 1):
             self.m_processes[process_id].repo_command_response.status_code = 200
             logging.info('Segment insertion success, {} items inserted'.format(n_success))
         else:
@@ -236,6 +236,7 @@ class DeleteCommandHandle(CommandHandle):
         """
         Start listening for command interests.
         This function needs to be called explicitly after initialization.
+        TODO
         """
         self.face.setInterestFilter(Name(name).append("delete"), self.on_interest)
 

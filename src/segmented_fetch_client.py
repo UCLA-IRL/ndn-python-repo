@@ -67,7 +67,7 @@ class SegmentedFetchClient(object):
         b_array = bytearray()
         seq_to_bytes_unordered = dict()     # Temporarily save out-of-order packets
 
-        semaphore = asyncio.Semaphore(5)
+        semaphore = asyncio.Semaphore(100)
         await fetch_segmented_data(self.face, self.name_at_repo,
                                    start_block_id=0, end_block_id=None,
                                    semaphore=semaphore, after_fetched=after_fetched)
