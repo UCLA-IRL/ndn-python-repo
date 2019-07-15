@@ -6,7 +6,7 @@ from pyndn.security import KeyChain
 from asyncndn import fetch_segmented_data
 
 
-class SegmentedFetchClient(object):
+class GetfileClient(object):
 
     def __init__(self, args):
         """
@@ -92,7 +92,7 @@ def main():
                         datefmt='%Y-%m-%d %H:%M:%S',
                         level=logging.INFO)
 
-    client = SegmentedFetchClient(args)
+    client = GetfileClient(args)
 
     event_loop = asyncio.get_event_loop()
     try:

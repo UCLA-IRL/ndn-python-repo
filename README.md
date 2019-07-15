@@ -1,6 +1,6 @@
 # NDN-Repo
 
-A quick-and-dirty Named Data Networking (NDN) Repo, implemented using [PyNDN](https://github.com/named-data/PyNDN2).
+A quick-and-dirty Named Data Networking (NDN) Repo implementation using [PyNDN](https://github.com/named-data/PyNDN2).
 
 ## Prerequisites
 
@@ -18,11 +18,22 @@ For macOS and Ubuntu:
 ```bash
 git clone https://github.com/JonnyKong/NDN-Repo.git
 
-# Compile protobuf
-cd src/command && make
+# Compile protobuf files
+cd src/command
+make
 cd ../..
 
 # Start a repo instance
 cd src && python3 main.py
+
+# Insert a file into the repo
+cd src && python3 putfile.py -r <repo_name> -f <path_to_file> -n <filename_in_repo>
+
+# Fetch a file from the repo
+cd src && python3 getfile.py -r <repo_name> -n <filename_in_repo>
 ```
 
+## TODO
+
+- [ ] Refactor: move hard-coded parts into _config.yaml
+- [ ] Performance optimizations

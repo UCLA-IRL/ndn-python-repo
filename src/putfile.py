@@ -13,7 +13,7 @@ from command.repo_command_response_pb2 import RepoCommandResponseMessage
 MAX_BYTES_IN_DATA_PACKET = 2000
 
 
-class SegmentedInsertClient(object):
+class PutfileClient(object):
     """
     This client serves random segmented data
     """
@@ -130,7 +130,7 @@ def main():
                         datefmt='%Y-%m-%d %H:%M:%S',
                         level=logging.INFO)
 
-    client = SegmentedInsertClient(args)
+    client = PutfileClient(args)
 
     event_loop = asyncio.get_event_loop()
     try:
