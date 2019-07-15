@@ -44,10 +44,11 @@ async def fetch_segmented_data(face: Face, prefix: Name, start_block_id: Optiona
                                end_block_id: Optional[int], semaphore: asyncio.Semaphore,
                                after_fetched: Callable):
     """
-    Fetch segmented data from start_block_id or 0, to end_block_id or FinalBlockId returned
-    in data, whichever is smaller.
-    Call after_fetched upon receiving every data.
-    Maintain a fixed size window using semaphore.
+    Fetch segmented data starting from start_block_id. 
+    If start_block_id is not set, start from sequence 0.
+    If end_block_id is set, or a data packet returns FinalBlockId, the function will fetch all data
+    until that id. Otherwise, it will return until number of failures reach a threshold.
+    Upon receiving each data, call after_fetched upon().
     TODO: Remove hard-coded part
     """
     FETCHER_RETRY_INTERVAL = 1

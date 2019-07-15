@@ -53,7 +53,7 @@ class SegmentedInsertClient(object):
             print(i)
             data = Data(Name(self.name_at_repo).append(str(seq)))
             data.setContent(b_array[i : min(i + MAX_BYTES_IN_DATA_PACKET, len(b_array))])
-            self.keychain.sign(data)
+            self.keychain.signWithSha256(data)
             self.m_name_str_to_data[str(data.getName())] = data
             seq += 1
 
