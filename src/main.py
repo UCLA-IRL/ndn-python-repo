@@ -24,7 +24,7 @@ def main():
     storage = MongoDBStorage('repo', 'data')
 
     read_handle = ReadHandle(face, keychain, storage)
-    write_handle = WriteCommandHandle(face, keychain, storage)
+    write_handle = WriteCommandHandle(face, keychain, storage, read_handle)
     delete_handle = DeleteCommandHandle(face, keychain, storage)
 
     repo = Repo(Name('testrepo'), face, storage, read_handle, write_handle, delete_handle)

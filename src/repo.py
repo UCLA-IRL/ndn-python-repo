@@ -32,4 +32,3 @@ class Repo(object):
     @staticmethod
     def on_register_failed(prefix):
         logging.error("Prefix registration failed: %s", prefix)
-

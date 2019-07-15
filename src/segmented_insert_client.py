@@ -1,50 +1,90 @@
 import os
 import sys
+import argparse
 import asyncio
 import logging
-from pyndn import Face, Name, Data, Interest
+from pyndn import Blob, Face, Name, Data, Interest
 from pyndn.security import KeyChain
 from pyndn.encoding import ProtobufTlv
 from asyncndn import fetch_data_packet
 from command.repo_command_parameter_pb2 import RepoCommandParameterMessage
 from command.repo_command_response_pb2 import RepoCommandResponseMessage
 
+MAX_BYTES_IN_DATA_PACKET = 1000
+
 
 class SegmentedInsertClient(object):
     """
     This client serves random segmented data
     """
-    def __init__(self, prefix: Name):
+    def __init__(self, args):
+        print("init")
+        self.repo_name = Name(args.repo_name)
+        self.file_path = args.file_path
+        self.name_at_repo = Name(args.name)
 
-        self.prefix = prefix
         self.face = Face()
         self.keychain = KeyChain()
         self.face.setCommandSigningInfo(self.keychain, self.keychain.getDefaultCertificateName())
         self.running = True
-        self.serve_data()
+        self.m_name_str_to_data = dict()
+        self.n_packets = 0
 
-        event_loop = asyncio.get_event_loop()
-        event_loop.create_task(self.face_loop())
+        self.prepare_data()
+        self.face.registerPrefix(self.name_at_repo, None, self.on_register_failed)
+        self.face.setInterestFilter(self.name_at_repo, self.on_interest)
 
     async def face_loop(self):
         while self.running:
             self.face.processEvents()
             await asyncio.sleep(0.01)
 
-    async def insert_segmented_data(self, repo_prefix: Name):
+    def prepare_data(self):
+        """
+        Shard file into data packets.
+        TODO: Crash if file is 0 bytes
+        """
+        logging.info('preparing data')
+        with open(self.file_path, 'rb') as binary_file:
+            b_array = bytearray(binary_file.read())
+
+        seq = 0
+        for i in range(0, len(b_array), MAX_BYTES_IN_DATA_PACKET):
+            print(i)
+            data = Data(Name(self.name_at_repo).append(str(seq)))
+            data.setContent(b_array[i : min(i + MAX_BYTES_IN_DATA_PACKET, len(b_array))])
+            self.keychain.sign(data)
+            self.m_name_str_to_data[str(data.getName())] = data
+            seq += 1
+
+        self.n_packets = seq
+
+    @staticmethod
+    def on_register_failed(prefix):
+        logging.error("Prefix registration failed: %s", prefix)
+
+    def on_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
+        logging.info('On interest: {}'.format(interest.getName()))
+
+        if str(interest.getName()) in self.m_name_str_to_data:
+            self.face.putData(self.m_name_str_to_data[str(interest.getName())])
+            logging.info('Serve data: {}'.format(interest.getName()))
+        else:
+            logging.info('Data does not exist: {}'.format(interest.getName()))
+
+    async def insert_segmented_file(self):
         event_loop = asyncio.get_event_loop()
         face_task = event_loop.create_task(self.face_loop())
 
         parameter = RepoCommandParameterMessage()
-        for compo in self.prefix:
+        for compo in self.name_at_repo:
             parameter.repo_command_parameter.name.component.append(compo.getValue().toBytes())
         parameter.repo_command_parameter.start_block_id = 0
-        parameter.repo_command_parameter.end_block_id = 10
+        parameter.repo_command_parameter.end_block_id = self.n_packets - 1
         param_blob = ProtobufTlv.encode(parameter)
 
         # Prepare cmd interest
-        name = repo_prefix
-        name.append("insert").append(Name.Component(param_blob))
+        name = Name(self.repo_name).append("insert").append(Name.Component(param_blob))
         interest = Interest(name)
         interest.canBePrefix = True
         self.face.makeCommandInterest(interest)
@@ -65,36 +105,30 @@ class SegmentedInsertClient(object):
                 logging.warning('Response decoding failed', exc)
 
         # Keep face running for a while for data to be served
-        await asyncio.sleep(5)
+        await asyncio.sleep(20)
         self.running = False
         await face_task
 
-    def serve_data(self):
-        logging.info('Serving data')
-        self.face.registerPrefix(self.prefix, None, self.on_register_failed)
-        self.face.setInterestFilter(self.prefix, self.on_interest)
-
-    def on_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
-        logging.info('On interest: {}'.format(interest.getName()))
-        data = Data(interest.getName())
-        data.setContent("foobar".encode('utf-8'))
-        self.keychain.sign(data)
-        self.face.putData(data)
-
-    @staticmethod
-    def on_register_failed(prefix):
-        logging.error("Prefix registration failed: %s", prefix)
-
 
 def main():
+    parser = argparse.ArgumentParser(description='segmented insert client')
+    parser.add_argument('-r', '--repo_name',
+                        required=True, help='Name of repo')
+    parser.add_argument('-f', '--file_path',
+                        required=True, help='Path to input file')
+    parser.add_argument('-n', '--name',
+                        required=True, help='Name used to store file at Repo')
+    args = parser.parse_args()
+
     logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
                         level=logging.INFO)
 
-    client = SegmentedInsertClient(Name('testdata'))
+    client = SegmentedInsertClient(args)
+
     event_loop = asyncio.get_event_loop()
     try:
-        event_loop.run_until_complete(client.insert_segmented_data(Name('testrepo')))
+        event_loop.run_until_complete(client.insert_segmented_file())
     finally:
         event_loop.close()
 

@@ -26,18 +26,21 @@ class ReadHandle(object):
         """
         self.face.registerPrefix(name, None,
                                  lambda prefix: logging.error("Prefix registration failed: %s", prefix))
-        self.face.setInterestFilter(self.on_interest)
+        self.face.setInterestFilter(name, self.on_interest)
+        logging.info('Read handle: listening to {}'.format(str(name)))
 
     def on_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
         name = interest.getName()
-        raw_data = self.storage.get(str(name))
 
-        if not isinstance(raw_data, bytes):
+        if not self.storage.exists(str(name)):
             return
 
+        raw_data = self.storage.get(str(name))
         data = Data()
         data.wireDecode(Blob(pickle.loads(raw_data)))
         self.face.putData(data)
+
+        logging.info('Read handle: serve data {}'.format(interest.getName()))
 
 
 class CommandHandle(object):
@@ -93,9 +96,14 @@ class WriteCommandHandle(CommandHandle):
     TODO: Add validator
     TODO: Register interest for read handler
     """
-    def __init__(self, face: Face, keychain: KeyChain, storage: Storage):
+    def __init__(self, face: Face, keychain: KeyChain, storage: Storage,
+                 read_handle: ReadHandle):
+        """
+        Write handle need to keep a reference to write handle to register new prefixes
+        """
         super(WriteCommandHandle, self).__init__(face, keychain, storage)
         self.m_processes = dict()
+        self.m_read_handle = read_handle
 
     def listen(self, name: Name):
         """
@@ -156,6 +164,7 @@ class WriteCommandHandle(CommandHandle):
         """
         Process segmented insertion command.
         Return to client with status code 100 immediately, and then start data fetching process.
+        TODO: When to start listening for interest
         """
         def after_fetched(data: Union[Data, NetworkNack, None]):
             nonlocal n_success, n_fail
@@ -174,7 +183,7 @@ class WriteCommandHandle(CommandHandle):
         for compo in parameter.repo_command_parameter.name.component:
             name.append(compo)
 
-        logging.info("Write handle processing single interest: {}, {}, {}"
+        logging.info("Write handle processing segmented interest: {}, {}, {}"
                      .format(name, start_block_id, end_block_id))
 
         # Reply to client with status code 100
@@ -206,6 +215,8 @@ class WriteCommandHandle(CommandHandle):
 
         if process_id in self.m_processes:
             await self.delete_process(process_id)
+
+        self.m_read_handle.listen(name)
 
     async def delete_process(self, process_id: int):
         """
