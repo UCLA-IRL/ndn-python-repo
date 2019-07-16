@@ -53,7 +53,7 @@ async def fetch_segmented_data(face: Face, prefix: Name, start_block_id: Optiona
     """
     FETCHER_RETRY_INTERVAL = 1
     FETCHER_MAX_ATTEMPT_NUMBER = 3
-    FAIL_EXIT_THRESHOLD = 5
+    FETCHER_FAIL_EXIT_THRESHOLD = 5
 
     async def retry_or_fail(interest: Interest):
         """
@@ -80,7 +80,7 @@ async def fetch_segmented_data(face: Face, prefix: Name, start_block_id: Optiona
         else:
             n_fail += 1
         # Exit if all data fetched, or n_fail reaches a threshold
-        if n_fail >= FAIL_EXIT_THRESHOLD or n_success + n_fail >= final_id - start_block_id + 1:
+        if n_fail >= FETCHER_FAIL_EXIT_THRESHOLD or n_success + n_fail >= final_id - start_block_id + 1:
             done.set()
 
         semaphore.release()

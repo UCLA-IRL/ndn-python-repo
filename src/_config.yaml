@@ -1,0 +1,20 @@
+---
+repo_config:
+  # Repo's routable name
+  repo_name: 'testrepo'
+
+# fetcher_config:
+#   # Interval between timeout/nack and next attempt
+#   fetcher_retry_interval: 1
+
+#   # Number of attempts fetching the same data packets
+#   fetcher_max_attempt_number: 3
+
+#   # When fetching segmented data, number of failed attempts before the fetcher returns
+#   fetcher_fail_exit_threshold: 5
+
+db_config:
+  mongodb:
+    # DB and collection name used to store data
+    'db': 'repo'
+    'collection': 'data'

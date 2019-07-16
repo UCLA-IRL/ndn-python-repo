@@ -63,8 +63,6 @@ class PutfileClient(object):
             self.m_name_str_to_data[str(data.getName())] = data
             seq += 1
 
-        # self.n_packets = seq
-
     @staticmethod
     def on_register_failed(prefix):
         logging.error("Prefix registration failed: %s", prefix)
