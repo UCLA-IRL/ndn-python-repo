@@ -57,9 +57,16 @@ async def fetch_segmented_data(face: Face, prefix: Name, start_block_id: Optiona
 
     async def retry_or_fail(interest: Interest):
         """
-        Retry for up to FETCHER_MAX_ATTEMPT_NUMBER times, and write to storage
+        Retry for up to FETCHER_MAX_ATTEMPT_NUMBER times, and write to storage.
         """
         nonlocal n_success, n_fail, cur_id, final_id
+        
+        # Need to check sequence number, in case this task was added to the event queue before
+        # final_id is set
+        seq = int(str(interest.getName()[-1]))
+        if seq > final_id:
+            semaphore.release()
+            return
 
         logging.info('retry_or_fail(): {}'.format(interest.getName()))
 

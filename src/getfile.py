@@ -23,7 +23,7 @@ class GetfileClient(object):
     async def face_loop(self):
         while self.running:
             self.face.processEvents()
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.001)
 
     async def fetch_segmented_file(self):
         """

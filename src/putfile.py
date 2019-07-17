@@ -37,7 +37,7 @@ class PutfileClient(object):
     async def face_loop(self):
         while self.running:
             self.face.processEvents()
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.001)
 
     def prepare_data(self):
         """

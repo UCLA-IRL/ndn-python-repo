@@ -14,7 +14,7 @@ def main():
         nonlocal face, repo
         while repo.running:
             face.processEvents()
-            await asyncio.sleep(0.01)
+            await asyncio.sleep(0.001)
 
     logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
