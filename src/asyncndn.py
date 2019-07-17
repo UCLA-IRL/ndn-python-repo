@@ -107,6 +107,10 @@ async def fetch_segmented_data(face: Face, prefix: Name, start_block_id: Optiona
         await semaphore.acquire()
         interest = Interest(Name(prefix).append(str(cur_id)))
         interest.setInterestLifetimeMilliseconds(1000)
+
+        # Because asyncio is non-preemptive, need to explicitly release control here to give asyncio
+        # a chance to process incoming data
+        await asyncio.sleep(0)
         tasks.append(event_loop.create_task(retry_or_fail(interest)))
         cur_id += 1
 
