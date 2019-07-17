@@ -21,7 +21,6 @@ git clone https://github.com/JonnyKong/NDN-Repo.git
 # Compile protobuf files
 cd src/command
 make
-cd ../..
 
 # Start a repo instance
 cd src && python3 main.py
@@ -37,3 +36,5 @@ cd src && python3 getfile.py -r <repo_name> -n <filename_in_repo>
 
 - [ ] Refactor: move hard-coded parts into _config.yaml
 - [ ] Performance optimizations
+- [ ] Insert check command
+- [ ] Delete command
