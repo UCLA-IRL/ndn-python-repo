@@ -207,7 +207,7 @@ class WriteCommandHandle(CommandHandle):
         # If both start_block_id and end_block_id are specified, check if all data have being fetched
         if end_block_id is None or n_success == (end_block_id - (start_block_id if start_block_id else 0) + 1):
             self.m_processes[process_id].repo_command_response.status_code = 200
-            logging.info('Segment insertion success, {} items inserted'.format(n_success))
+            logging.fatal('Segment insertion success, {} items inserted'.format(n_success))
         else:
             self.m_processes[process_id].repo_command_response.status_code = 400
             logging.info('Segment insertion failure, {} items inserted'.format(n_success))

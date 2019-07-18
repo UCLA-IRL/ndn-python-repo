@@ -55,7 +55,7 @@ class PutfileClient(object):
         print('There are {} packets in total'.format(self.n_packets))
         seq = 0
         for i in range(0, len(b_array), MAX_BYTES_IN_DATA_PACKET):
-            print(i)
+            # print(i)
             data = Data(Name(self.name_at_repo).append(str(seq)))
             data.setContent(b_array[i : min(i + MAX_BYTES_IN_DATA_PACKET, len(b_array))])
             data.metaInfo.setFinalBlockId(Name.Component.fromSegment(self.n_packets - 1))
@@ -126,7 +126,8 @@ def main():
 
     logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
-                        level=logging.INFO)
+                        # level=logging.INFO)
+                        level=logging.WARNING)
 
     client = PutfileClient(args)
 

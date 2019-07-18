@@ -39,7 +39,7 @@ class GetfileClient(object):
                 return
             try:
                 seq = int(str(data.getName()).split('/')[-1])
-                print('seq: {}'.format(seq))
+                logging.info('seq: {}'.format(seq))
             except ValueError:
                 logging.warning('Sequence number decoding error')
                 return
@@ -49,12 +49,12 @@ class GetfileClient(object):
                 return
             elif seq == recv_window + 1:
                 b_array.extend(data.getContent().toBytes())
-                print('saved packet: seq {}'.format(seq))
+                logging.info('saved packet: seq {}'.format(seq))
                 recv_window += 1
                 while recv_window + 1 in seq_to_bytes_unordered:
                     b_array.extend(seq_to_bytes_unordered[recv_window + 1])
                     seq_to_bytes_unordered.pop(recv_window + 1)
-                    print('saved packet: seq {}'.format(recv_window + 1))
+                    logging.info('saved packet: seq {}'.format(recv_window + 1))
                     recv_window += 1
             else:
                 logging.info('Received out of order packet: seq {}'.format(seq))
@@ -90,7 +90,7 @@ def main():
 
     logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
-                        level=logging.INFO)
+                        level=logging.WARNING)
 
     client = GetfileClient(args)
 

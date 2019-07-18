@@ -29,6 +29,9 @@ class MongoDBStorage(Storage):
         self._db = db
         self._collection = collection
         self._uri = 'mongodb://localhost:27017/'
+        self.client = MongoClient(self._uri)
+        self.c_db = self.client[self._db]
+        self.c_collection = self.c_db[self._collection]
 
         client = MongoClient(self._uri)
         c_db = client[self._db]
@@ -39,26 +42,20 @@ class MongoDBStorage(Storage):
         """
         Insert document into MongoDB, overwrite if already exists.
         """
-        client = MongoClient(self._uri)
-        c_db = client[self._db]
-        c_collection = c_db[self._collection]
         document = {
             "key": key,
             "value": value
         }
         try:
-            c_collection.insert_one(document).inserted_id
+            self.c_collection.insert_one(document).inserted_id
         except pymongo.errors.DuplicateKeyError:
-            c_collection.update_one({"key": key}, {"$set": {"value": value}})
+            self.c_collection.update_one({"key": key}, {"$set": {"value": value}})
 
     def get(self, key: str) -> bytes:
         """
         Get document from MongoDB
         """
-        client = MongoClient(self._uri)
-        c_db = client[self._db]
-        c_collection = c_db[self._collection]
-        ret = c_collection.find_one({"key": key})
+        ret = self.c_collection.find_one({"key": key})
         if ret:
             return ret["value"]
         else:
@@ -68,10 +65,7 @@ class MongoDBStorage(Storage):
         """
         Return whether document exists
         """
-        client = MongoClient(self._uri)
-        c_db = client[self._db]
-        c_collection = c_db[self._collection]
-        if c_collection.find_one({"key": key}):
+        if self.c_collection.find_one({"key": key}):
             return True
         else:
             return False
@@ -80,19 +74,13 @@ class MongoDBStorage(Storage):
         """
         Return whether removal is successful
         """
-        client = MongoClient(self._uri)
-        c_db = client[self._db]
-        c_collection = c_db[self._collection]
-        return c_collection.delete_one({"key": key}).deleted_count > 0
+        return self.c_collection.delete_one({"key": key}).deleted_count > 0
 
     def keys(self):
         """
         Return a set of "primary" keys
         """
-        client = MongoClient(self._uri)
-        c_db = client[self._db]
-        c_collection = c_db[self._collection]
-        return (doc["key"] for doc in c_collection.find())
+        return (doc["key"] for doc in self.c_collection.find())
 
 
 # For testing

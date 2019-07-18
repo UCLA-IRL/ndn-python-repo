@@ -1,12 +1,11 @@
 import asyncio
-import threading
 import logging
 from typing import Union, Optional, Callable
 from pyndn import Face, Interest, NetworkNack, Data, Name
 
 
 async def fetch_data_packet(face: Face, interest: Interest) -> Union[Data, NetworkNack, None]:
-    done = threading.Event()
+    done = asyncio.Event()
     result = None
 
     def on_data(_interest, data: Data):
@@ -26,15 +25,9 @@ async def fetch_data_packet(face: Face, interest: Interest) -> Union[Data, Netwo
         result = network_nack
         done.set()
 
-    async def wait_for_event():
-        ret = False
-        while not ret:
-            ret = done.wait(0.01)
-            await asyncio.sleep(0.01)
-
     try:
         face.expressInterest(interest, on_data, on_timeout, on_network_nack)
-        await wait_for_event()
+        await done.wait()
         return result
     except (ConnectionRefusedError, BrokenPipeError) as error:
         return error
@@ -77,7 +70,7 @@ async def fetch_segmented_data(face: Face, prefix: Name, start_block_id: Optiona
                 final_id_component = response.metaInfo.getFinalBlockId()
                 if final_id_component.isSegment():
                     final_id = final_id_component.toSegment()
-                    print('final_id is set to {}'.format(final_id))
+                    logging.info('final_id is set to {}'.format(final_id))
                 success = True
                 break
             else:

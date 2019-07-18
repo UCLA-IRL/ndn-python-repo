@@ -7,6 +7,10 @@ from handle import ReadHandle, WriteCommandHandle, DeleteCommandHandle
 from storage import MongoDBStorage
 from config import get_yaml
 
+# import cProfile, pstats, io
+# from pstats import SortKey
+# pr = cProfile.Profile()
+# pr.enable()
 
 def main():
 
@@ -18,7 +22,7 @@ def main():
 
     logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
-                        level=logging.INFO)
+                        level=logging.WARNING)
 
     config = get_yaml()
     print(config)
@@ -44,5 +48,14 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
 
+# pr.disable()
+# s = io.StringIO()
+# sortby = SortKey.CUMULATIVE
+# ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+# ps.print_stats()
+# print(s.getvalue())
