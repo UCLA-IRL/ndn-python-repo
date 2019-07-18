@@ -213,10 +213,10 @@ class WriteCommandHandle(CommandHandle):
             logging.info('Segment insertion failure, {} items inserted'.format(n_success))
         self.m_processes[process_id].repo_command_response.insert_num = 1
 
+        self.m_read_handle.listen(name)
+
         if process_id in self.m_processes:
             await self.delete_process(process_id)
-
-        self.m_read_handle.listen(name)
 
     async def delete_process(self, process_id: int):
         """
