@@ -42,7 +42,7 @@ async def fetch_segmented_data(face: Face, prefix: Name, start_block_id: Optiona
     If end_block_id is set, or a data packet returns FinalBlockId, the function will fetch all data
     until that id. Otherwise, it will return until number of failures reach a threshold.
     Upon receiving each data, call after_fetched upon().
-    TODO: Remove hard-coded part
+    TODO: end_block_id will always be set 
     """
     FETCHER_RETRY_INTERVAL = 1
     FETCHER_MAX_ATTEMPT_NUMBER = 3

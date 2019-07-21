@@ -195,9 +195,10 @@ class WriteCommandHandle(CommandHandle):
 
         self.reply_to_cmd(interest, self.m_processes[process_id])
 
-        # Start data fetching process
+        # Start data fetching process. This semaphore size should be smaller
+        # than the number of attempts before failure
         self.m_processes[process_id].repo_command_response.status_code = 300
-        semaphore = asyncio.Semaphore(500)
+        semaphore = asyncio.Semaphore(2)
         n_success = 0
         n_fail = 0
 
