@@ -94,6 +94,7 @@ class PutfileClient(object):
         interest.canBePrefix = True
         self.face.makeCommandInterest(interest)
 
+        await asyncio.sleep(0.1)
         logging.info("Express interest: {}".format(interest.getName()))
         ret = await fetch_data_packet(self.face, interest)
 
@@ -128,7 +129,7 @@ def main():
     logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
                         # level=logging.INFO)
-                        level=logging.WARNING)
+                        level=logging.INFO)
 
     client = PutfileClient(args)
 

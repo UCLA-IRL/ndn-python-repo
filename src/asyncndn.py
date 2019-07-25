@@ -44,8 +44,8 @@ async def fetch_segmented_data(face: Face, prefix: Name, start_block_id: Optiona
     Upon receiving each data, call after_fetched upon().
     TODO: end_block_id will always be set 
     """
-    FETCHER_RETRY_INTERVAL = 1
-    FETCHER_MAX_ATTEMPT_NUMBER = 3
+    FETCHER_RETRY_INTERVAL = 10
+    FETCHER_MAX_ATTEMPT_NUMBER = 5
     FETCHER_FAIL_EXIT_THRESHOLD = 5
 
     async def retry_or_fail(interest: Interest):
