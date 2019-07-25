@@ -4,7 +4,7 @@ from pyndn import Face, Name
 from pyndn.security import KeyChain
 from repo import Repo
 from handle import ReadHandle, WriteCommandHandle, DeleteCommandHandle
-from storage import MongoDBStorage
+from storage import MongoDBStorage, LevelDBStorage
 from config import get_yaml
 
 # import cProfile, pstats, io
@@ -30,8 +30,9 @@ def main():
     face = Face()
     keychain = KeyChain()
     face.setCommandSigningInfo(keychain, keychain.getDefaultCertificateName())
-    storage = MongoDBStorage(config['db_config']['mongodb']['db'],
-                             config['db_config']['mongodb']['collection'])
+    # storage = MongoDBStorage(config['db_config']['mongodb']['db'],
+    #                          config['db_config']['mongodb']['collection'])
+    storage = LevelDBStorage()
 
     read_handle = ReadHandle(face, keychain, storage)
     write_handle = WriteCommandHandle(face, keychain, storage, read_handle)
