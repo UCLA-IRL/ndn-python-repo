@@ -2,7 +2,7 @@ import os
 import sys
 import pymongo
 from pymongo import MongoClient
-
+import plyvel
 
 class Storage:
     """
@@ -20,6 +20,29 @@ class Storage:
     def remove(self, key: str) -> bool:
         raise NotImplementedError
 
+default_leveldb_dir = "~/.py-ndn-repo/"
+
+class LevelDBStorage(Storage):
+    def __init__(self):
+        db_dir = os.path.expanduser(default_leveldb_dir)
+        self.db = plyvel.DB(db_dir, create_if_missing=True)
+
+    def put(self, key: str, value: bytes):
+        self.db.put(key.encode(), value)
+
+    def get(self, key: str) -> bytes:
+        return self.db.get(key.encode())
+
+    def exists(self, key: str) -> bool:
+        ret = self.db.get(key.encode())
+        if ret:
+            return True
+        else:
+            return False
+
+    def remove(self, key: str) -> bool:
+        self.db.delete(key.encode())
+        return True
 
 class MongoDBStorage(Storage):
     def __init__(self, db: str, collection: str):
@@ -85,8 +108,11 @@ class MongoDBStorage(Storage):
 
 # For testing
 if __name__ == "__main__":
-    s = DBStorage("gitsync", "objects")
+    # s = MongoDBStorage("gitsync", "objects")
+    # hash_name = "cf23df2207d99a74fbe169e3eba035e633b65d94"
+    # data = b'\x01\x02\x03\x04\x05'
+    # s.put(hash_name, data)
+    s = LevelDBStorage()
     hash_name = "cf23df2207d99a74fbe169e3eba035e633b65d94"
     data = b'\x01\x02\x03\x04\x05'
     s.put(hash_name, data)
-
