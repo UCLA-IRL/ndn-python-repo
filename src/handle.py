@@ -61,14 +61,22 @@ class CommandHandle(object):
         raise NotImplementedError
 
     def update_prefixes_in_storage(self, prefix: str):
+        """
+        Add a new prefix into database
+        return whether the prefix has been registered before
+        """
         prefixes_msg = PrefixesInStorage()
         ret = self.storage.get("prefixes")
         if ret:
             prefixes_msg.ParseFromString(ret)
+        for prefix_item in prefixes_msg.prefixes:
+            if prefix_item.name == prefix or prefix.startswith(prefix_item.name):
+                return True
         new_prefix = prefixes_msg.prefixes.add()
         new_prefix.name = prefix
         self.storage.put("prefixes", prefixes_msg.SerializeToString())
         logging.info("add a new prefix into the database")
+        return False
 
     def reply_to_cmd(self, interest: Interest, response: RepoCommandResponseMessage):
         """
@@ -226,8 +234,9 @@ class WriteCommandHandle(CommandHandle):
             logging.info('Segment insertion failure, {} items inserted'.format(n_success))
         self.m_processes[process_id].repo_command_response.insert_num = 1
 
-        self.m_read_handle.listen(name)
-        self.update_prefixes_in_storage(name.toUri())
+        existing = self.update_prefixes_in_storage(name.toUri())
+        if existing is False:
+            self.m_read_handle.listen(name)
 
         if process_id in self.m_processes:
             await self.delete_process(process_id)
