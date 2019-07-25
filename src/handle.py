@@ -67,6 +67,7 @@ class CommandHandle(object):
 
         response_blob = ProtobufTlv.encode(response)
         data = Data(interest.getName())
+        data.metaInfo.freshnessPeriod = 1000
         data.setContent(response_blob)
 
         self.keychain.sign(data)

@@ -57,6 +57,7 @@ class PutfileClient(object):
         for i in range(0, len(b_array), MAX_BYTES_IN_DATA_PACKET):
             # print(i)
             data = Data(Name(self.name_at_repo).append(str(seq)))
+            data.metaInfo.freshnessPeriod = 100000
             data.setContent(b_array[i : min(i + MAX_BYTES_IN_DATA_PACKET, len(b_array))])
             data.metaInfo.setFinalBlockId(Name.Component.fromSegment(self.n_packets - 1))
             self.keychain.signWithSha256(data)
