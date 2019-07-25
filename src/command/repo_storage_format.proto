@@ -1,0 +1,9 @@
+syntax = "proto3";
+package ndn_message;
+
+message PrefixesInStorage {
+    message Prefix {
+        string name = 1;
+    }
+    repeated Prefix prefixes = 1;
+}

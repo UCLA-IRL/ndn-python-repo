@@ -40,6 +40,7 @@ def main():
 
     repo = Repo(Name(config['repo_config']['repo_name']),
                 face, storage, read_handle, write_handle, delete_handle)
+    repo.recover_previous_prefixes()
 
     event_loop = asyncio.get_event_loop()
     try:

@@ -12,6 +12,7 @@ from asyncndn import fetch_segmented_data
 from storage import Storage
 from command.repo_command_parameter_pb2 import RepoCommandParameterMessage
 from command.repo_command_response_pb2 import RepoCommandResponseMessage
+from command.repo_storage_format_pb2 import PrefixesInStorage
 
 
 class ReadHandle(object):
@@ -58,6 +59,16 @@ class CommandHandle(object):
 
     def on_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
         raise NotImplementedError
+
+    def update_prefixes_in_storage(self, prefix: str):
+        prefixes_msg = PrefixesInStorage()
+        ret = self.storage.get("prefixes")
+        if ret:
+            prefixes_msg.ParseFromString(ret)
+        new_prefix = prefixes_msg.prefixes.add()
+        new_prefix.name = prefix
+        self.storage.put("prefixes", prefixes_msg.SerializeToString())
+        logging.info("add a new prefix into the database")
 
     def reply_to_cmd(self, interest: Interest, response: RepoCommandResponseMessage):
         """
@@ -216,6 +227,7 @@ class WriteCommandHandle(CommandHandle):
         self.m_processes[process_id].repo_command_response.insert_num = 1
 
         self.m_read_handle.listen(name)
+        self.update_prefixes_in_storage(name.toUri())
 
         if process_id in self.m_processes:
             await self.delete_process(process_id)

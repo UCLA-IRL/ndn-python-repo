@@ -7,6 +7,7 @@ from pyndn.security import KeyChain
 
 from storage import Storage
 from handle import ReadHandle, WriteCommandHandle, DeleteCommandHandle
+from command.repo_storage_format_pb2 import PrefixesInStorage
 
 
 class Repo(object):
@@ -28,6 +29,19 @@ class Repo(object):
         self.face.registerPrefix(self.prefix, None, self.on_register_failed)
         self.write_handle.listen(self.prefix)
         self.delete_handle.listen(self.prefix)
+
+    def recover_previous_prefixes(self):
+        """
+        Read from the database and get the a list of prefixes for the existing Data in the storage
+        """
+        prefixes_msg = PrefixesInStorage()
+        ret = self.storage.get("prefixes")
+        if ret:
+            prefixes_msg.ParseFromString(ret)
+            for prefix in prefixes_msg.prefixes:
+                logging.info("Existing Prefix Found: {:s}".format(prefix.name))
+                self.read_handle.listen(Name(prefix.name))
+        pass
 
     @staticmethod
     def on_register_failed(prefix):
