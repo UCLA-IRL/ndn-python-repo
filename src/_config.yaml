@@ -18,6 +18,10 @@ db_config:
     # DB and collection name used to store data
     'db': 'repo'
     'collection': 'data'
-  
+  leveldb:
+    # Default leveldb dir
+    'dir': '~/.py-ndn-repo/'
+
 controller:
+  # Controller's routable prefixes
   prefix: '/controller'

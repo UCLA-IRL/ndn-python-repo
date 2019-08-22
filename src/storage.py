@@ -23,8 +23,8 @@ class Storage:
 default_leveldb_dir = "~/.py-ndn-repo/"
 
 class LevelDBStorage(Storage):
-    def __init__(self):
-        db_dir = os.path.expanduser(default_leveldb_dir)
+    def __init__(self, dir: str):
+        db_dir = os.path.expanduser(dir)
         self.db = plyvel.DB(db_dir, create_if_missing=True)
 
     def put(self, key: str, value: bytes):

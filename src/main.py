@@ -33,7 +33,7 @@ def main():
     face.setCommandSigningInfo(keychain, keychain.getDefaultCertificateName())
     # storage = MongoDBStorage(config['db_config']['mongodb']['db'],
     #                          config['db_config']['mongodb']['collection'])
-    storage = LevelDBStorage()
+    storage = LevelDBStorage(config['db_config']['leveldb']['dir'])
     controller_prefix = config['controller']['prefix']
 
     read_handle = ReadHandle(face, keychain, storage)
