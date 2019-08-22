@@ -6,6 +6,7 @@ from repo import Repo
 from handle import ReadHandle, WriteCommandHandle, DeleteCommandHandle
 from storage import MongoDBStorage, LevelDBStorage
 from config import get_yaml
+from controller import Controller
 
 # import cProfile, pstats, io
 # from pstats import SortKey
@@ -33,9 +34,10 @@ def main():
     # storage = MongoDBStorage(config['db_config']['mongodb']['db'],
     #                          config['db_config']['mongodb']['collection'])
     storage = LevelDBStorage()
+    controller_prefix = config['controller']['prefix']
 
     read_handle = ReadHandle(face, keychain, storage)
-    write_handle = WriteCommandHandle(face, keychain, storage, read_handle)
+    write_handle = WriteCommandHandle(face, keychain, storage, read_handle, Name(controller_prefix))
     delete_handle = DeleteCommandHandle(face, keychain, storage)
 
     repo = Repo(Name(config['repo_config']['repo_name']),

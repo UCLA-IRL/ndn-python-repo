@@ -1,15 +1,17 @@
 import os
-import sys
-import logging
 import asyncio
-import random
+import json
+import logging
 import pickle
+import random
+import sys
 from typing import Optional, Callable, Union
 from pyndn import Blob, Face, Name, Data, Interest, NetworkNack
 from pyndn.security import KeyChain
 from pyndn.encoding import ProtobufTlv
-from asyncndn import fetch_segmented_data
+from asyncndn import fetch_segmented_data, fetch_data_packet
 from storage import Storage
+from controller import Controller
 from command.repo_command_parameter_pb2 import RepoCommandParameterMessage
 from command.repo_command_response_pb2 import RepoCommandResponseMessage
 from command.repo_storage_format_pb2 import PrefixesInStorage
@@ -117,13 +119,17 @@ class WriteCommandHandle(CommandHandle):
     TODO: Register interest for read handler
     """
     def __init__(self, face: Face, keychain: KeyChain, storage: Storage,
-                 read_handle: ReadHandle):
+                 read_handle: ReadHandle, controller_prefix: Name):
         """
         Write handle need to keep a reference to write handle to register new prefixes
         """
         super(WriteCommandHandle, self).__init__(face, keychain, storage)
         self.m_processes = dict()
         self.m_read_handle = read_handle
+        self.m_controller_prefix = controller_prefix
+
+        self.seq_to_cmd = {}  # int -> Interest
+        self.exec_seq = 0   # Seq of last executed command
 
     def listen(self, name: Name):
         """
@@ -136,7 +142,7 @@ class WriteCommandHandle(CommandHandle):
     def on_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
         # TODO: Add segmented interest processing
         event_loop = asyncio.get_event_loop()
-        event_loop.create_task(self.process_segmented_insert_command(interest))
+        event_loop.create_task(self.process_cmd(interest))
 
     # async def process_single_insert_command(self, interest: Interest):
     #     """
@@ -180,6 +186,36 @@ class WriteCommandHandle(CommandHandle):
     #
     #             await self.delete_process(process_id)
 
+    async def process_cmd(self, interest: Interest):
+        """
+        Verify and execute command in sequence.
+        The commands must be executed in sequence to guarantee consistency. Commands with larger
+        sequence number have to wait for smaller commands.
+        """
+        cmd_seq = await self.verify_cmd(interest)
+        if cmd_seq is None:
+            return
+        self.seq_to_cmd[cmd_seq] = interest
+
+        event_loop = asyncio.get_event_loop()
+        while self.exec_seq + 1 in self.seq_to_cmd:
+            event_loop.create_task(self.process_segmented_insert_command(interest))
+            self.exec_seq += 1
+
+    async def verify_cmd(self, interest: Interest) -> Optional[int]:
+        """
+        If command verified, return the seq number assigned by the controller.
+        """
+        verify_interest = Interest(Name(self.m_controller_prefix).append('verify')
+                                   .append(interest.getName()))
+        verify_interest.applicationParameters = interest.applicationParameters
+        verify_interest.appendParametersDigestToName()
+        
+        response = await fetch_data_packet(self.face, verify_interest)
+
+        response = json.loads(response.content.toBytes().decode("utf-8"))
+        return response['seq'] if response['valid'] else None
+        
     async def process_segmented_insert_command(self, interest: Interest):
         """
         Process segmented insertion command.

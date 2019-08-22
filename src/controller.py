@@ -28,11 +28,13 @@ class Controller(object):
         self.cmd_seq = 1
 
     def on_verify_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
-        print('on_verify_interest')
         if self.do_verify(interest) is False:
+            logging.warning('Command verification failed: {}'.format(interest.getName()))
             return
 
-        content = {'valid': 'yes', 'seq': self.cmd_seq}
+        logging.info('Command verification success: {}'.format(interest.getName()))
+
+        content = {'valid': True, 'seq': self.cmd_seq}
         content = json.dumps(content).encode()
         self.cmd_seq += 1
 
