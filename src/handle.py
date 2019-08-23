@@ -14,7 +14,7 @@ from storage import Storage
 from controller import Controller
 from command.repo_command_parameter_pb2 import RepoCommandParameterMessage
 from command.repo_command_response_pb2 import RepoCommandResponseMessage
-from command.repo_storage_format_pb2 import PrefixesInStorage
+from command.repo_storage_format_pb2 import PrefixesInStorage, CommandsInStorage
 
 
 class ReadHandle(object):
@@ -28,7 +28,7 @@ class ReadHandle(object):
         This function needs to be called for prefix of all data stored.
         """
         self.face.registerPrefix(name, None,
-                                 lambda prefix: logging.error("Prefix registration failed: %s", prefix))
+                                 lambda prefix: logging.error('Prefix registration failed: %s', prefix))
         self.face.setInterestFilter(name, self.on_interest)
         logging.info('Read handle: listening to {}'.format(str(name)))
 
@@ -61,24 +61,6 @@ class CommandHandle(object):
 
     def on_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
         raise NotImplementedError
-
-    def update_prefixes_in_storage(self, prefix: str):
-        """
-        Add a new prefix into database
-        return whether the prefix has been registered before
-        """
-        prefixes_msg = PrefixesInStorage()
-        ret = self.storage.get("prefixes")
-        if ret:
-            prefixes_msg.ParseFromString(ret)
-        for prefix_item in prefixes_msg.prefixes:
-            if prefix_item.name == prefix or prefix.startswith(prefix_item.name):
-                return True
-        new_prefix = prefixes_msg.prefixes.add()
-        new_prefix.name = prefix
-        self.storage.put("prefixes", prefixes_msg.SerializeToString())
-        logging.info("add a new prefix into the database")
-        return False
 
     def reply_to_cmd(self, interest: Interest, response: RepoCommandResponseMessage):
         """
@@ -121,7 +103,7 @@ class WriteCommandHandle(CommandHandle):
     def __init__(self, face: Face, keychain: KeyChain, storage: Storage,
                  read_handle: ReadHandle, controller_prefix: Name):
         """
-        Write handle need to keep a reference to write handle to register new prefixes
+        Write handle need to keep a reference to read handle to register new prefixes
         """
         super(WriteCommandHandle, self).__init__(face, keychain, storage)
         self.m_processes = dict()
@@ -130,61 +112,62 @@ class WriteCommandHandle(CommandHandle):
 
         self.seq_to_cmd = {}  # int -> Interest
         self.exec_seq = 0   # Seq of last executed command
+    
+    def update_prefixes_in_storage(self, prefix: str) -> bool:
+        """
+        Add a new prefix into database
+        Return whether the prefix has been registered before
+        """
+        prefixes_msg = PrefixesInStorage()
+        ret = self.storage.get('prefixes')
+        if ret:
+            prefixes_msg.ParseFromString(ret)
+        for prefix_item in prefixes_msg.prefixes:
+            if prefix_item.name == prefix or prefix.startswith(prefix_item.name):
+                return True
+        new_prefix = prefixes_msg.prefixes.add()
+        new_prefix.name = prefix
+        self.storage.put("prefixes", prefixes_msg.SerializeToString())
+        logging.info("added a new prefix into the database")
+        return False
+    
+    def update_commands_in_storage(self, interest: Interest, seq: int) -> bool:
+        """
+        Add a new command and its seq into database
+        Return whether the command has been inserted before
+        """
+        command_msg = CommandsInStorage()
+        ret = self.storage.get('commands')
+        if ret:
+            command_msg.ParseFromString(ret)
+        for command_item in command_msg.commands:
+            if command_item.seq == seq:
+                return True
+        new_command = command_msg.commands.add()
+        new_command.interest = interest.wireEncode().toBytes()
+        new_command.seq = seq
+        self.storage.put('commands', command_msg.SerializeToString())
+        logging.info('added a new command into the database, seq = {}'.format(seq))
+        return False
+    
+    def update_exec_seq_in_storage(self, exec_seq: int):
+        """
+        Update execution sequence in storage
+        """
+        self.storage.put('exec_seq', (exec_seq).to_bytes(2, byteorder='little'))
 
     def listen(self, name: Name):
         """
         Start listening for command interests.
         This function needs to be called explicitly after initialization.
         """
-        self.face.setInterestFilter(Name(name).append("insert"), self.on_interest)
-        logging.info("Set interest filter: {}".format(Name(name).append("insert")))
+        self.face.setInterestFilter(Name(name).append('insert'), self.on_interest)
+        logging.info('Set interest filter: {}'.format(Name(name).append('insert')))
 
     def on_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
         # TODO: Add segmented interest processing
         event_loop = asyncio.get_event_loop()
         event_loop.create_task(self.process_cmd(interest))
-
-    # async def process_single_insert_command(self, interest: Interest):
-    #     """
-    #     Process a single insertion command.
-    #     Return to client with status code 100 immediately, and then start data fetching process.
-    #     TODO: Command verification and authentication
-    #     TODO: Remove hard-coded part
-    #     """
-    #     parameter = self.decode_cmd_param_blob(interest)
-    #
-    #     logging.info("Write handle processing single interest: {}, {}, {}"
-    #                  .format(parameter.repo_command_parameter.name,
-    #                          parameter.repo_command_parameter.start_block_id,
-    #                          parameter.repo_command_parameter.end_block_id))
-    #
-    #     # Reply to client with status code 100
-    #     process_id = random.randint(0, 0x7fffffff)
-    #     self.m_processes[process_id] = RepoCommandResponseMessage()
-    #     self.m_processes[process_id].repo_command_response.status_code = 100
-    #     self.m_processes[process_id].repo_command_response.process_id = process_id
-    #     self.m_processes[process_id].repo_command_response.insert_num = 0
-    #
-    #     self.reply_to_cmd(interest, self.m_processes[process_id])
-    #
-    #     # Start data fetching process
-    #     self.m_processes[process_id].repo_command_response.status_code = 300
-    #     fetch_interest = Interest()
-    #     for compo in parameter.repo_command_parameter.name.component:
-    #         fetch_interest.name.append(compo)
-    #     fetch_interest.setInterestLifetimeMilliseconds(4000)
-    #
-    #     fetch_data = await fetch_data_packet(self.face, interest)
-    #
-    #     if process_id in self.m_processes:
-    #         if self.m_processes[process_id].repo_command_response.insert_num == 0:
-    #             self.m_processes[process_id].repo_command_response.status_code = 200
-    #             self.m_processes[process_id].repo_command_response.insert_num = 1
-    #
-    #             self.storage.put(fetch_data.getName(), pickle.dumps(fetch_data))
-    #             logging.info("Inserted data: {}".format(fetch_data.getName()))
-    #
-    #             await self.delete_process(process_id)
 
     async def process_cmd(self, interest: Interest):
         """
@@ -196,11 +179,13 @@ class WriteCommandHandle(CommandHandle):
         if cmd_seq is None:
             return
         self.seq_to_cmd[cmd_seq] = interest
+        self.update_commands_in_storage(interest, cmd_seq)
 
         event_loop = asyncio.get_event_loop()
         while self.exec_seq + 1 in self.seq_to_cmd:
             event_loop.create_task(self.process_segmented_insert_command(interest))
             self.exec_seq += 1
+            self.update_exec_seq_in_storage(self.exec_seq)
 
     async def verify_cmd(self, interest: Interest) -> Optional[int]:
         """

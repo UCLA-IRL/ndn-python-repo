@@ -7,3 +7,11 @@ message PrefixesInStorage {
     }
     repeated Prefix prefixes = 1;
 }
+
+message CommandsInStorage {
+    message Command {
+        bytes interest = 1;
+        int32 seq = 2;
+    }
+    repeated Command commands = 1;
+}

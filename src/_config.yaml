@@ -20,7 +20,7 @@ db_config:
     'collection': 'data'
   leveldb:
     # Default leveldb dir
-    'dir': '~/.py-ndn-repo/'
+    'dir': '.leveldb/'
 
 controller:
   # Controller's routable prefixes
