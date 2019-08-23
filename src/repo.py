@@ -26,7 +26,7 @@ class Repo(object):
         self.running = True
 
         self.face.registerPrefix(self.prefix, None, self.on_register_failed)
-        self.cmd_handle.listen(self.prefix)
+        self.cmd_handle.listen_for_cmd(self.prefix)
 
     def recover_previous_context(self):
         """

@@ -48,7 +48,7 @@ class ReadHandle(object):
 
 class CommandHandle(object):
     """
-    Command handle need to keep a reference to the read handle. This is required for prefix 
+    Command handle need to keep a reference to the read handle. This is required for prefix
     registration after inserting new data.
     """
     def __init__(self, face: Face, keychain: KeyChain, storage: Storage, controller_prefix: Name,
@@ -63,21 +63,67 @@ class CommandHandle(object):
         self.seq_to_cmd = {}    # int -> Interest
         self.exec_seq = 0       # Seq of last executed command
 
-    def listen(self, name: Name):
+    def listen_for_cmd(self, repo_common_prefix: Name):
         """
         Start listening for command interests. Also, listen for requests for commands, which is
         required for command synchronization across multiple repos.
         This function needs to be called explicitly after initialization.
         """
-        self.face.setInterestFilter(Name(name).append('insert'), self.on_command)
-        logging.info('Set interest filter: {}'.format(Name(name).append('insert')))
-        
-        # TODO: listen to delete
+        self.face.setInterestFilter(Name(repo_common_prefix).append('insert'), self.on_command)
+        logging.info('Set interest filter: {}'.format(Name(repo_common_prefix).append('insert')))
+
+        self.face.setInterestFilter(Name(repo_common_prefix).append('delete'), self.on_command)
+        logging.info('Set interest filter: {}'.format(Name(repo_common_prefix).append('delete')))
+
+        self.face.setInterestFilter(Name(repo_common_prefix).append('command'), self.on_cmd_request)
+        logging.info('Set interest filter: {}'.format(Name(repo_common_prefix).append('command')))
+        event_loop = asyncio.get_event_loop()
+        event_loop.create_task(self.request_next_cmd(repo_common_prefix))
 
     def on_command(self, _prefix, interest: Interest, face, _filter_id, _filter):
-        # TODO: Add segmented interest processing
+        """
+        Process command from users.
+        """
         event_loop = asyncio.get_event_loop()
         event_loop.create_task(self.process_cmd(interest))
+
+    def on_cmd_request(self, _prefix, interest: Interest, face, _filter_id, _filter):
+        """
+        Process requests for commands. This is required when performing repo replication, where
+        commands have to be synchronized across repos.
+        """
+        seq = int(interest.getName().toUri().split('/')[-1])
+        if seq in self.seq_to_cmd:
+            data = Data(interest.getName())
+            cmd_bytes = self.seq_to_cmd[seq].wireEncode().toBytes()
+            data.setContent(cmd_bytes)
+            self.keychain.sign(data)
+            
+            self.face.putData(data)
+            logging.info('Reply to cmd request: {}'.format(self.seq_to_cmd[seq].getName().toUri()))
+    
+    async def request_next_cmd(self, repo_common_prefix: Name):
+        """
+        Request next command periodically from other repos. This is required when performing repo
+        replication, where commands have to be synchronized across repos.
+        """
+        next_seq = self.exec_seq + 1
+        logging.info('Requesting next command, seq = {}'.format(next_seq))
+        interest = Interest(Name(repo_common_prefix).append('command').append(next_seq))
+
+        ret = await fetch_data_packet(self.face, interest)
+        
+        if isinstance(ret, Data):
+            cmd_interest = Interest()
+            cmd.wireDecode(Blob(ret.content))
+            self.seq_to_cmd[next_seq] = cmd_interest
+            self.exec_seq = next_seq
+            await self.exec_available_cmds()
+        
+        # Limit the frequency of requests
+        await asyncio.sleep(1)
+        event_loop = asyncio.get_event_loop()
+        event_loop.create_task(self.request_next_cmd(repo_common_prefix))
 
     def reply_to_cmd(self, interest: Interest, response: RepoCommandResponseMessage):
         """
@@ -92,7 +138,7 @@ class CommandHandle(object):
 
         self.keychain.sign(data)
         self.face.putData(data)
-    
+
     async def process_cmd(self, interest: Interest):
         """
         Verify and execute command in sequence.
@@ -104,14 +150,20 @@ class CommandHandle(object):
             return
         self.seq_to_cmd[cmd_seq] = interest
         self.update_commands_in_storage(interest, cmd_seq)
-
+        await self.exec_available_cmds()
+    
+    async def exec_available_cmds(self):
+        """
+        Execute all commands that are sequentially available.
+        """
         event_loop = asyncio.get_event_loop()
         while self.exec_seq + 1 in self.seq_to_cmd:
-            cmd_type = self.seq_to_cmd[self.exec_seq + 1].getName().toUri().split('/')[-6]
+            cmd_interest = self.seq_to_cmd[self.exec_seq + 1]
+            cmd_type = cmd_interest.getName().toUri().split('/')[-6]
             if cmd_type == 'insert':
-                event_loop.create_task(self.process_segmented_insert_command(interest))
+                event_loop.create_task(self.process_segmented_insert_command(cmd_interest))
             elif cmd_type == 'delete':
-                event_loop.create_task(self.process_delete_command(interest))
+                event_loop.create_task(self.process_delete_command(cmd_interest))
             else:
                 log.fatal('Unrecognized command')
             self.exec_seq += 1
@@ -119,19 +171,21 @@ class CommandHandle(object):
 
     async def verify_cmd(self, interest: Interest) -> Optional[int]:
         """
-        Verify command authenticity with the remote controller. If verified, return the seq number 
+        Verify command authenticity with the remote controller. If verified, return the seq number
         assigned by the controller.
         """
         verify_interest = Interest(Name(self.controller_prefix).append('verify')
                                    .append(interest.getName()))
         verify_interest.applicationParameters = interest.applicationParameters
         verify_interest.appendParametersDigestToName()
-        
+
         response = await fetch_data_packet(self.face, verify_interest)
+        if not isinstance(response, Data):
+            return False
 
         response = json.loads(response.content.toBytes().decode("utf-8"))
         return response['seq'] if response['valid'] else None
-    
+
     async def process_segmented_insert_command(self, interest: Interest):
         """
         Process segmented insertion command.
@@ -208,7 +262,7 @@ class CommandHandle(object):
         Return to client with status code 100 immediately, and then start data fetching process.
         TODO
         """
-    
+
     def update_prefixes_in_storage(self, prefix: str) -> bool:
         """
         Add a new prefix into database
@@ -226,7 +280,7 @@ class CommandHandle(object):
         self.storage.put("prefixes", prefixes_msg.SerializeToString())
         logging.info("added a new prefix into the database")
         return False
-    
+
     def update_commands_in_storage(self, interest: Interest, seq: int) -> bool:
         """
         Add a new command and its seq into database
@@ -245,7 +299,7 @@ class CommandHandle(object):
         self.storage.put('commands', command_msg.SerializeToString())
         logging.info('added a new command into the database, seq = {}'.format(seq))
         return False
-    
+
     def update_exec_seq_in_storage(self, exec_seq: int):
         """
         Update execution sequence in storage
