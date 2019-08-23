@@ -3,7 +3,7 @@ import logging
 from pyndn import Face, Name
 from pyndn.security import KeyChain
 from repo import Repo
-from handle import ReadHandle, WriteCommandHandle, DeleteCommandHandle
+from handle import ReadHandle, CommandHandle
 from storage import MongoDBStorage, LevelDBStorage
 from config import get_yaml
 from controller import Controller
@@ -37,11 +37,10 @@ def main():
     controller_prefix = config['controller']['prefix']
 
     read_handle = ReadHandle(face, keychain, storage)
-    write_handle = WriteCommandHandle(face, keychain, storage, read_handle, Name(controller_prefix))
-    delete_handle = DeleteCommandHandle(face, keychain, storage)
+    cmd_handle = CommandHandle(face, keychain, storage, Name(controller_prefix), read_handle)
 
     repo = Repo(Name(config['repo_config']['repo_name']),
-                face, storage, read_handle, write_handle, delete_handle)
+                face, storage, read_handle, cmd_handle)
     repo.recover_previous_context()
 
     event_loop = asyncio.get_event_loop()

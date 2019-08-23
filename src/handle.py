@@ -29,10 +29,10 @@ class ReadHandle(object):
         """
         self.face.registerPrefix(name, None,
                                  lambda prefix: logging.error('Prefix registration failed: %s', prefix))
-        self.face.setInterestFilter(name, self.on_interest)
+        self.face.setInterestFilter(name, self.on_command)
         logging.info('Read handle: listening to {}'.format(str(name)))
 
-    def on_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
+    def on_command(self, _prefix, interest: Interest, face, _filter_id, _filter):
         name = interest.getName()
 
         if not self.storage.exists(str(name)):
@@ -48,19 +48,36 @@ class ReadHandle(object):
 
 class CommandHandle(object):
     """
-    Interface for command interest handles
-    TODO: implement insertion check command
+    Command handle need to keep a reference to the read handle. This is required for prefix 
+    registration after inserting new data.
     """
-    def __init__(self, face: Face, keychain: KeyChain, storage: Storage):
+    def __init__(self, face: Face, keychain: KeyChain, storage: Storage, controller_prefix: Name,
+                 read_handle: ReadHandle):
         self.face = face
         self.keychain = keychain
         self.storage = storage
+        self.controller_prefix = controller_prefix
+        self.read_handle = read_handle
+        self.m_processes = dict()
+
+        self.seq_to_cmd = {}    # int -> Interest
+        self.exec_seq = 0       # Seq of last executed command
 
     def listen(self, name: Name):
-        raise NotImplementedError
+        """
+        Start listening for command interests. Also, listen for requests for commands, which is
+        required for command synchronization across multiple repos.
+        This function needs to be called explicitly after initialization.
+        """
+        self.face.setInterestFilter(Name(name).append('insert'), self.on_command)
+        logging.info('Set interest filter: {}'.format(Name(name).append('insert')))
+        
+        # TODO: listen to delete
 
-    def on_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
-        raise NotImplementedError
+    def on_command(self, _prefix, interest: Interest, face, _filter_id, _filter):
+        # TODO: Add segmented interest processing
+        event_loop = asyncio.get_event_loop()
+        event_loop.create_task(self.process_cmd(interest))
 
     def reply_to_cmd(self, interest: Interest, response: RepoCommandResponseMessage):
         """
@@ -75,100 +92,7 @@ class CommandHandle(object):
 
         self.keychain.sign(data)
         self.face.putData(data)
-
-    @staticmethod
-    def decode_cmd_param_blob(interest: Interest):
-        """
-        Decode the command interest and return a RepoCommandParameterMessage object.
-        Command interests have the format of:
-        /<routable_repo_prefix>/insert/<cmd_param_blob>/<timestamp>/<random-value>/<SignatureInfo>/<SignatureValue>
-        """
-        parameter = RepoCommandParameterMessage()
-        param_blob = interest.getName()[-5].getValue()
-
-        try:
-            ProtobufTlv.decode(parameter, param_blob)
-        except RuntimeError as exc:
-            print('Decode failed', exc)
-        return parameter
-
-
-class WriteCommandHandle(CommandHandle):
-    """
-    WriteHandle processes command interests, and fetches corresponding data to
-    store them into the database.
-    TODO: Add validator
-    TODO: Register interest for read handler
-    """
-    def __init__(self, face: Face, keychain: KeyChain, storage: Storage,
-                 read_handle: ReadHandle, controller_prefix: Name):
-        """
-        Write handle need to keep a reference to read handle to register new prefixes
-        """
-        super(WriteCommandHandle, self).__init__(face, keychain, storage)
-        self.m_processes = dict()
-        self.m_read_handle = read_handle
-        self.m_controller_prefix = controller_prefix
-
-        self.seq_to_cmd = {}  # int -> Interest
-        self.exec_seq = 0   # Seq of last executed command
     
-    def update_prefixes_in_storage(self, prefix: str) -> bool:
-        """
-        Add a new prefix into database
-        Return whether the prefix has been registered before
-        """
-        prefixes_msg = PrefixesInStorage()
-        ret = self.storage.get('prefixes')
-        if ret:
-            prefixes_msg.ParseFromString(ret)
-        for prefix_item in prefixes_msg.prefixes:
-            if prefix_item.name == prefix or prefix.startswith(prefix_item.name):
-                return True
-        new_prefix = prefixes_msg.prefixes.add()
-        new_prefix.name = prefix
-        self.storage.put("prefixes", prefixes_msg.SerializeToString())
-        logging.info("added a new prefix into the database")
-        return False
-    
-    def update_commands_in_storage(self, interest: Interest, seq: int) -> bool:
-        """
-        Add a new command and its seq into database
-        Return whether the command has been inserted before
-        """
-        command_msg = CommandsInStorage()
-        ret = self.storage.get('commands')
-        if ret:
-            command_msg.ParseFromString(ret)
-        for command_item in command_msg.commands:
-            if command_item.seq == seq:
-                return True
-        new_command = command_msg.commands.add()
-        new_command.interest = interest.wireEncode().toBytes()
-        new_command.seq = seq
-        self.storage.put('commands', command_msg.SerializeToString())
-        logging.info('added a new command into the database, seq = {}'.format(seq))
-        return False
-    
-    def update_exec_seq_in_storage(self, exec_seq: int):
-        """
-        Update execution sequence in storage
-        """
-        self.storage.put('exec_seq', (exec_seq).to_bytes(2, byteorder='little'))
-
-    def listen(self, name: Name):
-        """
-        Start listening for command interests.
-        This function needs to be called explicitly after initialization.
-        """
-        self.face.setInterestFilter(Name(name).append('insert'), self.on_interest)
-        logging.info('Set interest filter: {}'.format(Name(name).append('insert')))
-
-    def on_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
-        # TODO: Add segmented interest processing
-        event_loop = asyncio.get_event_loop()
-        event_loop.create_task(self.process_cmd(interest))
-
     async def process_cmd(self, interest: Interest):
         """
         Verify and execute command in sequence.
@@ -183,15 +107,22 @@ class WriteCommandHandle(CommandHandle):
 
         event_loop = asyncio.get_event_loop()
         while self.exec_seq + 1 in self.seq_to_cmd:
-            event_loop.create_task(self.process_segmented_insert_command(interest))
+            cmd_type = self.seq_to_cmd[self.exec_seq + 1].getName().toUri().split('/')[-6]
+            if cmd_type == 'insert':
+                event_loop.create_task(self.process_segmented_insert_command(interest))
+            elif cmd_type == 'delete':
+                event_loop.create_task(self.process_delete_command(interest))
+            else:
+                log.fatal('Unrecognized command')
             self.exec_seq += 1
             self.update_exec_seq_in_storage(self.exec_seq)
 
     async def verify_cmd(self, interest: Interest) -> Optional[int]:
         """
-        If command verified, return the seq number assigned by the controller.
+        Verify command authenticity with the remote controller. If verified, return the seq number 
+        assigned by the controller.
         """
-        verify_interest = Interest(Name(self.m_controller_prefix).append('verify')
+        verify_interest = Interest(Name(self.controller_prefix).append('verify')
                                    .append(interest.getName()))
         verify_interest.applicationParameters = interest.applicationParameters
         verify_interest.appendParametersDigestToName()
@@ -200,7 +131,7 @@ class WriteCommandHandle(CommandHandle):
 
         response = json.loads(response.content.toBytes().decode("utf-8"))
         return response['seq'] if response['valid'] else None
-        
+    
     async def process_segmented_insert_command(self, interest: Interest):
         """
         Process segmented insertion command.
@@ -257,7 +188,7 @@ class WriteCommandHandle(CommandHandle):
 
         existing = self.update_prefixes_in_storage(name.toUri())
         if existing is False:
-            self.m_read_handle.listen(name)
+            self.read_handle.listen(name)
 
         if process_id in self.m_processes:
             await self.delete_process(process_id)
@@ -271,27 +202,69 @@ class WriteCommandHandle(CommandHandle):
         if process_id in self.m_processes:
             del self.m_processes[process_id]
 
-
-class DeleteCommandHandle(CommandHandle):
-    """
-    TODO: add validator
-    """
-    def listen(self, name: Name):
+    def process_delete_command(self, interest: Interest):
         """
-        Start listening for command interests.
-        This function needs to be called explicitly after initialization.
-        TODO
-        """
-        self.face.setInterestFilter(Name(name).append("delete"), self.on_interest)
-
-    def on_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
-        event_loop = asyncio.get_event_loop()
-        event_loop.create_task(self.process_segmented_insert_command(interest))
-
-    def process_segmented_insert_command(self, interest: Interest):
-        """
-        Process segmented insertion command.
+        Process delete command.
         Return to client with status code 100 immediately, and then start data fetching process.
         TODO
         """
+    
+    def update_prefixes_in_storage(self, prefix: str) -> bool:
+        """
+        Add a new prefix into database
+        Return whether the prefix has been registered before
+        """
+        prefixes_msg = PrefixesInStorage()
+        ret = self.storage.get('prefixes')
+        if ret:
+            prefixes_msg.ParseFromString(ret)
+        for prefix_item in prefixes_msg.prefixes:
+            if prefix_item.name == prefix or prefix.startswith(prefix_item.name):
+                return True
+        new_prefix = prefixes_msg.prefixes.add()
+        new_prefix.name = prefix
+        self.storage.put("prefixes", prefixes_msg.SerializeToString())
+        logging.info("added a new prefix into the database")
+        return False
+    
+    def update_commands_in_storage(self, interest: Interest, seq: int) -> bool:
+        """
+        Add a new command and its seq into database
+        Return whether the command has been inserted before
+        """
+        command_msg = CommandsInStorage()
+        ret = self.storage.get('commands')
+        if ret:
+            command_msg.ParseFromString(ret)
+        for command_item in command_msg.commands:
+            if command_item.seq == seq:
+                return True
+        new_command = command_msg.commands.add()
+        new_command.interest = interest.wireEncode().toBytes()
+        new_command.seq = seq
+        self.storage.put('commands', command_msg.SerializeToString())
+        logging.info('added a new command into the database, seq = {}'.format(seq))
+        return False
+    
+    def update_exec_seq_in_storage(self, exec_seq: int):
+        """
+        Update execution sequence in storage
+        """
+        self.storage.put('exec_seq', (exec_seq).to_bytes(2, byteorder='little'))
+
+    @staticmethod
+    def decode_cmd_param_blob(interest: Interest):
+        """
+        Decode the command interest and return a RepoCommandParameterMessage object.
+        Command interests have the format of:
+        /<routable_repo_prefix>/insert/<cmd_param_blob>/<timestamp>/<random-value>/<SignatureInfo>/<SignatureValue>
+        """
+        parameter = RepoCommandParameterMessage()
+        param_blob = interest.getName()[-5].getValue()
+
+        try:
+            ProtobufTlv.decode(parameter, param_blob)
+        except RuntimeError as exc:
+            print('Decode failed', exc)
+        return parameter
 
