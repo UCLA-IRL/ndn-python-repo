@@ -34,8 +34,8 @@ cd src && python3 getfile.py -r <repo_name> -n <filename_in_repo>
 
 ## TODO
 
-- [ ] Refactor: move hard-coded parts into _config.yaml
 - [ ] Performance optimizations
 - [ ] Insert check command
 - [ ] Delete command
 - [ ] Add command validator for handles
+- [ ] Controller hot start

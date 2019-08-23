@@ -109,15 +109,15 @@ class CommandHandle(object):
         """
         next_seq = self.exec_seq + 1
         logging.info('Requesting next command, seq = {}'.format(next_seq))
-        interest = Interest(Name(repo_common_prefix).append('command').append(next_seq))
+        interest = Interest(Name(repo_common_prefix).append('command').append(str(next_seq)))
 
         ret = await fetch_data_packet(self.face, interest)
         
         if isinstance(ret, Data):
             cmd_interest = Interest()
-            cmd.wireDecode(Blob(ret.content))
+            cmd_interest.wireDecode(Blob(ret.content))
             self.seq_to_cmd[next_seq] = cmd_interest
-            self.exec_seq = next_seq
+            self.update_commands_in_storage(cmd_interest, next_seq)
             await self.exec_available_cmds()
         
         # Limit the frequency of requests
