@@ -12,9 +12,9 @@ from pyndn.encoding import ProtobufTlv
 from asyncndn import fetch_segmented_data, fetch_data_packet
 from storage import Storage
 from controller import Controller
-from command.repo_command_parameter_pb2 import RepoCommandParameterMessage
-from command.repo_command_response_pb2 import RepoCommandResponseMessage
-from command.repo_storage_format_pb2 import PrefixesInStorage, CommandsInStorage
+from encoding.repo_command_parameter_pb2 import RepoCommandParameterMessage
+from encoding.repo_command_response_pb2 import RepoCommandResponseMessage
+from encoding.repo_storage_format_pb2 import PrefixesInStorage, CommandsInStorage
 
 
 class ReadHandle(object):

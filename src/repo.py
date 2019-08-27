@@ -8,7 +8,7 @@ from pyndn.security import KeyChain
 from storage import Storage
 from handle import ReadHandle, CommandHandle
 from service_discovery import ServiceDiscovery
-from command.repo_storage_format_pb2 import PrefixesInStorage, CommandsInStorage
+from encoding.repo_storage_format_pb2 import PrefixesInStorage, CommandsInStorage
 
 
 class Repo(object):

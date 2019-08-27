@@ -6,8 +6,8 @@ from pyndn import Face, Name, Data, Interest
 from pyndn.security import KeyChain
 from pyndn.encoding import ProtobufTlv
 from asyncndn import fetch_data_packet
-from command.repo_command_parameter_pb2 import RepoCommandParameterMessage
-from command.repo_command_response_pb2 import RepoCommandResponseMessage
+from encoding.repo_command_parameter_pb2 import RepoCommandParameterMessage
+from encoding.repo_command_response_pb2 import RepoCommandResponseMessage
 
 
 class SingleInsertClient(object):

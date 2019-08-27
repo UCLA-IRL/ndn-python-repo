@@ -1,0 +1,13 @@
+syntax = "proto3";
+package ndn_message;
+
+message DataContent {
+    bytes   content = 1;
+    string  prev = 2;
+    string  next = 3;
+    enum    type {
+        NORMAL = 0;
+        LINKED = 1;
+        TRIGGERED = 2;
+    }
+}
