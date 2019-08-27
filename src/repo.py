@@ -7,26 +7,29 @@ from pyndn.security import KeyChain
 
 from storage import Storage
 from handle import ReadHandle, CommandHandle
+from service_discovery import ServiceDiscovery
 from command.repo_storage_format_pb2 import PrefixesInStorage, CommandsInStorage
 
 
 class Repo(object):
-    def __init__(self, prefix: Name, face: Face, storage: Storage, read_handle: ReadHandle,
-                 cmd_handle: CommandHandle):
+    def __init__(self, repo_common_prefix: Name, repo_unique_prefix: Name, face: Face,
+                 keychain: KeyChain, storage: Storage, read_handle: ReadHandle, cmd_handle: CommandHandle):
         """
-        Registers routable prefix, and calls listen() on all handles
-        TODO: Remove face as input, put it in handles only
-        TODO: Remove storage as input, put it in handles only
+        Recover from previous context on startup
         """
-        self.prefix = prefix
+        self.repo_common_prefix = repo_common_prefix
+        self.repo_unique_prefix = repo_unique_prefix
         self.face = face
+        self.keychain = keychain
         self.storage = storage
         self.read_handle = read_handle
         self.cmd_handle = cmd_handle
+        self.sd = ServiceDiscovery(self.repo_unique_prefix, self.face, self.keychain)
         self.running = True
 
-        self.face.registerPrefix(self.prefix, None, self.on_register_failed)
-        self.cmd_handle.listen_for_cmd(self.prefix)
+        self.recover_previous_context()
+        self.face.registerPrefix(self.repo_common_prefix, None, self.on_register_failed)
+        self.cmd_handle.listen_for_cmd(self.repo_common_prefix)
 
     def recover_previous_context(self):
         """

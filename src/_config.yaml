@@ -1,7 +1,8 @@
 ---
 repo_config:
   # Repo's routable name
-  repo_name: 'testrepo'
+  repo_common_prefix: 'repo'
+  repo_unique_prefix: 'repo_foo'
 
 # fetcher_config:
 #   # Interval between timeout/nack and next attempt

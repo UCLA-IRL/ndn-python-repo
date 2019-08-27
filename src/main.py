@@ -31,17 +31,15 @@ def main():
     face = Face()
     keychain = KeyChain()
     face.setCommandSigningInfo(keychain, keychain.getDefaultCertificateName())
-    # storage = MongoDBStorage(config['db_config']['mongodb']['db'],
-    #                          config['db_config']['mongodb']['collection'])
     storage = LevelDBStorage(config['db_config']['leveldb']['dir'])
     controller_prefix = config['controller']['prefix']
 
     read_handle = ReadHandle(face, keychain, storage)
     cmd_handle = CommandHandle(face, keychain, storage, Name(controller_prefix), read_handle)
 
-    repo = Repo(Name(config['repo_config']['repo_name']),
-                face, storage, read_handle, cmd_handle)
-    repo.recover_previous_context()
+    repo = Repo(Name(config['repo_config']['repo_common_prefix']),
+                Name(config['repo_config']['repo_unique_prefix']),
+                face, keychain, storage, read_handle, cmd_handle)
 
     event_loop = asyncio.get_event_loop()
     try:
