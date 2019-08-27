@@ -1,8 +1,8 @@
 ---
 repo_config:
   # Repo's routable name
-  repo_common_prefix: 'repo'
-  repo_unique_prefix: 'repo_foo'
+  repo_common_prefix: '/repo/repo'
+  repo_unique_prefix: '/repo/repo_foo'
 
 # fetcher_config:
 #   # Interval between timeout/nack and next attempt
@@ -25,4 +25,4 @@ db_config:
 
 controller:
   # Controller's routable prefixes
-  prefix: '/controller'
+  prefix: '/repo/controller'

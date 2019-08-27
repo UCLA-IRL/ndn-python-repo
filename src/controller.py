@@ -59,7 +59,7 @@ if __name__ == "__main__":
     running = True
     keychain = KeyChain()
     face.setCommandSigningInfo(keychain, keychain.getDefaultCertificateName())
-    prefix = Name('/controller')
+    prefix = Name('/repo/controller')
 
     c = Controller(face, keychain, prefix)
 
