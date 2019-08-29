@@ -3,12 +3,14 @@ import sys
 import argparse
 import asyncio
 import logging
+import pickle
 from pyndn import Blob, Face, Name, Data, Interest
 from pyndn.security import KeyChain
 from pyndn.encoding import ProtobufTlv
 from asyncndn import fetch_data_packet
 from encoding.repo_command_parameter_pb2 import RepoCommandParameterMessage
 from encoding.repo_command_response_pb2 import RepoCommandResponseMessage
+from encoding.metadata import MetaData
 
 MAX_BYTES_IN_DATA_PACKET = 2000
 
@@ -18,7 +20,6 @@ class PutfileClient(object):
     This client serves random segmented data
     """
     def __init__(self, args):
-        print("init")
         self.repo_name = Name(args.repo_name)
         self.file_path = args.file_path
         self.name_at_repo = Name(args.name)
@@ -67,11 +68,23 @@ class PutfileClient(object):
     @staticmethod
     def on_register_failed(prefix):
         logging.error("Prefix registration failed: %s", prefix)
+    
+    def make_metadata(self):
+        metadata = MetaData()
+        metadata.data_type = 'SEQUENTIAL'
+        metadata.seq_start = 0
+        metadata.seq_end = self.n_packets
+        return metadata
 
     def on_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
         logging.info('On interest: {}'.format(interest.getName()))
 
-        if str(interest.getName()) in self.m_name_str_to_data:
+        if interest.getName().toUri().split('/')[-1] == 'metadata':
+            data = Data(interest.getName())
+            data.setContent(pickle.dumps(self.make_metadata()))
+            self.keychain.sign(data)
+            self.face.putData(data)
+        elif str(interest.getName()) in self.m_name_str_to_data:
             self.face.putData(self.m_name_str_to_data[str(interest.getName())])
             logging.info('Serve data: {}'.format(interest.getName()))
         else:

@@ -46,6 +46,7 @@ class ServiceDiscovery(object):
 
     def on_adv(self, _prefix, interest: Interest, face, _filter_id, _filter):
         """
+        Upon receiving advertise interest, update local cache.
         Lazily remove expired services.
         """
         service = interest.getName()[len(Name(ADV_PREFIX)):]

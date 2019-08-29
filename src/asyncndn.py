@@ -33,7 +33,7 @@ async def fetch_data_packet(face: Face, interest: Interest) -> Union[Data, Netwo
         return error
 
 
-async def fetch_segmented_data(face: Face, prefix: Name, start_block_id: Optional[int],
+async def fetch_sequential_data(face: Face, prefix: Name, start_block_id: Optional[int],
                                end_block_id: Optional[int], semaphore: asyncio.Semaphore,
                                after_fetched: Callable):
     """

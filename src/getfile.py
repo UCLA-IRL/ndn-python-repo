@@ -3,7 +3,7 @@ import asyncio
 import logging
 from pyndn import Blob, Face, Name, Data, Interest
 from pyndn.security import KeyChain
-from asyncndn import fetch_segmented_data
+from asyncndn import fetch_sequential_data
 
 
 class GetfileClient(object):
@@ -68,7 +68,7 @@ class GetfileClient(object):
         seq_to_bytes_unordered = dict()     # Temporarily save out-of-order packets
 
         semaphore = asyncio.Semaphore(100)
-        await fetch_segmented_data(self.face, self.name_at_repo,
+        await fetch_sequential_data(self.face, self.name_at_repo,
                                    start_block_id=0, end_block_id=None,
                                    semaphore=semaphore, after_fetched=after_fetched)
 
