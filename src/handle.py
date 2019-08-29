@@ -29,18 +29,21 @@ class ReadHandle(object):
         """
         self.face.registerPrefix(name, None,
                                  lambda prefix: logging.error('Prefix registration failed: %s', prefix))
-        self.face.setInterestFilter(name, self.on_command)
+        self.face.setInterestFilter(name, self.on_interest)
         logging.info('Read handle: listening to {}'.format(str(name)))
 
-    def on_command(self, _prefix, interest: Interest, face, _filter_id, _filter):
+    def on_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
         name = interest.getName()
 
         if not self.storage.exists(str(name)):
+            logging.info('Read handle: data not exists: {}'.format(interest.getName()))
             return
 
         raw_data = self.storage.get(str(name))
         data = Data()
         data.wireDecode(Blob(raw_data))
+        data.metaInfo.freshnessPeriod = 3600000
+        self.keychain.sign(data)
         self.face.putData(data)
 
         logging.info('Read handle: serve data {}'.format(interest.getName()))
@@ -97,8 +100,8 @@ class CommandHandle(object):
             data = Data(interest.getName())
             cmd_bytes = self.seq_to_cmd[seq].wireEncode().toBytes()
             data.setContent(cmd_bytes)
+            data.metaInfo.freshnessPeriod = 1000
             self.keychain.sign(data)
-            
             self.face.putData(data)
             logging.info('Reply to cmd request: {}'.format(self.seq_to_cmd[seq].getName().toUri()))
     
@@ -125,14 +128,14 @@ class CommandHandle(object):
         event_loop = asyncio.get_event_loop()
         event_loop.create_task(self.request_next_cmd(repo_common_prefix))
 
-    def reply_to_cmd(self, name: Name, response: RepoCommandResponseMessage):
+    def reply_to_cmd(self, cmd: Interest, response: RepoCommandResponseMessage):
         """
         Given a command interest's name, reply to this command interest
         """
-        logging.info('Reply to command: {}'.format(name))
+        logging.info('Reply to command: {}'.format(cmd.getName()))
 
         response_blob = ProtobufTlv.encode(response)
-        data = Data(name)
+        data = Data(cmd.getName())
         data.metaInfo.freshnessPeriod = 1000
         data.setContent(response_blob)
         self.keychain.sign(data)
@@ -159,12 +162,12 @@ class CommandHandle(object):
         """
         event_loop = asyncio.get_event_loop()
         while self.exec_seq + 1 in self.seq_to_cmd:
-            cmd_interest = self.seq_to_cmd[self.exec_seq + 1]
-            cmd_type = cmd_interest.getName().toUri().split('/')[-6]
+            cmd = self.seq_to_cmd[self.exec_seq + 1]
+            cmd_type = cmd.getName().toUri().split('/')[-6]
             if cmd_type == 'insert':
-                event_loop.create_task(self.process_insert(cmd_interest))
+                event_loop.create_task(self.process_insert(cmd))
             elif cmd_type == 'delete':
-                event_loop.create_task(self.process_delete_command(cmd_interest))
+                event_loop.create_task(self.process_delete_command(cmd))
             else:
                 log.fatal('Unrecognized command')
             self.exec_seq += 1
@@ -187,19 +190,22 @@ class CommandHandle(object):
         response = json.loads(response.content.toBytes().decode("utf-8"))
         return response['seq'] if response['valid'] else None
     
-    async def process_insert(self, interest: Interest):
+    async def process_insert(self, cmd: Interest):
         """
         For insert commands, need to negotiate dataset metadata with data producer. The metadata is
         also saved as a regular data packet.
         """
-        parameter = self.decode_cmd_param_blob(interest)
-        name = Name()
+        parameter = self.decode_cmd_param_blob(cmd)
+        data_prefix = Name()
         for compo in parameter.repo_command_parameter.name.component:
-            name.append(compo)
-        md_interest = Interest(Name(name).append('metadata'))
+            data_prefix.append(compo)
+        md_interest = Interest(Name(data_prefix).append('metadata'))
         
-        logging.info('Fetching metadata for: {}'.format(name.toUri()))
+        logging.info('Fetching metadata: {}'.format(md_interest.getName().toUri()))
         md_data = await fetch_data_packet(self.face, md_interest)
+        if not isinstance(md_data, Data):
+            logging.warning('Fetching metadata failed')
+            return
         
         self.storage.put(md_data.getName().toUri(), md_data.wireEncode().toBytes())
         md = pickle.loads(md_data.content.toBytes())
@@ -209,7 +215,7 @@ class CommandHandle(object):
         elif md.data_type == 'SEQUENTIAL':
             seq_start = md.seq_start
             seq_end = md.seq_end
-            await self.process_insert_sequential(name, seq_start, seq_end)
+            await self.process_insert_sequential(cmd, data_prefix, seq_start, seq_end)
         elif md.data_type == 'LINKED':
             pass
         elif md.data_type == 'TRIGGERED':
@@ -218,10 +224,11 @@ class CommandHandle(object):
             # You shouldn't get here
             assert(False)
     
-    async def process_insert_normal(self, name: Name):
+    async def process_insert_normal(self, cmd: Interest, name: Name):
         pass
         
-    async def process_insert_sequential(self, name: Name, seq_start: int, seq_end: int):
+    async def process_insert_sequential(self, cmd: Interest, data_prefix: Name, 
+                                        seq_start: int, seq_end: int):
         """
         Process segmented insertion command.
         Return to client with status code 100 immediately, and then start data fetching process.
@@ -237,7 +244,7 @@ class CommandHandle(object):
                 n_fail += 1
 
         logging.info("Write handle processing segmented interest: {}, {}, {}"
-                     .format(name, seq_start, seq_end))
+                     .format(data_prefix, seq_start, seq_end))
 
         # Reply to client with status code 100
         process_id = random.randint(0, 0x7fffffff)
@@ -245,7 +252,7 @@ class CommandHandle(object):
         self.m_processes[process_id].repo_command_response.status_code = 100
         self.m_processes[process_id].repo_command_response.process_id = process_id
         self.m_processes[process_id].repo_command_response.insert_num = 0
-        self.reply_to_cmd(name, self.m_processes[process_id])
+        self.reply_to_cmd(cmd, self.m_processes[process_id])
 
         # Start data fetching process. This semaphore size should be smaller
         # than the number of attempts before failure
@@ -254,32 +261,32 @@ class CommandHandle(object):
         n_success = 0
         n_fail = 0
 
-        await fetch_sequential_data(self.face, name, seq_start, seq_end,
+        await fetch_sequential_data(self.face, data_prefix, seq_start, seq_end,
                                    semaphore, after_fetched)
 
         # If both seq_start and seq_end are specified, check if all data have being fetched
         if seq_end is None or n_success == (seq_end - (seq_start if seq_start else 0) + 1):
             self.m_processes[process_id].repo_command_response.status_code = 200
-            logging.fatal('Segment insertion success, {} items inserted'.format(n_success))
+            logging.info('Segment insertion success, {} items inserted'.format(n_success))
         else:
             self.m_processes[process_id].repo_command_response.status_code = 400
-            logging.info('Segment insertion failure, {} items inserted'.format(n_success))
+            logging.fatal('Segment insertion failure, {} items inserted'.format(n_success))
         self.m_processes[process_id].repo_command_response.insert_num = 1
 
-        existing = self.update_prefixes_in_storage(name.toUri())
+        existing = self.update_prefixes_in_storage(data_prefix.toUri())
         if existing is False:
-            self.read_handle.listen(name)
+            self.read_handle.listen(data_prefix)
 
         if process_id in self.m_processes:
             await self.delete_process(process_id)
     
-    async def process_insert_linked(self, name: Name):
+    async def process_insert_linked(self, cmd: Interest, name: Name):
         """
         The repo should traverse the linked list to fetch all data.
         """
         pass
 
-    async def process_insert_triggered(self, name: Name):
+    async def process_insert_triggered(self, cmd: Interest, name: Name):
         """
         The repo should maintain a long-lived interest at data producer.
         """

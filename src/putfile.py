@@ -73,7 +73,7 @@ class PutfileClient(object):
         metadata = MetaData()
         metadata.data_type = 'SEQUENTIAL'
         metadata.seq_start = 0
-        metadata.seq_end = self.n_packets
+        metadata.seq_end = self.n_packets - 1
         return metadata
 
     def on_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
