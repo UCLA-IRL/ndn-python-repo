@@ -2,12 +2,14 @@ syntax = "proto3";
 package ndn_message;
 
 message DataContent {
-    bytes   content = 1;
-    string  prev = 2;
-    string  next = 3;
-    enum    type {
+    enum    DataType {
         NORMAL = 0;
-        LINKED = 1;
-        TRIGGERED = 2;
+        SEQUENTIAL = 1;
+        LINKED = 2;
+        TRIGGERED = 3;
     }
+    DataType type = 1;
+    bytes   content = 2;
+    string  prev = 3;
+    string  next = 4;
 }

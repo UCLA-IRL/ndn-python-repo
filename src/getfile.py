@@ -4,6 +4,7 @@ import logging
 from pyndn import Blob, Face, Name, Data, Interest
 from pyndn.security import KeyChain
 from asyncndn import fetch_sequential_data
+from encoding.data_content_format_pb2 import DataContent
 
 
 class GetfileClient(object):
@@ -48,7 +49,9 @@ class GetfileClient(object):
             if seq <= recv_window:
                 return
             elif seq == recv_window + 1:
-                b_array.extend(data.getContent().toBytes())
+                data_content = DataContent()
+                data_content.ParseFromString(data.getContent().toBytes())
+                b_array.extend(data_content.content)
                 logging.info('saved packet: seq {}'.format(seq))
                 recv_window += 1
                 while recv_window + 1 in seq_to_bytes_unordered:

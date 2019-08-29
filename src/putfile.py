@@ -10,6 +10,7 @@ from pyndn.encoding import ProtobufTlv
 from asyncndn import fetch_data_packet
 from encoding.repo_command_parameter_pb2 import RepoCommandParameterMessage
 from encoding.repo_command_response_pb2 import RepoCommandResponseMessage
+from encoding.data_content_format_pb2 import DataContent
 from encoding.metadata import MetaData
 
 MAX_BYTES_IN_DATA_PACKET = 2000
@@ -56,10 +57,13 @@ class PutfileClient(object):
         print('There are {} packets in total'.format(self.n_packets))
         seq = 0
         for i in range(0, len(b_array), MAX_BYTES_IN_DATA_PACKET):
-            # print(i)
+            data_content = DataContent()
+            data_content.type = DataContent.SEQUENTIAL
+            data_content.content = bytes(b_array[i : min(i + MAX_BYTES_IN_DATA_PACKET, len(b_array))])
+
             data = Data(Name(self.name_at_repo).append(str(seq)))
-            data.metaInfo.freshnessPeriod = 100000
-            data.setContent(b_array[i : min(i + MAX_BYTES_IN_DATA_PACKET, len(b_array))])
+            data.metaInfo.freshnessPeriod = 1000
+            data.setContent(data_content.SerializeToString())
             data.metaInfo.setFinalBlockId(Name.Component.fromSegment(self.n_packets - 1))
             self.keychain.signWithSha256(data)
             self.m_name_str_to_data[str(data.getName())] = data
@@ -97,8 +101,6 @@ class PutfileClient(object):
         parameter = RepoCommandParameterMessage()
         for compo in self.name_at_repo:
             parameter.repo_command_parameter.name.component.append(compo.getValue().toBytes())
-        parameter.repo_command_parameter.start_block_id = 0
-        parameter.repo_command_parameter.end_block_id = self.n_packets - 1
         param_blob = ProtobufTlv.encode(parameter)
 
         # Prepare cmd interest
