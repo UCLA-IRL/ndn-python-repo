@@ -20,7 +20,7 @@ For macOS and Ubuntu:
 git clone https://github.com/JonnyKong/NDN-Repo.git
 
 # Compile protobuf files
-cd src/command
+cd src/encoding
 make
 
 # Start a repo instance
