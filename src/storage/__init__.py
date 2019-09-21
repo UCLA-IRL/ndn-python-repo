@@ -1,19 +1,3 @@
-import os
-import sys
-
-
-class Storage:
-    """
-    Interface for storage functionalities
-    """
-    def put(self, key: str, data: bytes):
-        raise NotImplementedError
-
-    def get(self, key: str) -> bytes:
-        raise NotImplementedError
-
-    def exists(self, key: str) -> bool:
-        raise NotImplementedError
-
-    def remove(self, key: str) -> bool:
-        raise NotImplementedError
+from .storage_base import Storage
+from .leveldb import LevelDBStorage
+from .mongodb import MongoDBStorage

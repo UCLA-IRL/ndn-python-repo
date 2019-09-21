@@ -3,8 +3,8 @@ import logging
 from pyndn import Face, Name
 from pyndn.security import KeyChain
 from repo import Repo
-from handle import ReadHandle, WriteCommandHandle, DeleteCommandHandle
-from storage.leveldb import LevelDBStorage
+from handle import *
+from storage import *
 from config import get_yaml
 
 # import cProfile, pstats, io
@@ -37,9 +37,10 @@ def main():
     read_handle = ReadHandle(face, keychain, storage)
     write_handle = WriteCommandHandle(face, keychain, storage, read_handle)
     delete_handle = DeleteCommandHandle(face, keychain, storage)
+    tcp_bulk_insert_handle = TcpBulkInsertHandle(storage, read_handle)
 
-    repo = Repo(Name(config['repo_config']['repo_name']),
-                face, storage, read_handle, write_handle, delete_handle)
+    repo = Repo(Name(config['repo_config']['repo_name']), face, storage, read_handle, write_handle,
+                delete_handle, tcp_bulk_insert_handle)
     repo.recover_previous_prefixes()
 
     event_loop = asyncio.get_event_loop()

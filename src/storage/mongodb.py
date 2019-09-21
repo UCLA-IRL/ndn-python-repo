@@ -1,6 +1,6 @@
 import pymongo
 from pymongo import MongoClient
-from . import Storage
+from .storage_base import Storage
 
 
 class MongoDBStorage(Storage):

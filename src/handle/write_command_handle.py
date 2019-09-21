@@ -1,112 +1,17 @@
-import os
-import sys
-import logging
 import asyncio
-import random
+import logging
 import pickle
+import random
 from typing import Optional, Callable, Union
 from pyndn import Blob, Face, Name, Data, Interest, NetworkNack
 from pyndn.security import KeyChain
 from pyndn.encoding import ProtobufTlv
-from asyncndn import fetch_segmented_data
+from . import ReadHandle, CommandHandle
 from storage import Storage
+from asyncndn import fetch_segmented_data
 from command.repo_command_parameter_pb2 import RepoCommandParameterMessage
 from command.repo_command_response_pb2 import RepoCommandResponseMessage
 from command.repo_storage_format_pb2 import PrefixesInStorage
-
-
-class ReadHandle(object):
-    def __init__(self, face: Face, keychain: KeyChain, storage: Storage):
-        self.face = face
-        self.keychain = keychain
-        self.storage = storage
-
-    def listen(self, name: Name):
-        """
-        This function needs to be called for prefix of all data stored.
-        """
-        self.face.registerPrefix(name, None,
-                                 lambda prefix: logging.error('Prefix registration failed: %s', prefix))
-        self.face.setInterestFilter(name, self.on_interest)
-        logging.info('Read handle: listening to {}'.format(str(name)))
-
-    def on_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
-        name = interest.getName()
-
-        if not self.storage.exists(str(name)):
-            return
-
-        raw_data = self.storage.get(str(name))
-        data = Data()
-        data.wireDecode(Blob(pickle.loads(raw_data)))
-        self.face.putData(data)
-
-        logging.info('Read handle: serve data {}'.format(interest.getName()))
-
-
-class CommandHandle(object):
-    """
-    Interface for command interest handles
-    TODO: implement insertion check command
-    """
-    def __init__(self, face: Face, keychain: KeyChain, storage: Storage):
-        self.face = face
-        self.keychain = keychain
-        self.storage = storage
-
-    def listen(self, name: Name):
-        raise NotImplementedError
-
-    def on_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
-        raise NotImplementedError
-
-    def update_prefixes_in_storage(self, prefix: str):
-        """
-        Add a new prefix into database
-        return whether the prefix has been registered before
-        """
-        prefixes_msg = PrefixesInStorage()
-        ret = self.storage.get("prefixes")
-        if ret:
-            prefixes_msg.ParseFromString(ret)
-        for prefix_item in prefixes_msg.prefixes:
-            if prefix_item.name == prefix or prefix.startswith(prefix_item.name):
-                return True
-        new_prefix = prefixes_msg.prefixes.add()
-        new_prefix.name = prefix
-        self.storage.put("prefixes", prefixes_msg.SerializeToString())
-        logging.info("add a new prefix into the database")
-        return False
-
-    def reply_to_cmd(self, interest: Interest, response: RepoCommandResponseMessage):
-        """
-        Reply to a command interest
-        """
-        logging.info('Reply to command: {}'.format(interest.getName()))
-
-        response_blob = ProtobufTlv.encode(response)
-        data = Data(interest.getName())
-        data.metaInfo.freshnessPeriod = 1000
-        data.setContent(response_blob)
-
-        self.keychain.sign(data)
-        self.face.putData(data)
-
-    @staticmethod
-    def decode_cmd_param_blob(interest: Interest):
-        """
-        Decode the command interest and return a RepoCommandParameterMessage object.
-        Command interests have the format of:
-        /<routable_repo_prefix>/insert/<cmd_param_blob>/<timestamp>/<random-value>/<SignatureInfo>/<SignatureValue>
-        """
-        parameter = RepoCommandParameterMessage()
-        param_blob = interest.getName()[-5].getValue()
-
-        try:
-            ProtobufTlv.decode(parameter, param_blob)
-        except RuntimeError as exc:
-            print('Decode failed', exc)
-        return parameter
 
 
 class WriteCommandHandle(CommandHandle):
@@ -114,12 +19,11 @@ class WriteCommandHandle(CommandHandle):
     WriteHandle processes command interests, and fetches corresponding data to
     store them into the database.
     TODO: Add validator
-    TODO: Register interest for read handler
     """
     def __init__(self, face: Face, keychain: KeyChain, storage: Storage,
                  read_handle: ReadHandle):
         """
-        Write handle need to keep a reference to write handle to register new prefixes
+        Write handle need to keep a reference to write handle to register new prefixes.
         """
         super(WriteCommandHandle, self).__init__(face, keychain, storage)
         self.m_processes = dict()
@@ -192,8 +96,8 @@ class WriteCommandHandle(CommandHandle):
             logging.info('Segment insertion failure, {} items inserted'.format(n_success))
         self.m_processes[process_id].repo_command_response.insert_num = 1
 
-        existing = self.update_prefixes_in_storage(name.toUri())
-        if existing is False:
+        existing = CommandHandle.update_prefixes_in_storage(self.storage, name.toUri())
+        if not existing:
             self.m_read_handle.listen(name)
 
         if process_id in self.m_processes:
@@ -207,28 +111,3 @@ class WriteCommandHandle(CommandHandle):
         await asyncio.sleep(10)
         if process_id in self.m_processes:
             del self.m_processes[process_id]
-
-
-class DeleteCommandHandle(CommandHandle):
-    """
-    TODO: add validator
-    """
-    def listen(self, name: Name):
-        """
-        Start listening for command interests.
-        This function needs to be called explicitly after initialization.
-        TODO
-        """
-        self.face.setInterestFilter(Name(name).append("delete"), self.on_interest)
-
-    def on_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
-        event_loop = asyncio.get_event_loop()
-        event_loop.create_task(self.process_segmented_insert_command(interest))
-
-    def process_segmented_insert_command(self, interest: Interest):
-        """
-        Process segmented insertion command.
-        Return to client with status code 100 immediately, and then start data fetching process.
-        TODO
-        """
-

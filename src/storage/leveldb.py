@@ -1,7 +1,7 @@
 import os
 import sys
 import plyvel
-from . import Storage
+from .storage_base import Storage
 
 class LevelDBStorage(Storage):
     def __init__(self, dir: str):
