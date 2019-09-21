@@ -1,15 +1,24 @@
 import logging
-import random
-import string
-from src import *
+
+import requests
+
 from flask import Flask, escape, request, url_for, send_file
 from flask import render_template
+from src import config
+from src import MongoDBStorage
+
+import random
+import string
 import datetime
 import base64
 import uuid
 import io
 from pyndn import Data, Name
-import requests
+
+
+def main():
+    logging.info('repo control center has been started')
+    print(requests.get("https://google.com").content)
 
 # """
 # control_center_state
@@ -27,15 +36,14 @@ import requests
 
 app = Flask(__name__)
 
-config = get_yaml()
-# dire = config['db_config']['leveldb']['dir']
-# controlCenterDB = LevelDBStorage(dire)
-# control_center_state = ControlCenterState(controlCenterDB)
+config = config.get_yaml()
+
+#dire = config['db_config']['leveldb']['dir']
+#controlCenterDB = LevelDBStorage(dire)
+#control_center_state = ControlCenterState(controlCenterDB)
 controlCenterDB = MongoDBStorage(config['db_config']['mongodb']['db'], config['db_config']['mongodb']['collection'])
 
 
-def main():
-    logging.info('repo control center has been started')
 
 
 if __name__ == "__main__":
@@ -50,7 +58,9 @@ if __name__ == "__main__":
 
 @app.route('/')
 def home():
-    repo_status = requests.get('http://127.0.0.1:9876/status').content.decode()
+    # r = urllib.request.urlopen('https://google.com/')
+    # repo_status = r.read()
+    repo_status = requests.get("https://google.com").content.decode()
     """
     status() return code:
     0 - running

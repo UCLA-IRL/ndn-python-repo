@@ -36,7 +36,7 @@ def main():
     repo = Repo(Name(config['repo_config']['repo_name']), face, storage, read_handle, write_handle,
                 delete_handle, tcp_bulk_insert_handle)
 
-    repo.listen()
+    #repo.listen() # my nfd is broken...
 
     event_loop = asyncio.get_event_loop()
     try:
