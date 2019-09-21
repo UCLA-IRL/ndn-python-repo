@@ -8,22 +8,20 @@
     <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
 
-    <title>Hello, world!</title>
+    <title>NDN Repo Control Center</title>
   </head>
   <body>
     <h1>NDN Repo Control Center</h1>
     <div id="main"  class="justify-content-between ml-3 mr-3">
     <div id="status" class="p-1">
     <h3>current repo status:
-	    <span class="badge badge-success">Running</span>
-   	    <span class="badge badge-pill badge-warning">Paused</span>
-            <span class="badge badge-pill badge-danger">Not Running</span>
+	    <span class="badge badge-{{ status_tag }}">{{ status_message }}</span>
     </h3>
     </div>
     <div id="command_center" class="p-1">
-	<a class="btn btn-success" href="/start" target="_blank">Google</a>
-	<a class="btn btn-danger" href="/stop" target="_blank">Stop</a>
-	<a class="btn btn-danger" href="/restart" target="_blank">Restart</a>
+	<a class="btn btn-success" href="/start">Start</a>
+	<a class="btn btn-danger" href="/stop">Stop</a>
+	<a class="btn btn-danger" href="/restart">Restart</a>
     </div>
     <div class="alert alert-primary" role="alert">
     There are currently {{ number_keys }} Data packet in the repo

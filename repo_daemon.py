@@ -69,9 +69,9 @@ def restart():
 def start():
     global p
     if p.poll() is None:
-        return 'already running'
+        return '0' #'already running' user doesn't need to know this detail
     p = subprocess.Popen(shell_cmd, shell=True)
-    return 'success'
+    return '0'
 
 
 @app.route('/perform_test')

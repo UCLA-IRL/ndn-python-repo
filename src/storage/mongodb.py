@@ -10,7 +10,7 @@ class MongoDBStorage(Storage):
         """
         self._db = db
         self._collection = collection
-        self._uri = 'mongodb://localhost:27017/'
+        self._uri = 'mongodb://127.0.0.1:27017/'
         self.client = MongoClient(self._uri)
         self.c_db = self.client[self._db]
         self.c_collection = self.c_db[self._collection]

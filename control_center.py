@@ -15,109 +15,137 @@ import uuid
 import io
 from pyndn import Data, Name
 
-
-def main():
-    logging.info('repo control center has been started')
-    print(requests.get("https://google.com").content)
-
-# """
-# control_center_state
-# member variable:
-# status, DB instance
-#
-# """
-#
-#
-# class ControlCenterState(object):
-#     def __init__(self, dbInstance: Storage):
-#         self.status = 'RUNNING'
-#         self.dbInstance = dbInstance
-
-
 app = Flask(__name__)
 
 config = config.get_yaml()
+daemon_address = 'http://' + config['repo_daemon']['addr'] + ':' + config['repo_daemon']['port'] + '/'
 
-#dire = config['db_config']['leveldb']['dir']
-#controlCenterDB = LevelDBStorage(dire)
-#control_center_state = ControlCenterState(controlCenterDB)
-controlCenterDB = MongoDBStorage(config['db_config']['mongodb']['db'], config['db_config']['mongodb']['collection'])
-
-
-
-
-if __name__ == "__main__":
-    logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
-                        datefmt='%Y-%m-%d %H:%M:%S',
-                        level=logging.INFO)
-    try:
-        main()
-    except KeyboardInterrupt:
-        pass
-
-
+def connectivity_error():
+    #return 'database connectivity error'
+    return render_template('message.html',
+                    title='Error',
+                    heading='Operation failed',
+                    message='Failed to connect to database. Check for connectivity.',
+                    time=datetime.datetime.now(),
+                    badge_tag='danger',
+                    alert_tag='danger',
+                    badge_text='failed')
 @app.route('/')
 def home():
     # r = urllib.request.urlopen('https://google.com/')
     # repo_status = r.read()
-    repo_status = requests.get("https://google.com").content.decode()
-    """
-    status() return code:
-    0 - running
-    1 - normal exit
-    2 - exit on error
-    3 - killed by signal
-    """
-    if repo_status == '0':
-        status_tag = 'success'
-        status_message = 'running'
-    elif repo_status == '1':
-        status_tag = 'warning'
-        status_message = 'normal exit'
-    elif repo_status == '2':
+    try:
+        repo_status = requests.get(daemon_address + 'status').content
+        """
+            status() return code:
+            0 - running
+            1 - normal exit
+            2 - exit on error
+            3 - killed by signal
+        """
+        if repo_status == b'0':
+            status_tag = 'success'
+            status_message = 'running'
+        elif repo_status == b'1':
+            status_tag = 'warning'
+            status_message = 'normal exit'
+        elif repo_status == b'2':
+            status_tag = 'danger'
+            status_message = 'exit on error'
+        elif repo_status == b'3':
+            status_tag = 'danger'
+            status_message = 'killed by signal'
+        else:
+            status_tag = 'danger'
+            status_message = 'failed to connect to daemon'
+    except:
+        logging.info('error when getting repo status from daemon via HTTP')
         status_tag = 'danger'
-        status_message = 'exit on error'
-    else:
-        status_tag = 'danger'
-        status_message = 'killed by signal'
+        status_message = 'failed to connect to daemon'
 
     encoded_key_list = list()
     number_keys = 0
-    for item in controlCenterDB.get_key_list():
-        if item == 'prefixes':
-            continue
-        encoded_key_list.append((item, base64.b64encode(str.encode(item)).decode()))
-        number_keys += 1
+
+    try:
+        for item in controlCenterDB.get_key_list():
+            if item == 'prefixes':
+                continue
+            encoded_key_list.append((item, base64.b64encode(str.encode(item)).decode()))
+            number_keys += 1
+    except:
+        return connectivity_error()
+
     return render_template('home.html', key_list=encoded_key_list, number_keys=number_keys,
                            status_tag=status_tag, status_message=status_message)
 
+def execute_command(command: str):
+    try:
+        execution_status = requests.get(daemon_address + command).content
+        if execution_status == b'0':
+            return render_template('message.html',
+                            title='Success',
+                            heading='Success',
+                            message= 'command {} executed successfully.'.format(command),
+                            time=datetime.datetime.now(),
+                            badge_tag='success',
+                            alert_tag='success',
+                            badge_text='OK')
+    except:
+            return connectivity_error()
+
+    return render_template('message.html',
+                    title='Error',
+                    heading='Operation failed',
+                    message='Unknown return code from daemon.',
+                    time=datetime.datetime.now(),
+                    badge_tag='danger',
+                    alert_tag='danger',
+                    badge_text='failed')
+
+@app.route('/stop')
+def stop():
+    return execute_command('stop')
+
+@app.route('/start')
+def start():
+    return execute_command('start')
+
+@app.route('/restart')
+def restart():
+    return execute_command('restart')
 
 @app.route('/delete/<path:data_name_base64>')
 def delete_data(data_name_base64=None):
     data_name = base64.b64decode(data_name_base64).decode()
-    error_message = None
 
-    if not controlCenterDB.exists(data_name):
+    try:
+        exist = controlCenterDB.exists(data_name)
+    except:
+        return connectivity_error()
+
+    if not exist:
         return render_template('message.html',
-                               title='Error',
-                               heading='Data does not exist',
-                               message='The requested data to be deleted with name {} does not exist in the repo.'
-                               .format(data_name),
-                               time=datetime.datetime.now(),
-                               badge_tag='danger',
-                               alert_tag='danger',
-                               badge_text='failed')
-
-    controlCenterDB.remove(data_name)
+                                title='Error',
+                                heading='Data does not exist',
+                                message='The requested data to be deleted with name {} does not exist in the repo.'
+                                .format(data_name),
+                                time=datetime.datetime.now(),
+                                badge_tag='danger',
+                                alert_tag='danger',
+                                badge_text='failed')
+    try:
+        controlCenterDB.remove(data_name)
+    except:
+        return connectivity_error()
 
     return render_template('message.html',
-                           title='Success',
-                           heading='Success',
-                           message='Data with name {} has been deleted.'.format(data_name),
-                           time=datetime.datetime.now(),
-                           badge_tag='success',
-                           alert_tag='success',
-                           badge_text='OK')
+                            title='Success',
+                            heading='Success',
+                            message='Data with name {} has been deleted.'.format(data_name),
+                            time=datetime.datetime.now(),
+                            badge_tag='success',
+                            alert_tag='success',
+                            badge_text='OK')
 
 
 def random_string(stringLength=10):
@@ -133,7 +161,10 @@ def insert_fake_data():
         i += 1
         fake_data = Data(Name('/ndn/' + random_string() + '/' + random_string()))
         fake_data.setContent(random_string(100))
-        controlCenterDB.put(fake_data.name.__str__(), fake_data.wireEncode().toBytes())
+        try:
+            controlCenterDB.put(fake_data.name.__str__(), fake_data.wireEncode().toBytes())
+        except:
+            return connectivity_error()
 
     return render_template('message.html',
                            title='Success',
@@ -147,8 +178,16 @@ def insert_fake_data():
 
 @app.route('/delete-all')
 def delete_all_data():
-    for key, value in controlCenterDB.db:
-        controlCenterDB.remove(key.decode())
+    try:
+        for key in controlCenterDB.get_key_list():
+            controlCenterDB.remove(key) # TODO: this is ok with mongo;
+                                    # need key.decode() with LevelDBStorage
+                                    # but no need to worry
+                                    # cc doesn't support LevelDBStorage
+                                    # just a note for future compatibility
+    except:
+        return connectivity_error()
+
     return render_template('message.html',
                            title='Success',
                            heading='Success',
@@ -162,8 +201,12 @@ def delete_all_data():
 @app.route('/download/<path:data_name_base64>')
 def download_data(data_name_base64=None):
     data_name = base64.b64decode(data_name_base64).decode()
-    error_message = None
-    if not controlCenterDB.exists(data_name):
+    try:
+        exist = controlCenterDB.exists(data_name)
+    except:
+        return connectivity_error()
+
+    if not exist:
         return render_template('message.html',
                                title='Error',
                                heading='Data does not exist',
@@ -173,7 +216,11 @@ def download_data(data_name_base64=None):
                                badge_tag='danger',
                                alert_tag='danger',
                                badge_text='failed')
-    data_bytes = controlCenterDB.get(data_name)
+    try:
+        data_bytes = controlCenterDB.get(data_name)
+    except:
+        return connectivity_error()
+
     result = send_file(
         io.BytesIO(data_bytes),
         attachment_filename=str(uuid.uuid4()),
@@ -182,3 +229,22 @@ def download_data(data_name_base64=None):
     )
     result.headers["x-suggested-filename"] = str(uuid.uuid4())
     return result
+
+try:
+    controlCenterDB = MongoDBStorage(config['db_config']['mongodb']['db'], config['db_config']['mongodb']['collection'])
+except:
+    logging.warning('Failed to connect to database. abort()')
+    exit(1)
+
+def main():
+    logging.info('repo control center has been started')
+    app.run(host='0.0.0.0', port=1234)
+
+if __name__ == "__main__":
+    logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
+                        datefmt='%Y-%m-%d %H:%M:%S',
+                        level=logging.INFO)
+    try:
+        main()
+    except KeyboardInterrupt:
+        pass
