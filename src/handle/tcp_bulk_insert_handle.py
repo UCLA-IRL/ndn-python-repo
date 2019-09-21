@@ -7,8 +7,8 @@ from pyndn import Blob, Name, Data
 from pyndn.security import KeyChain
 from pyndn.encoding import ProtobufTlv
 from . import ReadHandle, CommandHandle
-from storage import *
-from asyncndn import fetch_segmented_data
+from src.storage import *
+from src.asyncndn import fetch_segmented_data
 from pyndn.encoding.tlv_0_2_wire_format import Tlv0_2WireFormat
 
 SERVER_ADDRESS = '0.0.0.0'
@@ -16,7 +16,7 @@ SEVER_PORT = '7376'
 NDN_PACKET_MAX_SIZE = 8000
 
 
-class TcpBulkInsertHandle():
+class TcpBulkInsertHandle(object):
 
     class TcpBulkInsertClient(object):
         """
@@ -108,7 +108,8 @@ class TcpBulkInsertHandle():
 
         self.storage = storage
         self.read_handle = read_handle
-        asyncio.run(run())
+        event_loop = asyncio.get_event_loop()
+        event_loop.create_task(run())
 
 
     async def startReceive(self, reader, writer):
@@ -126,3 +127,6 @@ if __name__ == "__main__":
     # TODO: Remove hard-coded things
     storage = LevelDBStorage()
     handle = TcpBulkInsertHandle(storage)
+
+    event_loop = asyncio.get_event_loop()
+    event_loop.run_forever()

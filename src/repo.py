@@ -4,10 +4,9 @@ import asyncio
 import logging
 from pyndn import Face, Name, Data, Interest
 from pyndn.security import KeyChain
-
-from storage import *
-from handle import *
-from command.repo_storage_format_pb2 import PrefixesInStorage
+from src.storage import *
+from src.handle import *
+from src.command.repo_storage_format_pb2 import PrefixesInStorage
 
 
 class Repo(object):
@@ -27,7 +26,9 @@ class Repo(object):
         self.delete_handle = delete_handle
         self.tcp_bulk_insert_handle = tcp_bulk_insert_handle
         self.running = True
-
+    
+    def listen(self):
+        self.recover_previous_prefixes()
         self.face.registerPrefix(self.prefix, None, self.on_register_failed)
         self.write_handle.listen(self.prefix)
         self.delete_handle.listen(self.prefix)

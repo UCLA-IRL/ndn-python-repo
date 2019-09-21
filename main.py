@@ -2,10 +2,7 @@ import asyncio
 import logging
 from pyndn import Face, Name
 from pyndn.security import KeyChain
-from repo import Repo
-from handle import *
-from storage import *
-from config import get_yaml
+from src import *
 
 # import cProfile, pstats, io
 # from pstats import SortKey
@@ -20,28 +17,24 @@ def main():
             face.processEvents()
             await asyncio.sleep(0.001)
 
-    logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
-                        datefmt='%Y-%m-%d %H:%M:%S',
-                        level=logging.INFO)
-
     config = get_yaml()
     print(config)
 
     face = Face()
     keychain = KeyChain()
     face.setCommandSigningInfo(keychain, keychain.getDefaultCertificateName())
-    # storage = MongoDBStorage(config['db_config']['mongodb']['db'],
-    #                          config['db_config']['mongodb']['collection'])
     storage = LevelDBStorage(config['db_config']['leveldb']['dir'])
 
     read_handle = ReadHandle(face, keychain, storage)
     write_handle = WriteCommandHandle(face, keychain, storage, read_handle)
     delete_handle = DeleteCommandHandle(face, keychain, storage)
+    print("0")
     tcp_bulk_insert_handle = TcpBulkInsertHandle(storage, read_handle)
 
     repo = Repo(Name(config['repo_config']['repo_name']), face, storage, read_handle, write_handle,
                 delete_handle, tcp_bulk_insert_handle)
-    repo.recover_previous_prefixes()
+
+    repo.listen()
 
     event_loop = asyncio.get_event_loop()
     try:
@@ -51,6 +44,9 @@ def main():
 
 
 if __name__ == "__main__":
+    logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
+                        datefmt='%Y-%m-%d %H:%M:%S',
+                        level=logging.INFO)
     try:
         main()
     except KeyboardInterrupt:

@@ -6,10 +6,10 @@ from typing import Optional, Callable, Union
 from pyndn import Blob, Face, Name, Data, Interest, NetworkNack
 from pyndn.security import KeyChain
 from pyndn.encoding import ProtobufTlv
-from storage import Storage
-from command.repo_command_parameter_pb2 import RepoCommandParameterMessage
-from command.repo_command_response_pb2 import RepoCommandResponseMessage
-from command.repo_storage_format_pb2 import PrefixesInStorage
+from src.storage import Storage
+from src.command.repo_command_parameter_pb2 import RepoCommandParameterMessage
+from src.command.repo_command_response_pb2 import RepoCommandResponseMessage
+from src.command.repo_storage_format_pb2 import PrefixesInStorage
 
 
 class CommandHandle(object):

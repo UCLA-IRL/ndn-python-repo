@@ -8,7 +8,7 @@ from typing import Optional, Callable, Union
 from pyndn import Blob, Face, Name, Data, Interest, NetworkNack
 from pyndn.security import KeyChain
 from pyndn.encoding import ProtobufTlv
-from storage import Storage
+from src.storage import Storage
 
 
 class ReadHandle(object):
