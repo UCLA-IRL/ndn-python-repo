@@ -63,3 +63,9 @@ class MongoDBStorage(Storage):
         Return a set of "primary" keys
         """
         return (doc["key"] for doc in self.c_collection.find())
+
+    def get_key_list(self) -> list:  # TODO: need to implement this
+        key_list = list()
+        for doc in self.c_collection.find():
+            key_list.append(doc["key"])
+        return key_list

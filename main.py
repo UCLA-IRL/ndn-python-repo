@@ -1,8 +1,10 @@
+#!./venv/bin/python3
 import asyncio
 import logging
 from pyndn import Face, Name
 from pyndn.security import KeyChain
 from src import *
+
 
 # import cProfile, pstats, io
 # from pstats import SortKey
@@ -10,7 +12,6 @@ from src import *
 # pr.enable()
 
 def main():
-
     async def face_loop():
         nonlocal face, repo
         while repo.running:
@@ -23,12 +24,12 @@ def main():
     face = Face()
     keychain = KeyChain()
     face.setCommandSigningInfo(keychain, keychain.getDefaultCertificateName())
-    storage = LevelDBStorage(config['db_config']['leveldb']['dir'])
-
+    # storage = LevelDBStorage(config['db_config']['leveldb']['dir'])
+    storage = MongoDBStorage(config['db_config']['mongodb']['db'], config['db_config']['mongodb']['collection'])
     read_handle = ReadHandle(face, keychain, storage)
     write_handle = WriteCommandHandle(face, keychain, storage, read_handle)
     delete_handle = DeleteCommandHandle(face, keychain, storage)
-    tcp_bulk_insert_handle = TcpBulkInsertHandle(storage, read_handle, 
+    tcp_bulk_insert_handle = TcpBulkInsertHandle(storage, read_handle,
                                                  config['tcp_bulk_insert']['addr'],
                                                  config['tcp_bulk_insert']['port'])
 

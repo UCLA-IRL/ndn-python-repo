@@ -3,6 +3,7 @@ import sys
 import plyvel
 from .storage_base import Storage
 
+
 class LevelDBStorage(Storage):
     def __init__(self, dir: str):
         db_dir = os.path.expanduser(dir)
@@ -24,3 +25,9 @@ class LevelDBStorage(Storage):
     def remove(self, key: str) -> bool:
         self.db.delete(key.encode())
         return True
+
+    def get_key_list(self) -> list:
+        key_list = list()
+        for key, value in self.db:
+            key_list.append(key.decode())
+        return key_list

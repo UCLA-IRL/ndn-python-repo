@@ -13,3 +13,6 @@ class Storage:
 
     def remove(self, key: str) -> bool:
         raise NotImplementedError
+
+    def get_key_list(self) -> list:
+        raise NotImplementedError
