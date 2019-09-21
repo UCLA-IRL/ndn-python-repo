@@ -15,6 +15,9 @@ repo_config:
 
 db_config:
   mongodb:
-    # DB and collection name used to store data
+    # MongoDB and collection name used to store data
     'db': 'repo'
     'collection': 'data'
+  leveldb:
+     # Default leveldb dir
+     'dir': '~/.py-ndn-repo/'

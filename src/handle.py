@@ -26,7 +26,7 @@ class ReadHandle(object):
         This function needs to be called for prefix of all data stored.
         """
         self.face.registerPrefix(name, None,
-                                 lambda prefix: logging.error("Prefix registration failed: %s", prefix))
+                                 lambda prefix: logging.error('Prefix registration failed: %s', prefix))
         self.face.setInterestFilter(name, self.on_interest)
         logging.info('Read handle: listening to {}'.format(str(name)))
 
@@ -130,55 +130,13 @@ class WriteCommandHandle(CommandHandle):
         Start listening for command interests.
         This function needs to be called explicitly after initialization.
         """
-        self.face.setInterestFilter(Name(name).append("insert"), self.on_interest)
-        logging.info("Set interest filter: {}".format(Name(name).append("insert")))
+        self.face.setInterestFilter(Name(name).append('insert'), self.on_interest)
+        logging.info('Set interest filter: {}'.format(Name(name).append('insert')))
 
     def on_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
         # TODO: Add segmented interest processing
         event_loop = asyncio.get_event_loop()
         event_loop.create_task(self.process_segmented_insert_command(interest))
-
-    # async def process_single_insert_command(self, interest: Interest):
-    #     """
-    #     Process a single insertion command.
-    #     Return to client with status code 100 immediately, and then start data fetching process.
-    #     TODO: Command verification and authentication
-    #     TODO: Remove hard-coded part
-    #     """
-    #     parameter = self.decode_cmd_param_blob(interest)
-    #
-    #     logging.info("Write handle processing single interest: {}, {}, {}"
-    #                  .format(parameter.repo_command_parameter.name,
-    #                          parameter.repo_command_parameter.start_block_id,
-    #                          parameter.repo_command_parameter.end_block_id))
-    #
-    #     # Reply to client with status code 100
-    #     process_id = random.randint(0, 0x7fffffff)
-    #     self.m_processes[process_id] = RepoCommandResponseMessage()
-    #     self.m_processes[process_id].repo_command_response.status_code = 100
-    #     self.m_processes[process_id].repo_command_response.process_id = process_id
-    #     self.m_processes[process_id].repo_command_response.insert_num = 0
-    #
-    #     self.reply_to_cmd(interest, self.m_processes[process_id])
-    #
-    #     # Start data fetching process
-    #     self.m_processes[process_id].repo_command_response.status_code = 300
-    #     fetch_interest = Interest()
-    #     for compo in parameter.repo_command_parameter.name.component:
-    #         fetch_interest.name.append(compo)
-    #     fetch_interest.setInterestLifetimeMilliseconds(4000)
-    #
-    #     fetch_data = await fetch_data_packet(self.face, interest)
-    #
-    #     if process_id in self.m_processes:
-    #         if self.m_processes[process_id].repo_command_response.insert_num == 0:
-    #             self.m_processes[process_id].repo_command_response.status_code = 200
-    #             self.m_processes[process_id].repo_command_response.insert_num = 1
-    #
-    #             self.storage.put(fetch_data.getName(), pickle.dumps(fetch_data))
-    #             logging.info("Inserted data: {}".format(fetch_data.getName()))
-    #
-    #             await self.delete_process(process_id)
 
     async def process_segmented_insert_command(self, interest: Interest):
         """
@@ -203,7 +161,7 @@ class WriteCommandHandle(CommandHandle):
         for compo in parameter.repo_command_parameter.name.component:
             name.append(compo)
 
-        logging.info("Write handle processing segmented interest: {}, {}, {}"
+        logging.info('Write handle processing segmented interest: {}, {}, {}'
                      .format(name, start_block_id, end_block_id))
 
         # Reply to client with status code 100

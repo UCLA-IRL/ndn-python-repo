@@ -10,4 +10,4 @@ repo_storage_format_pb2.py: repo_storage_format.proto
 	protoc --python_out=. repo_storage_format.proto
 
 clean:
-	rm -f repo_command_parameter_pb2.py repo_command_response_pb2.py repo_storage_format_pb2.py
+	rm -f *.py
