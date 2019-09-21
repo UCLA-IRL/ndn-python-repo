@@ -1,0 +1,10 @@
+asn1crypto==0.24.0
+cffi==1.12.3
+cryptography==2.7
+plyvel==1.1.0
+protobuf==3.9.1
+pycparser==2.19
+pymongo==3.9.0
+PyNDN==2.11b1
+PyYAML==5.1.2
+six==1.12.0
