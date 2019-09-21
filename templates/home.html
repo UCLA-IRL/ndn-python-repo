@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+
+    <title>Hello, world!</title>
+  </head>
+  <body>
+    <h1>NDN Repo Control Center</h1>
+    <div id="main"  class="justify-content-between ml-3 mr-3">
+    <div id="status" class="p-1">
+    <h3>current repo status:
+	    <span class="badge badge-success">Running</span>
+   	    <span class="badge badge-pill badge-warning">Paused</span>
+            <span class="badge badge-pill badge-danger">Not Running</span>
+    </h3>
+    </div>
+    <div id="command_center" class="p-1">
+	<a class="btn btn-success" href="/start" target="_blank">Google</a>
+	<a class="btn btn-danger" href="/stop" target="_blank">Stop</a>
+	<a class="btn btn-danger" href="/restart" target="_blank">Restart</a>
+    </div>
+    <div class="alert alert-primary" role="alert">
+    There are currently 10 Data in the repo
+    </div>
+
+    <div id="container">
+	<table class="table table-bordered">
+  <thead>
+    <tr>
+      <th scope="col">Data</th>
+      <th scope="col">Action</th>
+    </tr>
+  </thead>
+  <tbody>
+
+
+  {% for key, encoded_key in key_list %}
+    <tr>
+      <th scope="row">{{ key }}</th>
+      <td>
+      <a class="btn btn-success" href="/download/{{ encoded_key }}" target="_blank">Download</a>
+      <a class="btn btn-danger" href="/delete/{{ encoded_key }}" target="_blank">Delete</a>
+      </td>
+    </tr>
+
+   {% endfor %}
+
+    <tr>
+      <th scope="row">/ndn/ucla/yufeng/CA</th>
+      <td>
+      <a class="btn btn-success" href="/download/9169386f-f6d5-4089-9d93-c67019233839" target="_blank">Download</a>
+      <a class="btn btn-danger" href="/delete/9169386f-f6d5-4089-9d93-c67019233839" target="_blank">Delete</a>
+      </td>
+    </tr>
+    <tr>
+      <th scope="row">/ndn/ucla/yufeng/CA</th>
+      <td>
+      <a class="btn btn-success" href="/download/9169386f-f6d5-4089-9d93-c67019233839" target="_blank">Download</a>
+      <a class="btn btn-danger" href="/delete/9169386f-f6d5-4089-9d93-c67019233839" target="_blank">Delete</a>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<div>
+	<a class="btn btn-warning btn-lg" href="/test-repo" target="_blank">Test Repo</a>
+	<a class="btn btn-danger btn-lg" href="/delete-all" target="_blank">Delete All Data</a>
+</div>
+
+<div>
+	Last time repo was tested: 2019-09-20 21:50:02
+	Last time testing result: <span class="badge badge-success">OK</span>
+
+</div>
+
+    </div>
+    </div>
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
+  </body>
+</html>

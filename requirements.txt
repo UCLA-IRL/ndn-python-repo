@@ -1,6 +1,11 @@
 asn1crypto==0.24.0
 cffi==1.12.3
+Click==7.0
 cryptography==2.7
+Flask==1.1.1
+itsdangerous==1.1.0
+Jinja2==2.10.1
+MarkupSafe==1.1.1
 plyvel==1.1.0
 protobuf==3.9.1
 pycparser==2.19
@@ -8,3 +13,4 @@ pymongo==3.9.0
 PyNDN==2.11b1
 PyYAML==5.1.2
 six==1.12.0
+Werkzeug==0.16.0
