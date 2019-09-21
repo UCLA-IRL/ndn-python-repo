@@ -4,7 +4,7 @@ from pyndn import Face, Name
 from pyndn.security import KeyChain
 from repo import Repo
 from handle import ReadHandle, WriteCommandHandle, DeleteCommandHandle
-from storage import MongoDBStorage, LevelDBStorage
+from storage.leveldb import LevelDBStorage
 from config import get_yaml
 
 # import cProfile, pstats, io
