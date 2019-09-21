@@ -18,7 +18,7 @@ def main():
             await asyncio.sleep(0.001)
 
     config = get_yaml()
-    print(config)
+    logging.info(config)
 
     face = Face()
     keychain = KeyChain()
@@ -28,8 +28,9 @@ def main():
     read_handle = ReadHandle(face, keychain, storage)
     write_handle = WriteCommandHandle(face, keychain, storage, read_handle)
     delete_handle = DeleteCommandHandle(face, keychain, storage)
-    print("0")
-    tcp_bulk_insert_handle = TcpBulkInsertHandle(storage, read_handle)
+    tcp_bulk_insert_handle = TcpBulkInsertHandle(storage, read_handle, 
+                                                 config['tcp_bulk_insert']['addr'],
+                                                 config['tcp_bulk_insert']['port'])
 
     repo = Repo(Name(config['repo_config']['repo_name']), face, storage, read_handle, write_handle,
                 delete_handle, tcp_bulk_insert_handle)

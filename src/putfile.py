@@ -18,7 +18,6 @@ class PutfileClient(object):
     This client serves random segmented data
     """
     def __init__(self, args):
-        print("init")
         self.repo_name = Name(args.repo_name)
         self.file_path = args.file_path
         self.name_at_repo = Name(args.name)
@@ -52,10 +51,9 @@ class PutfileClient(object):
             return
 
         self.n_packets = int((len(b_array) - 1) / MAX_BYTES_IN_DATA_PACKET + 1)
-        print('There are {} packets in total'.format(self.n_packets))
+        logging.info('There are {} packets in total'.format(self.n_packets))
         seq = 0
         for i in range(0, len(b_array), MAX_BYTES_IN_DATA_PACKET):
-            # print(i)
             data = Data(Name(self.name_at_repo).append(str(seq)))
             data.metaInfo.freshnessPeriod = 100000
             data.setContent(b_array[i : min(i + MAX_BYTES_IN_DATA_PACKET, len(b_array))])

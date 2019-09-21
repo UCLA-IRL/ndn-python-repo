@@ -21,3 +21,7 @@ db_config:
   leveldb:
      # Default leveldb dir
      'dir': '~/.py-ndn-repo/'
+
+tcp_bulk_insert:
+  'addr': '0.0.0.0'
+  'port': '7376'
