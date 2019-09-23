@@ -66,6 +66,9 @@ def main():
     client = HTTPGetDataClient() # by default, use control center on local machine
 
     data = client.get_data('/ndn/poksaeeebu/qoaaooyujl')
+    if data is None:
+        logging.warning('Data cannot be fetched.')
+        return
     print(data.name)
     print(data.content)
 
