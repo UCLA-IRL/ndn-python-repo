@@ -26,10 +26,3 @@ class DeleteCommandHandle(CommandHandle):
     def on_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
         event_loop = asyncio.get_event_loop()
         event_loop.create_task(self.process_segmented_insert_command(interest))
-
-    def process_segmented_insert_command(self, interest: Interest):
-        """
-        Process segmented insertion command.
-        Return to client with status code 100 immediately, and then start data fetching process.
-        TODO
-        """

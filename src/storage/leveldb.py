@@ -17,10 +17,7 @@ class LevelDBStorage(Storage):
 
     def exists(self, key: str) -> bool:
         ret = self.db.get(key.encode())
-        if ret:
-            return True
-        else:
-            return False
+        return True if ret else False
 
     def remove(self, key: str) -> bool:
         self.db.delete(key.encode())

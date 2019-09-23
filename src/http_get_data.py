@@ -1,15 +1,16 @@
-import logging
-import requests
-import base64
-from pyndn import Data, Name
-from pyndn.encoding.tlv_0_2_wire_format import Tlv0_2WireFormat
-
 """
 by Yufeng Zhang and Zhaoning Kong
 
 This is HTTPGetData demo. Applications can fetch NDN Data from Repo using
 HTTP/HTTPS.
 """
+
+import logging
+import requests
+import base64
+from pyndn import Data, Name
+from pyndn.encoding.tlv_0_2_wire_format import Tlv0_2WireFormat
+
 
 class HTTPGetDataClient(object):
     """
@@ -21,7 +22,7 @@ class HTTPGetDataClient(object):
     """
     argument:
     addr is the address of Repo control center.
-    - do not confuse this with Repo TCP Bulk Insersion
+    - do not confuse this with Repo TCP Bulk Insertion
     - uses local control center by default
 
     port is the TCP port used by the control center.
@@ -33,13 +34,12 @@ class HTTPGetDataClient(object):
         self.port = port
         logging.info('HTTPGetDataClient instance has been created. Repo address: {}:{}'.format(addr, port))
 
-    """
-    get_data() takes a Data name and fetches that Data from the Repo.
-    It returns the Data from the Repo on success
-    Returns None on error, e.g. HTTP connection error, Data doesn't exist, etc.
-    """
-
     def get_data(self, data_name : str):
+        """
+        get_data() takes a Data name and fetches that Data from the Repo.
+        It returns the Data from the Repo on success
+        Returns None on error, e.g. HTTP connection error, Data doesn't exist, etc.
+        """
         base64_data_name = base64.b64encode(str.encode(data_name)).decode()
         data_url = 'http://{}:{}/download/{}'.format(self.addr, self.port, base64_data_name)
         logging.info('HTTPGetDataClient instance begin to request data with url {}'.format(data_url))

@@ -18,11 +18,11 @@ class TcpBulkInsertHandle(object):
 
     class TcpBulkInsertClient(object):
         """
-        An instance of this class will be created for every new connection.
+        An instance of this nested class will be created for every new connection.
         """
         def __init__(self, reader, writer, storage: Storage, read_handle: ReadHandle):
             """
-            Need to keep a reference to ReadHandle to register new prefixes.
+            TCP Bulk insertion client need to keep a reference to ReadHandle to register new prefixes.
             """
             self.reader = reader
             self.writer = writer
@@ -34,7 +34,8 @@ class TcpBulkInsertHandle(object):
 
         async def handleReceive(self):
             """
-            TODO: add comments
+            Handle one incoming TCP connection.
+            Multiple data packets may be transferred over a single connection.
             """
             logging.info("handleReceive()")
 
@@ -45,7 +46,6 @@ class TcpBulkInsertHandle(object):
 
             # Read 0 bytes means the other side has closed the connection
             if nBytesReceived == 0:
-                # TODO: double check
                 logging.info('Otherside closed connection')
                 return
             self.m_inputBufferSize += nBytesReceived
@@ -59,8 +59,7 @@ class TcpBulkInsertHandle(object):
                 try:
                     decoder.decodeData(data, self.buffer[offset:], False)
                 except ValueError:
-                    logging.warning('Decoding failed')  # TODO: Remove
-                    # TODO: non-Data packets will cause infinite loop
+                    logging.warning('Decoding failed')
                     isOk = False
                     break
 
@@ -77,7 +76,7 @@ class TcpBulkInsertHandle(object):
 
             # If buffer is filled up with un-parsable data, shutdown connection
             if not isOk and self.m_inputBufferSize == len(self.buffer) and offset == 0:
-                logging.warining('Invalid data packet, drop connection ...')
+                logging.warning('Invalid data packet, drop connection ...')
                 self.writer.close()
                 return
 
@@ -89,14 +88,13 @@ class TcpBulkInsertHandle(object):
                 else:
                     self.m_inputBufferSize = 0
 
-            # await self.handleReceive()
             event_loop = asyncio.get_event_loop()
             event_loop.create_task(self.handleReceive())
 
     def __init__(self, storage: Storage, read_handle: ReadHandle,
                  server_addr: str, server_port: str):     # TODO: address and port
         """
-        Need to keep a reference to ReadHandle to register new prefixes.
+        TCP bulk insertion handle need to keep a reference to ReadHandle to register new prefixes.
         """
         async def run():
             self.server = await asyncio.start_server(self.startReceive, server_addr, server_port)
@@ -112,6 +110,9 @@ class TcpBulkInsertHandle(object):
 
 
     async def startReceive(self, reader, writer):
+        """
+        Create a new client for every new connection.
+        """
         logging.info("Waiting for connection ... ")
         client = TcpBulkInsertHandle.TcpBulkInsertClient(reader, writer, self.storage, self.read_handle)
         event_loop = asyncio.get_event_loop()
@@ -123,7 +124,6 @@ if __name__ == "__main__":
                         datefmt='%Y-%m-%d %H:%M:%S',
                         level=logging.INFO)
 
-    # TODO: Remove hard-coded things
     storage = LevelDBStorage()
     handle = TcpBulkInsertHandle(storage)
 

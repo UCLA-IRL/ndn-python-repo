@@ -44,6 +44,7 @@ cd src && python getfile.py -r <repo_name> -n <filename_in_repo>
 - [x] Control Center basic Web interface
 - [x] Control Center backend: list Data, delete Data, display up-to-date Repo status, commands (stop, start, restart)
 - [x] HTTP Get Data Demo program (http_get_data.py in directory `src`)
+- [ ] Add an instructions page
 - [ ] Insert check command
 - [ ] Delete command
 - [ ] Add command validator for `handles`
