@@ -1,3 +1,10 @@
+"""
+    PyNDN common async wrapper.
+
+    @Author jonnykong@cs.ucla.edu
+    @Date   2019-07-14
+"""
+
 import asyncio
 import logging
 from typing import Union, Optional, Callable

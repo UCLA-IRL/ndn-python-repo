@@ -4,12 +4,17 @@ import logging
 from pyndn import Face, Name
 from pyndn.security import KeyChain
 from src import *
+from src.asyncndn import *
+
+DO_PROFILING = False
+
+if DO_PROFILING:
+    import cProfile, pstats, io
+    from pstats import SortKey
+    pr = cProfile.Profile()
+    pr.enable()
 
 
-# import cProfile, pstats, io
-# from pstats import SortKey
-# pr = cProfile.Profile()
-# pr.enable()
 
 def main():
     async def face_loop():
@@ -54,9 +59,12 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         pass
 
-# pr.disable()
-# s = io.StringIO()
-# sortby = SortKey.CUMULATIVE
-# ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-# ps.print_stats()
-# print(s.getvalue())
+
+
+if DO_PROFILING:
+    pr.disable()
+    s = io.StringIO()
+    sortby = SortKey.CUMULATIVE
+    ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+    ps.print_stats()
+    print(s.getvalue())

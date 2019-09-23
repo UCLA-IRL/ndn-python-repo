@@ -1,4 +1,7 @@
+import os, sys
 import argparse
+sys.path.insert(1, os.path.join(sys.path[0], '..'))
+
 import asyncio
 import logging
 from pyndn import Blob, Face, Name, Data, Interest

@@ -34,15 +34,16 @@ class WriteCommandHandle(CommandHandle):
         Start listening for command interests.
         This function needs to be called explicitly after initialization.
         """
-        self.face.setInterestFilter(Name(name).append('insert'), self.on_interest)
+        self.face.setInterestFilter(Name(name).append('insert'), self.on_insert_interest)
         logging.info('Set interest filter: {}'.format(Name(name).append('insert')))
+        self.face.setInterestFilter(Name(name).append('insert check'), self.on_check_interest)
+        logging.info('Set interest filter: {}'.format(Name(name).append('insert check')))
 
-    def on_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
-        # TODO: Add segmented interest processing
+    def on_insert_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
         event_loop = asyncio.get_event_loop()
-        event_loop.create_task(self.process_segmented_insert_command(interest))
+        event_loop.create_task(self.process_insert(interest))
 
-    async def process_segmented_insert_command(self, interest: Interest):
+    async def process_insert(self, interest: Interest):
         """
         Process segmented insertion command.
         Return to client with status code 100 immediately, and then start data fetching process.
@@ -57,8 +58,12 @@ class WriteCommandHandle(CommandHandle):
                 logging.info('Inserted data: {}'.format(data.getName()))
             else:
                 n_fail += 1
+        
+        try:
+            parameter = self.decode_cmd_param_blob(interest)
+        except RuntimeError as exc:
+            return
 
-        parameter = self.decode_cmd_param_blob(interest)
         start_block_id = parameter.repo_command_parameter.start_block_id
         end_block_id = parameter.repo_command_parameter.end_block_id
         name = Name()
@@ -102,12 +107,31 @@ class WriteCommandHandle(CommandHandle):
 
         if process_id in self.m_processes:
             await self.delete_process(process_id)
+    
+    def on_check_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
+        logging.info('on_check_interest(): {}'.format(str(interest.getName())))
+        try:
+            parameter = self.decode_cmd_param_blob(interest)
+        except RuntimeError as exc:
+            response = RepoCommandResponseMessage()
+            response.status_code = 403
+        process_id = parameter.process_id
+
+        if process_id not in self.m_processes:
+            response = RepoCommandResponseMessage()
+            response.status_code = 404
+        
+        if response:
+            self.reply_to_cmd(interest, response)
+        else:
+            self.reply_to_cmd(interest, self.m_processes[process_id])
+            
 
     async def delete_process(self, process_id: int):
         """
         Remove process state after some delay
         TODO: Remove hard-coded duration
         """
-        await asyncio.sleep(10)
+        await asyncio.sleep(60)
         if process_id in self.m_processes:
             del self.m_processes[process_id]

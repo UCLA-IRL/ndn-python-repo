@@ -29,7 +29,7 @@ class CommandHandle(object):
         raise NotImplementedError
 
     @staticmethod
-    def update_prefixes_in_storage(storage: Storage, prefix: str):
+    def update_prefixes_in_storage(storage: Storage, prefix: str) -> bool:
         """
         Add a new prefix into database
         return whether the prefix has been registered before
@@ -62,11 +62,12 @@ class CommandHandle(object):
         self.face.putData(data)
 
     @staticmethod
-    def decode_cmd_param_blob(interest: Interest):
+    def decode_cmd_param_blob(interest: Interest) -> RepoCommandParameterMessage:
         """
         Decode the command interest and return a RepoCommandParameterMessage object.
         Command interests have the format of:
         /<routable_repo_prefix>/insert/<cmd_param_blob>/<timestamp>/<random-value>/<SignatureInfo>/<SignatureValue>
+        Throw RuntimeError on decoding failure.
         """
         parameter = RepoCommandParameterMessage()
         param_blob = interest.getName()[-5].getValue()
@@ -75,4 +76,5 @@ class CommandHandle(object):
             ProtobufTlv.decode(parameter, param_blob)
         except RuntimeError as exc:
             logging.warning('Decode failed', exc)
+            raise exc
         return parameter

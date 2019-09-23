@@ -1,5 +1,7 @@
-import os
-import sys
+import os, sys
+import argparse
+sys.path.insert(1, os.path.join(sys.path[0], '..'))
+
 import argparse
 import asyncio
 import logging
