@@ -10,7 +10,7 @@ import requests
 import base64
 from pyndn import Data, Name
 from pyndn.encoding.tlv_0_2_wire_format import Tlv0_2WireFormat
-
+import argparse
 
 class HTTPGetDataClient(object):
     """
@@ -63,9 +63,14 @@ class HTTPGetDataClient(object):
         return data
 
 def main():
+    parser = argparse.ArgumentParser(description='http fetch data')
+    parser.add_argument('-n', '--name',
+                            required=True, help='name of the data to be fetched from Repo')
+    args = parser.parse_args()
+    data_name = args.name
     client = HTTPGetDataClient() # by default, use control center on local machine
 
-    data = client.get_data('/ndn/poksaeeebu/qoaaooyujl')
+    data = client.get_data(data_name)
     if data is None:
         logging.warning('Data cannot be fetched.')
         return
