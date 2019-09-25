@@ -38,11 +38,15 @@
   <tbody>
 
 
-  {% for key, encoded_key in key_list %}
+  {% for is_cert, key, encoded_key in key_list %}
     <tr>
       <th scope="row">{{ key }}</th>
       <td>
+      {% if is_cert %}
+      <a class="btn btn-success" href="/download/{{ encoded_key }}?certificate=1" target="_blank">Display</a>
+      {% else %}
       <a class="btn btn-success" href="/download/{{ encoded_key }}" target="_blank">Download</a>
+      {% endif %}
       <a class="btn btn-danger" href="/delete/{{ encoded_key }}">Delete</a>
       </td>
     </tr>

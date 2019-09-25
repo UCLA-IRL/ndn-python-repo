@@ -2,8 +2,8 @@ import logging
 
 import requests
 
-from flask import Flask, escape, request, url_for, send_file
-from flask import render_template
+from flask import Flask, escape, request, url_for
+from flask import render_template, make_response
 from src import config
 from src import MongoDBStorage
 
@@ -14,6 +14,7 @@ import base64
 import uuid
 import io
 from pyndn import Data, Name
+import pickle
 
 app = Flask(__name__)
 
@@ -70,7 +71,8 @@ def home():
         for item in controlCenterDB.get_key_list():
             if item == 'prefixes':
                 continue
-            encoded_key_list.append((item, base64.b64encode(str.encode(item)).decode()))
+            is_cert = "/KEY/" in item
+            encoded_key_list.append((is_cert, item, base64.b64encode(str.encode(item)).decode()))
             number_keys += 1
     except:
         return connectivity_error()
@@ -200,6 +202,8 @@ def delete_all_data():
 
 @app.route('/download/<path:data_name_base64>')
 def download_data(data_name_base64=None):
+    is_cert = request.args.get('certificate', default=False, type=bool)
+    is_base64 = request.args.get('base64', default=False, type=bool)
     data_name = base64.b64decode(data_name_base64).decode()
     try:
         exist = controlCenterDB.exists(data_name)
@@ -217,18 +221,28 @@ def download_data(data_name_base64=None):
                                alert_tag='danger',
                                badge_text='failed')
     try:
-        data_bytes = controlCenterDB.get(data_name)
+        data_bytes = pickle.loads(controlCenterDB.get(data_name))
     except:
         return connectivity_error()
+    if is_cert:
+        #cert handler
+        return render_template('cert_export.html',
+                               title='Certificate Export - {}'.format(data_name),
+                               cert_name=data_name,
+                               cert_base64=base64.b64encode(data_bytes).decode(),
+                               time=datetime.datetime.now(),
+                               base64_cert_name=data_name_base64,
+                               badge_tag='success',
+                               alert_tag='success',
+                               badge_text='ok')
 
-    result = send_file(
-        io.BytesIO(data_bytes),
-        attachment_filename=str(uuid.uuid4()),
-        mimetype='application/octet-stream',
-        as_attachment=True
-    )
-    result.headers["x-suggested-filename"] = str(uuid.uuid4())
-    return result
+    if is_base64:
+        response = make_response(base64.b64encode(data_bytes).decode())
+    else:
+        response = make_response(data_bytes)
+    response.headers.set('Content-Type', 'application/octet-stream')
+    response.headers["x-suggested-filename"] = str(uuid.uuid4())
+    return response
 
 try:
     controlCenterDB = MongoDBStorage(config['db_config']['mongodb']['db'], config['db_config']['mongodb']['collection'])
