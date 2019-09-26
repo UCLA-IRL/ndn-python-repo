@@ -17,18 +17,18 @@ async def fetch_data_packet(face: Face, interest: Interest) -> Union[Data, Netwo
 
     def on_data(_interest, data: Data):
         nonlocal done, result
-        logging.info('on data')
+        logging.debug('on data')
         result = data
         done.set()
 
     def on_timeout(_interest):
         nonlocal done
-        logging.info('timeout')
+        logging.debug('timeout')
         done.set()
 
     def on_network_nack(_interest, network_nack: NetworkNack):
         nonlocal done, result
-        logging.info('nack')
+        logging.debug('nack')
         result = network_nack
         done.set()
 

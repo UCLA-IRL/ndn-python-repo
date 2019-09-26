@@ -1,3 +1,10 @@
+"""
+    NDN Repo getfile client.
+
+    @Author jonnykong@cs.ucla.edu
+    @Date   2019-07-14
+"""
+
 import os, sys
 import argparse
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
@@ -75,9 +82,10 @@ class GetfileClient(object):
                                    start_block_id=0, end_block_id=None,
                                    semaphore=semaphore, after_fetched=after_fetched)
 
-        logging.info('Fetching completed, writing file to disk')
-        with open(str(self.name_at_repo[-1]), 'wb') as f:
-            f.write(b_array)
+        if len(b_array) > 0:
+            logging.info('Fetching completed, writing file to disk')
+            with open(str(self.name_at_repo[-1]), 'wb') as f:
+                f.write(b_array)
 
         self.running = False
         await face_task

@@ -1,3 +1,10 @@
+"""
+    NDN Repo putfile client.
+
+    @Author jonnykong@cs.ucla.edu
+    @Date   2019-07-14
+"""
+
 import os, sys
 import argparse
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
@@ -9,6 +16,7 @@ from pyndn import Blob, Face, Name, Data, Interest
 from pyndn.security import KeyChain
 from pyndn.encoding import ProtobufTlv
 from asyncndn import fetch_data_packet
+from insert_check import InsertCheckClient
 from command.repo_command_parameter_pb2 import RepoCommandParameterMessage
 from command.repo_command_response_pb2 import RepoCommandResponseMessage
 
@@ -89,29 +97,38 @@ class PutfileClient(object):
         param_blob = ProtobufTlv.encode(parameter)
 
         # Prepare cmd interest
-        name = Name(self.repo_name).append("insert").append(Name.Component(param_blob))
+        name = Name(self.repo_name).append('insert').append(Name.Component(param_blob))
         interest = Interest(name)
         interest.canBePrefix = True
         self.face.makeCommandInterest(interest)
 
-        await asyncio.sleep(0.1)
-        logging.info("Express interest: {}".format(interest.getName()))
+        logging.info('Send insert command interest')
         ret = await fetch_data_packet(self.face, interest)
 
         if not isinstance(ret, Data):
-            logging.warning("Insertion failed")
+            logging.warning('Insertion failed')
+            return
         else:
             # Parse response
             response = RepoCommandResponseMessage()
             try:
                 ProtobufTlv.decode(response, ret.content)
-                logging.info('Insertion command accepted: status code {}'
-                             .format(response.repo_command_response.status_code))
             except RuntimeError as exc:
                 logging.warning('Response decoding failed', exc)
+            process_id = response.repo_command_response.process_id
+            status_code = response.repo_command_response.status_code
+            logging.info('Insertion process {} accepted: status code {}'
+                         .format(process_id, status_code))
 
-        # Keep face running for a while for data to be served
-        await asyncio.sleep(30)
+        # Use insert check command to probe if insert process is completed
+        checker = InsertCheckClient(self.face, self.keychain)
+        while True:
+            status_code = await checker.check(self.repo_name, process_id)
+            if status_code == 300:
+                await asyncio.sleep(1)
+            else:
+                break
+        logging.info('Insert process {} completed with status code {}'.format(process_id, status_code))
         self.running = False
         await face_task
 

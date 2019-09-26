@@ -75,6 +75,5 @@ class CommandHandle(object):
         try:
             ProtobufTlv.decode(parameter, param_blob)
         except RuntimeError as exc:
-            logging.warning('Decode failed', exc)
             raise exc
         return parameter

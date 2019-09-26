@@ -110,18 +110,19 @@ class WriteCommandHandle(CommandHandle):
     
     def on_check_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
         logging.info('on_check_interest(): {}'.format(str(interest.getName())))
+        response = None
         try:
             parameter = self.decode_cmd_param_blob(interest)
         except RuntimeError as exc:
             response = RepoCommandResponseMessage()
             response.status_code = 403
-        process_id = parameter.process_id
+        process_id = parameter.repo_command_parameter.process_id
 
         if process_id not in self.m_processes:
             response = RepoCommandResponseMessage()
-            response.status_code = 404
+            response.repo_command_response.status_code = 404
         
-        if response:
+        if response is not None:
             self.reply_to_cmd(interest, response)
         else:
             self.reply_to_cmd(interest, self.m_processes[process_id])
