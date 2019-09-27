@@ -29,9 +29,9 @@ class InsertCheckClient(object):
         self.face = face
         self.keychain = keychain
 
-    async def check(self, repo_name: str, process_id: int) -> int:
+    async def run(self, repo_name: str, process_id: int) -> RepoCommandResponseMessage:
         """
-        Return the insert check status code.
+        Return parsed insert check response message.
         """
         parameter = RepoCommandParameterMessage()
         parameter.repo_command_parameter.process_id = process_id
@@ -48,15 +48,13 @@ class InsertCheckClient(object):
 
         if not isinstance(ret, Data):
             logging.warning('Insert check error')
-            return
+            return None
         try:
             response = self.decode_cmd_response_blob(ret)
         except RuntimeError as exc:
             logging.warning('Response blob decoding failed')
-
-        status_code = response.repo_command_response.status_code
-        logging.info('Status code: {}'.format(status_code))
-        return response.repo_command_response.status_code
+            return None
+        return response
 
     @staticmethod
     def decode_cmd_response_blob(data: Data) -> RepoCommandResponseMessage:
@@ -92,13 +90,12 @@ def main():
 
     logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
-                        # level=logging.INFO)
                         level=logging.INFO)
 
     client = InsertCheckClient(face, keychain)
     event_loop = asyncio.get_event_loop()
     event_loop.create_task(face_loop())
-    event_loop.run_until_complete(client.check(args.repo_name, int(args.process_id)))
+    event_loop.run_until_complete(client.run(args.repo_name, int(args.process_id)))
 
 
 if __name__ == '__main__':

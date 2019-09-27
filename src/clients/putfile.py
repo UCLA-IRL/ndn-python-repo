@@ -99,42 +99,46 @@ class PutfileClient(object):
         # Prepare cmd interest
         name = Name(self.repo_name).append('insert').append(Name.Component(param_blob))
         interest = Interest(name)
-        interest.canBePrefix = True
         self.face.makeCommandInterest(interest)
 
         logging.info('Send insert command interest')
         ret = await fetch_data_packet(self.face, interest)
 
         if not isinstance(ret, Data):
-            logging.warning('Insertion failed')
+            logging.warning('Insert failed')
             return
-        else:
-            # Parse response
-            response = RepoCommandResponseMessage()
-            try:
-                ProtobufTlv.decode(response, ret.content)
-            except RuntimeError as exc:
-                logging.warning('Response decoding failed', exc)
-            process_id = response.repo_command_response.process_id
-            status_code = response.repo_command_response.status_code
-            logging.info('Insertion process {} accepted: status code {}'
-                         .format(process_id, status_code))
+
+        response = RepoCommandResponseMessage()
+        try:
+            ProtobufTlv.decode(response, ret.content)
+        except RuntimeError as exc:
+            logging.warning('Response decoding failed', exc)
+        process_id = response.repo_command_response.process_id
+        status_code = response.repo_command_response.status_code
+        logging.info('Insertion process {} accepted: status code {}'
+                     .format(process_id, status_code))
 
         # Use insert check command to probe if insert process is completed
         checker = InsertCheckClient(self.face, self.keychain)
         while True:
-            status_code = await checker.check(self.repo_name, process_id)
-            if status_code == 300:
+            response = await checker.run(self.repo_name, process_id)
+            if response.repo_command_response.status_code == 300:
                 await asyncio.sleep(1)
-            else:
+            elif response.repo_command_response.status_code == 200:
+                logging.info('Insert process {} status: {}, insert_num: {}'
+                             .format(process_id, 
+                                     response.repo_command_response.status_code,
+                                     response.repo_command_response.insert_num))
                 break
-        logging.info('Insert process {} completed with status code {}'.format(process_id, status_code))
+            else:
+                # Shouldn't get here
+                assert(False)
         self.running = False
         await face_task
 
 
 def main():
-    parser = argparse.ArgumentParser(description='segmented insert client')
+    parser = argparse.ArgumentParser(description='putfile')
     parser.add_argument('-r', '--repo_name',
                         required=True, help='Name of repo')
     parser.add_argument('-f', '--file_path',
@@ -145,7 +149,6 @@ def main():
 
     logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
-                        # level=logging.INFO)
                         level=logging.INFO)
 
     client = PutfileClient(args)

@@ -16,7 +16,7 @@ from src.command.repo_storage_format_pb2 import PrefixesInStorage
 
 class WriteCommandHandle(CommandHandle):
     """
-    WriteHandle processes command interests, and fetches corresponding data to
+    WriteCommandHandle processes insert command interests, and fetches corresponding data to
     store them into the database.
     TODO: Add validator
     """
@@ -47,7 +47,7 @@ class WriteCommandHandle(CommandHandle):
         """
         Process segmented insertion command.
         Return to client with status code 100 immediately, and then start data fetching process.
-        TODO: When to start listening for interest
+        TODO: When to start listening for interest?
         """
         def after_fetched(data: Union[Data, NetworkNack, None]):
             nonlocal n_success, n_fail
@@ -58,10 +58,11 @@ class WriteCommandHandle(CommandHandle):
                 logging.info('Inserted data: {}'.format(data.getName()))
             else:
                 n_fail += 1
-        
+
         try:
             parameter = self.decode_cmd_param_blob(interest)
         except RuntimeError as exc:
+            logging.info('Parameter interest blob decode failed')
             return
 
         start_block_id = parameter.repo_command_parameter.start_block_id
@@ -70,7 +71,7 @@ class WriteCommandHandle(CommandHandle):
         for compo in parameter.repo_command_parameter.name.component:
             name.append(compo)
 
-        logging.info('Write handle processing segmented interest: {}, {}, {}'
+        logging.info('Write handle processing insert command: {}, {}, {}'
                      .format(name, start_block_id, end_block_id))
 
         # Reply to client with status code 100
@@ -99,7 +100,7 @@ class WriteCommandHandle(CommandHandle):
         else:
             self.m_processes[process_id].repo_command_response.status_code = 400
             logging.info('Segment insertion failure, {} items inserted'.format(n_success))
-        self.m_processes[process_id].repo_command_response.insert_num = 1
+        self.m_processes[process_id].repo_command_response.insert_num = n_success
 
         existing = CommandHandle.update_prefixes_in_storage(self.storage, name.toUri())
         if not existing:
@@ -107,7 +108,7 @@ class WriteCommandHandle(CommandHandle):
 
         if process_id in self.m_processes:
             await self.delete_process(process_id)
-    
+
     def on_check_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
         logging.info('on_check_interest(): {}'.format(str(interest.getName())))
         response = None
@@ -121,12 +122,12 @@ class WriteCommandHandle(CommandHandle):
         if process_id not in self.m_processes:
             response = RepoCommandResponseMessage()
             response.repo_command_response.status_code = 404
-        
+
         if response is not None:
             self.reply_to_cmd(interest, response)
         else:
             self.reply_to_cmd(interest, self.m_processes[process_id])
-            
+
 
     async def delete_process(self, process_id: int):
         """

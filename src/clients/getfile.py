@@ -92,7 +92,7 @@ class GetfileClient(object):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='segmented insert client')
+    parser = argparse.ArgumentParser(description='getfile')
     parser.add_argument('-r', '--repo_name',
                         required=True, help='Name of repo')
     parser.add_argument('-n', '--name',
