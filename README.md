@@ -46,7 +46,7 @@ cd src && python getfile.py -r <repo_name> -n <filename_in_repo>
 - [x] HTTP Get Data Demo program (http_get_data.py in directory `src`)
 - [ ] Add an instructions page
 - [x] Insert check command
-- [ ] Delete command
+- [x] Delete command
 - [ ] Add command validator for `handles`
 - [ ] Currently we have issues with register prefix. We want to fix this as soon as possible.
 - [ ] Finalize database implementation for Google Cloud DataStore. (MongoDB is not very convenient to configure)
