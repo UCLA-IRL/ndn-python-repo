@@ -2,6 +2,7 @@ import asyncio
 import logging
 import pickle
 import random
+import sys
 from typing import Optional, Callable, Union
 from pyndn import Blob, Name, Data
 from pyndn.security import KeyChain
@@ -106,7 +107,15 @@ class TcpBulkInsertHandle(object):
         self.storage = storage
         self.read_handle = read_handle
         event_loop = asyncio.get_event_loop()
-        event_loop.create_task(run())
+        
+        if sys.version_info.minor >= 7:
+            # python 3.7+
+            event_loop.create_task(run())
+        else:
+            coro = asyncio.start_server(self.startReceive, server_addr, server_port, loop=event_loop)
+            server = event_loop.run_until_complete(coro)
+            logging.info('Serving on {}'.format(server.sockets[0].getsockname()))
+
 
 
     async def startReceive(self, reader, writer):
