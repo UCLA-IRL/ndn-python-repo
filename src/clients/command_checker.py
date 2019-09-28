@@ -49,7 +49,7 @@ class CommandChecker(object):
         interest.setInterestLifetimeMilliseconds(1000)
         self.face.makeCommandInterest(interest)
 
-        logging.info('Send' + method + 'check interest')
+        logging.info('Send ' + method + 'check interest')
         ret = await fetch_data_packet(self.face, interest)
 
         if not isinstance(ret, Data):
