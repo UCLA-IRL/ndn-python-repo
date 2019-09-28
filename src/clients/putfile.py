@@ -16,7 +16,7 @@ from pyndn import Blob, Face, Name, Data, Interest
 from pyndn.security import KeyChain
 from pyndn.encoding import ProtobufTlv
 from asyncndn import fetch_data_packet
-from insert_check import InsertCheckClient
+from command_checker import CommandChecker
 from command.repo_command_parameter_pb2 import RepoCommandParameterMessage
 from command.repo_command_response_pb2 import RepoCommandResponseMessage
 
@@ -119,9 +119,9 @@ class PutfileClient(object):
                      .format(process_id, status_code))
 
         # Use insert check command to probe if insert process is completed
-        checker = InsertCheckClient(self.face, self.keychain)
+        checker = CommandChecker(self.face, self.keychain)
         while True:
-            response = await checker.run(self.repo_name, process_id)
+            response = await checker.check_insert(self.repo_name, process_id)
             if response.repo_command_response.status_code == 300:
                 await asyncio.sleep(1)
             elif response.repo_command_response.status_code == 200:

@@ -47,6 +47,7 @@ cd src && python getfile.py -r <repo_name> -n <filename_in_repo>
 - [ ] Add an instructions page
 - [x] Insert check command
 - [x] Delete command
+- [x] Delete check command
 - [ ] Add command validator for `handles`
 - [ ] Currently we have issues with register prefix. We want to fix this as soon as possible.
 - [ ] Finalize database implementation for Google Cloud DataStore. (MongoDB is not very convenient to configure)

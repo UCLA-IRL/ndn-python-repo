@@ -26,7 +26,6 @@ class WriteCommandHandle(CommandHandle):
         Write handle need to keep a reference to write handle to register new prefixes.
         """
         super(WriteCommandHandle, self).__init__(face, keychain, storage)
-        self.m_processes = dict()
         self.m_read_handle = read_handle
 
     def listen(self, name: Name):
@@ -106,34 +105,5 @@ class WriteCommandHandle(CommandHandle):
         if not existing:
             self.m_read_handle.listen(name)
 
-        if process_id in self.m_processes:
-            await self.delete_process(process_id)
-
-    def on_check_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
-        logging.info('on_check_interest(): {}'.format(str(interest.getName())))
-        response = None
-        try:
-            parameter = self.decode_cmd_param_blob(interest)
-        except RuntimeError as exc:
-            response = RepoCommandResponseMessage()
-            response.status_code = 403
-        process_id = parameter.repo_command_parameter.process_id
-
-        if process_id not in self.m_processes:
-            response = RepoCommandResponseMessage()
-            response.repo_command_response.status_code = 404
-
-        if response is not None:
-            self.reply_to_cmd(interest, response)
-        else:
-            self.reply_to_cmd(interest, self.m_processes[process_id])
-
-
-    async def delete_process(self, process_id: int):
-        """
-        Remove process state after some delay
-        TODO: Remove hard-coded duration
-        """
-        await asyncio.sleep(60)
-        if process_id in self.m_processes:
-            del self.m_processes[process_id]
+        # Delete process state after some time
+        await self.delete_process(process_id)

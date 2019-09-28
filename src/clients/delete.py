@@ -18,6 +18,7 @@ from pyndn.encoding import ProtobufTlv
 from asyncndn import fetch_data_packet
 from command.repo_command_parameter_pb2 import RepoCommandParameterMessage
 from command.repo_command_response_pb2 import RepoCommandResponseMessage
+from command_checker import CommandChecker
 
 
 class DeleteClient(object):
@@ -55,10 +56,26 @@ class DeleteClient(object):
             ProtobufTlv.decode(response, ret.content)
         except RuntimeError as exc:
             logging.warning('Response decoding failed', exc)
+        process_id = response.repo_command_response.process_id
         status_code = response.repo_command_response.status_code
-        delete_num = response.repo_command_response.delete_num
 
-        logging.info('Delete status: {}, delete_num: {}'.format(status_code, delete_num))
+        logging.info('Delete process {} accepted, status {}'.format(process_id, status_code))
+
+        # Use delete check command to probe if delete process is completed
+        checker = CommandChecker(self.face, self.keychain)
+        while True:
+            response = await checker.check_delete(repo_name, process_id)
+            if response.repo_command_response.status_code == 300:
+                await asyncio.sleep(1)
+            elif response.repo_command_response.status_code == 200:
+                logging.info('Delete process {} status: {}, delete_num: {}'
+                             .format(process_id, 
+                                     response.repo_command_response.status_code,
+                                     response.repo_command_response.delete_num))
+                break
+            else:
+                # Shouldn't get here
+                assert(False)
 
 
 def main():

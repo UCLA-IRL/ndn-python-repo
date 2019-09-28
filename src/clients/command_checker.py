@@ -20,16 +20,22 @@ from command.repo_command_parameter_pb2 import RepoCommandParameterMessage
 from command.repo_command_response_pb2 import RepoCommandResponseMessage
 
 
-class InsertCheckClient(object):
+class CommandChecker(object):
     """
     Client for sending insert check interests.
-    Users can create an InsertCheckClient instance to check for the status code.
+    Users can create an CommandChecker instance to check for the status code.
     """
     def __init__(self, face: Face, keychain: KeyChain):
         self.face = face
         self.keychain = keychain
+    
+    async def check_insert(self, repo_name: str, process_id: int) -> RepoCommandResponseMessage:
+        return await self._check('insert', repo_name, process_id)
+    
+    async def check_delete(self, repo_name: str, process_id: int) -> RepoCommandResponseMessage:
+        return await self._check('delete', repo_name, process_id)
 
-    async def run(self, repo_name: str, process_id: int) -> RepoCommandResponseMessage:
+    async def _check(self, method: str, repo_name: str, process_id: int) -> RepoCommandResponseMessage:
         """
         Return parsed insert check response message.
         """
@@ -37,17 +43,17 @@ class InsertCheckClient(object):
         parameter.repo_command_parameter.process_id = process_id
         param_blob = ProtobufTlv.encode(parameter)
 
-        name = Name(repo_name).append('insert check').append(Name.Component(param_blob))
+        name = Name(repo_name).append(method + ' check').append(Name.Component(param_blob))
         interest = Interest(name)
         interest.canBePrefix = True
         interest.setInterestLifetimeMilliseconds(1000)
         self.face.makeCommandInterest(interest)
 
-        logging.info('Send insert check interest')
+        logging.info('Send' + method + 'check interest')
         ret = await fetch_data_packet(self.face, interest)
 
         if not isinstance(ret, Data):
-            logging.warning('Insert check error')
+            logging.warning('Check error')
             return None
         try:
             response = self.decode_cmd_response_blob(ret)
@@ -92,10 +98,10 @@ def main():
                         datefmt='%Y-%m-%d %H:%M:%S',
                         level=logging.INFO)
 
-    client = InsertCheckClient(face, keychain)
+    client = CommandChecker(face, keychain)
     event_loop = asyncio.get_event_loop()
     event_loop.create_task(face_loop())
-    event_loop.run_until_complete(client.run(args.repo_name, int(args.process_id)))
+    event_loop.run_until_complete(client.check_delete(args.repo_name, int(args.process_id)))
 
 
 if __name__ == '__main__':
