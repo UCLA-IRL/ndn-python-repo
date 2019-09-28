@@ -122,7 +122,7 @@ class PutfileClient(object):
         checker = InsertCheckClient(self.face, self.keychain)
         while True:
             response = await checker.run(self.repo_name, process_id)
-            if response.repo_command_response.status_code == 300:
+            if response is None or response.repo_command_response.status_code == 300:
                 await asyncio.sleep(1)
             elif response.repo_command_response.status_code == 200:
                 logging.info('Insert process {} status: {}, insert_num: {}'
