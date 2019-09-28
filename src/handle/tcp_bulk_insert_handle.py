@@ -116,8 +116,6 @@ class TcpBulkInsertHandle(object):
             server = event_loop.run_until_complete(coro)
             logging.info('Serving on {}'.format(server.sockets[0].getsockname()))
 
-
-
     async def startReceive(self, reader, writer):
         """
         Create a new client for every new connection.
