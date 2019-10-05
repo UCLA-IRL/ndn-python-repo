@@ -14,10 +14,6 @@ message RepoCommandParameterMessage {
     optional uint64 start_block_id = 204;
     optional uint64 end_block_id = 205;
     optional uint64 process_id = 206;
-    optional uint64 max_interest_num = 211;
-    optional uint64 watch_timeout = 212;
-    optional uint64 watch_status = 213;
-    optional uint64 interest_lifetime = 214;
   }
 
   // A RepoCommandParameterMessage has one RepoCommandParameter.
