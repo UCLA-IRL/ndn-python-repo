@@ -32,10 +32,10 @@ make
 python main.py
 
 # Insert a file into the repo
-cd src && python putfile.py -r <repo_name> -f <path_to_file> -n <filename_in_repo>
+cd src/clients && python putfile.py -r <repo_name> -f <path_to_file> -n <filename_in_repo>
 
 # Fetch a file from the repo
-cd src && python getfile.py -r <repo_name> -n <filename_in_repo>
+cd src/clients && python getfile.py -r <repo_name> -n <filename_in_repo>
 ```
 
 ## TODO
