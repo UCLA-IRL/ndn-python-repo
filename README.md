@@ -32,10 +32,10 @@ make
 python main.py
 
 # Insert a file into the repo
-cd src && python putfile.py -r <repo_name> -f <path_to_file> -n <filename_in_repo>
+cd src/clients && python putfile.py -r <repo_name> -f <path_to_file> -n <filename_in_repo>
 
 # Fetch a file from the repo
-cd src && python getfile.py -r <repo_name> -n <filename_in_repo>
+cd src/clients && python getfile.py -r <repo_name> -n <filename_in_repo>
 ```
 
 ## TODO
@@ -44,7 +44,7 @@ cd src && python getfile.py -r <repo_name> -n <filename_in_repo>
 - [x] Control Center basic Web interface
 - [x] Control Center backend: list Data, delete Data, display up-to-date Repo status, commands (stop, start, restart)
 - [x] HTTP Get Data Demo program (http_get_data.py in directory `src`)
-- [ ] Add an instructions page
+- [x] Add an instructions page
 - [x] Insert check command
 - [x] Delete command
 - [x] Delete check command
