@@ -66,7 +66,8 @@ class DeleteCommandHandle(CommandHandle):
         self.reply_to_cmd(interest, self.m_processes[process_id])
         
         # Perform delete
-        delete_num = self.perform_delete(str(name), start_block_id, end_block_id)
+        self.m_processes[process_id].repo_command_response.status_code = 300
+        delete_num = await self.perform_delete(str(name), start_block_id, end_block_id)
         
         # TODO: because DB ops are blocking, there's no "300" state
         self.m_processes[process_id].repo_command_response.status_code = 200
@@ -76,7 +77,7 @@ class DeleteCommandHandle(CommandHandle):
         # Delete process state after some time
         await self.delete_process(process_id)
     
-    def perform_delete(self, prefix: str, start_block_id: int, end_block_id: int) -> int:
+    async def perform_delete(self, prefix: str, start_block_id: int, end_block_id: int) -> int:
         """
         Perform DB delete.
         Return the number of data items deleted.
@@ -87,4 +88,6 @@ class DeleteCommandHandle(CommandHandle):
             if self.storage.exists(key):
                 self.storage.remove(key)
                 delete_num += 1
+            # Temporarily release control to make the process non-blocking
+            await asyncio.sleep(0)
         return delete_num
