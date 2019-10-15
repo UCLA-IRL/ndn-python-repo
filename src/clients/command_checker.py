@@ -5,17 +5,16 @@
     @Date   2019-09-23
 """
 
-import os, sys
-import argparse
+import os
+import sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import argparse
-import asyncio
 import logging
-from pyndn import Blob, Face, Name, Data, Interest
-from pyndn.security import KeyChain
+from ndn.app import NDNApp
+from ndn.encoding import Name
+from ndn.types import InterestNack, InterestTimeout
 from pyndn.encoding import ProtobufTlv
-from asyncndn import fetch_data_packet
 from command.repo_command_parameter_pb2 import RepoCommandParameterMessage
 from command.repo_command_response_pb2 import RepoCommandResponseMessage
 
@@ -25,68 +24,72 @@ class CommandChecker(object):
     Client for sending insert check interests.
     Users can create an CommandChecker instance to check for the status code.
     """
-    def __init__(self, face: Face, keychain: KeyChain):
-        self.face = face
-        self.keychain = keychain
+    def __init__(self, app: NDNApp):
+        self.app = app
     
-    async def check_insert(self, repo_name: str, process_id: int) -> RepoCommandResponseMessage:
+    async def check_insert(self, repo_name, process_id: int) -> RepoCommandResponseMessage:
         return await self._check('insert', repo_name, process_id)
     
-    async def check_delete(self, repo_name: str, process_id: int) -> RepoCommandResponseMessage:
+    async def check_delete(self, repo_name, process_id: int) -> RepoCommandResponseMessage:
         return await self._check('delete', repo_name, process_id)
 
-    async def _check(self, method: str, repo_name: str, process_id: int) -> RepoCommandResponseMessage:
+    async def _check(self, method: str, repo_name, process_id: int) -> RepoCommandResponseMessage:
         """
         Return parsed insert check response message.
+        # TODO: Use command interests instead of regular interests
         """
-        parameter = RepoCommandParameterMessage()
-        parameter.repo_command_parameter.process_id = process_id
-        param_blob = ProtobufTlv.encode(parameter)
+        cmd_param = RepoCommandParameterMessage()
+        cmd_param.repo_command_parameter.process_id = process_id
+        cmd_param_bytes = ProtobufTlv.encode(cmd_param).toBytes()
 
-        name = Name(repo_name).append(method + ' check').append(Name.Component(param_blob))
-        interest = Interest(name)
-        interest.canBePrefix = True
-        interest.setInterestLifetimeMilliseconds(1000)
-        self.face.makeCommandInterest(interest)
+        name = repo_name[:]
+        name.append(method + ' check')
+        name.append(cmd_param_bytes)
 
-        logging.info('Send ' + method + 'check interest')
-        ret = await fetch_data_packet(self.face, interest)
-
-        if not isinstance(ret, Data):
-            logging.warning('Check error')
-            return None
         try:
-            response = self.decode_cmd_response_blob(ret)
+            print('Expressing interest: {}'.format(Name.to_str(Name.normalize(name))))
+            data_name, meta_info, content = await self.app.express_interest(
+                name, must_be_fresh=True, can_be_prefix=False, lifetime=1000)
+            print('Received data name: {}'.format(Name.to_str(data_name)))
+        except InterestNack as e:
+            print(f'Nacked with reason={e.reason}')
+        except InterestTimeout:
+            print(f'Timeout')
+
+        try:
+            cmd_response = self.decode_cmd_response_blob(content)
         except RuntimeError as exc:
             logging.warning('Response blob decoding failed')
             return None
-        return response
+        return cmd_response
 
     @staticmethod
-    def decode_cmd_response_blob(data: Data) -> RepoCommandResponseMessage:
+    def decode_cmd_response_blob(content) -> RepoCommandResponseMessage:
         """
         Decode the command response and return a RepoCommandResponseMessage object.
         Throw RuntimeError on decoding failure.
         """
         response = RepoCommandResponseMessage()
-        response_blob = data.getContent()
         try:
-            ProtobufTlv.decode(response, response_blob)
+            ProtobufTlv.decode(response, content)
         except RuntimeError as exc:
             raise exc
         return response
 
+
+async def run_check(app: NDNApp, **kwargs):
+    """
+    Async helper function to run the CommandChecker.
+    This function is necessary because it's responsible for calling app.shutdown().
+    """
+    client = CommandChecker(app)
+    response = await client.check_insert(kwargs['repo_name'], kwargs['process_id'])
+    status_code = response.repo_command_response.status_code
+    print('Status Code: {}'.format(status_code))
+    app.shutdown()
+
+
 def main():
-    face = Face()
-    keychain = KeyChain()
-    face.setCommandSigningInfo(keychain, keychain.getDefaultCertificateName())
-
-    async def face_loop():
-        nonlocal face
-        while True:
-            face.processEvents()
-            await asyncio.sleep(0.001)
-
     parser = argparse.ArgumentParser(description='segmented insert client')
     parser.add_argument('-r', '--repo_name',
                         required=True, help='Name of repo')
@@ -98,10 +101,8 @@ def main():
                         datefmt='%Y-%m-%d %H:%M:%S',
                         level=logging.INFO)
 
-    client = CommandChecker(face, keychain)
-    event_loop = asyncio.get_event_loop()
-    event_loop.create_task(face_loop())
-    event_loop.run_until_complete(client.check_delete(args.repo_name, int(args.process_id)))
+    app = NDNApp()
+    app.run_forever(after_start=run_check(app, repo_name=Name.from_str(args.repo_name), process_id=int(args.process_id)))
 
 
 if __name__ == '__main__':

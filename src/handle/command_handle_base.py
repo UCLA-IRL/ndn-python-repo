@@ -3,9 +3,10 @@ import os
 import sys
 import logging
 from typing import Optional, Callable, Union
-from pyndn import Blob, Face, Name, Data, Interest, NetworkNack
-from pyndn.security import KeyChain
+from ndn.app import NDNApp
+from ndn.encoding import Name, Component
 from pyndn.encoding import ProtobufTlv
+
 from src.storage import Storage
 from src.command.repo_command_parameter_pb2 import RepoCommandParameterMessage
 from src.command.repo_command_response_pb2 import RepoCommandResponseMessage
@@ -15,35 +16,35 @@ from src.command.repo_storage_format_pb2 import PrefixesInStorage
 class CommandHandle(object):
     """
     Interface for command interest handles
-    TODO: implement insertion check command
     """
-    def __init__(self, face: Face, keychain: KeyChain, storage: Storage):
-        self.face = face
-        self.keychain = keychain
+    def __init__(self, app: NDNApp, storage: Storage):
+        self.app = app
         self.storage = storage
         self.m_processes = dict()
 
     def listen(self, name: Name):
         raise NotImplementedError
 
-    def on_check_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
-        logging.info('on_check_interest(): {}'.format(str(interest.getName())))
+    def on_check_interest(self, int_name, _int_param, _app_param):
+        logging.info('on_check_interest(): {}'.format(Name.to_str(int_name)))
+
         response = None
+        process_id = None
         try:
-            parameter = self.decode_cmd_param_blob(interest)
+            parameter = self.decode_cmd_param_blob(int_name)
+            process_id = parameter.repo_command_parameter.process_id
         except RuntimeError as exc:
             response = RepoCommandResponseMessage()
             response.status_code = 403
-        process_id = parameter.repo_command_parameter.process_id
 
-        if process_id not in self.m_processes:
+        if response is None and process_id not in self.m_processes:
             response = RepoCommandResponseMessage()
             response.repo_command_response.status_code = 404
 
-        if response is not None:
-            self.reply_to_cmd(interest, response)
+        if response is None:
+            self.reply_to_cmd(int_name, self.m_processes[process_id])
         else:
-            self.reply_to_cmd(interest, self.m_processes[process_id])
+            self.reply_to_cmd(int_name, response)
 
     @staticmethod
     def update_prefixes_in_storage(storage: Storage, prefix: str) -> bool:
@@ -64,22 +65,16 @@ class CommandHandle(object):
         logging.info("add a new prefix into the database")
         return False
 
-    def reply_to_cmd(self, interest: Interest, response: RepoCommandResponseMessage):
+    def reply_to_cmd(self, int_name, response: RepoCommandResponseMessage):
         """
         Reply to a command interest
         """
-        logging.info('Reply to command: {}'.format(interest.getName()))
-
+        logging.info('Reply to command: {}'.format(Name.to_str(int_name)))
         response_blob = ProtobufTlv.encode(response)
-        data = Data(interest.getName())
-        data.metaInfo.freshnessPeriod = 1000
-        data.setContent(response_blob)
-
-        self.keychain.sign(data)
-        self.face.putData(data)
+        self.app.put_data(int_name, response_blob.toBytes())
 
     @staticmethod
-    def decode_cmd_param_blob(interest: Interest) -> RepoCommandParameterMessage:
+    def decode_cmd_param_blob(name) -> RepoCommandParameterMessage:
         """
         Decode the command interest and return a RepoCommandParameterMessage object.
         Command interests have the format of:
@@ -87,7 +82,8 @@ class CommandHandle(object):
         Throw RuntimeError on decoding failure.
         """
         parameter = RepoCommandParameterMessage()
-        param_blob = interest.getName()[-5].getValue()
+        # param_blob = name[-5]
+        param_blob = name[-1]   # TODO: accept command interest instead of regular interests
 
         try:
             ProtobufTlv.decode(parameter, param_blob)

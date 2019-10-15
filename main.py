@@ -1,13 +1,12 @@
 #!./venv/bin/python3
-import asyncio
+import asyncio as aio
 import logging
-from pyndn import Face, Name
-from pyndn.security import KeyChain
+from ndn.app import NDNApp
+from ndn.encoding import Name, Component
+
 from src import *
-from src.asyncndn import *
 
 DO_PROFILING = False
-
 if DO_PROFILING:
     import cProfile, pstats, io
     from pstats import SortKey
@@ -17,37 +16,22 @@ if DO_PROFILING:
 
 
 def main():
-    async def face_loop():
-        nonlocal face, repo
-        while repo.running:
-            face.processEvents()
-            await asyncio.sleep(0.001)
-
     config = get_yaml()
     logging.info(config)
 
-    face = Face()
-    keychain = KeyChain()
-    face.setCommandSigningInfo(keychain, keychain.getDefaultCertificateName())
-    # storage = LevelDBStorage(config['db_config']['leveldb']['dir'])
+    app = NDNApp()
+
     storage = MongoDBStorage(config['db_config']['mongodb']['db'], config['db_config']['mongodb']['collection'])
-    read_handle = ReadHandle(face, keychain, storage)
-    write_handle = WriteCommandHandle(face, keychain, storage, read_handle)
-    delete_handle = DeleteCommandHandle(face, keychain, storage)
-    tcp_bulk_insert_handle = TcpBulkInsertHandle(storage, read_handle,
-                                                 config['tcp_bulk_insert']['addr'],
-                                                 config['tcp_bulk_insert']['port'])
+    read_handle = None
+    write_handle = WriteCommandHandle(app, storage, read_handle)
+    delete_handle = None
+    tcp_bulk_insert_handle = None
 
-    repo = Repo(Name(config['repo_config']['repo_name']), face, storage, read_handle, write_handle,
-                delete_handle, tcp_bulk_insert_handle)
+    repo = Repo(Name.from_str(config['repo_config']['repo_name']),
+                app, storage, read_handle, write_handle, delete_handle, tcp_bulk_insert_handle)
+    repo.listen()
 
-    repo.listen() # my nfd is broken...
-
-    event_loop = asyncio.get_event_loop()
-    try:
-        event_loop.run_until_complete(face_loop())
-    finally:
-        event_loop.close()
+    app.run_forever()
 
 
 if __name__ == "__main__":

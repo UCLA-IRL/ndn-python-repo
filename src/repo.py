@@ -2,15 +2,16 @@ import os
 import sys
 import asyncio
 import logging
-from pyndn import Face, Name, Data, Interest
-from pyndn.security import KeyChain
+from ndn.app import NDNApp
+from ndn.encoding import Name, Component
+
 from src.storage import *
 from src.handle import *
 from src.command.repo_storage_format_pb2 import PrefixesInStorage
 
 
 class Repo(object):
-    def __init__(self, prefix: Name, face: Face, storage: Storage, read_handle: ReadHandle,
+    def __init__(self, prefix, app: NDNApp, storage: Storage, read_handle: ReadHandle,
                  write_handle: WriteCommandHandle, delete_handle: DeleteCommandHandle,
                  tcp_bulk_insert_handle: TcpBulkInsertHandle):
         """
@@ -19,7 +20,7 @@ class Repo(object):
         TODO: Remove storage as input, put it in handles only
         """
         self.prefix = prefix
-        self.face = face
+        self.app = app
         self.storage = storage
         self.write_handle = write_handle
         self.read_handle = read_handle
@@ -29,9 +30,9 @@ class Repo(object):
     
     def listen(self):
         self.recover_previous_prefixes()
-        self.face.registerPrefix(self.prefix, None, self.on_register_failed)
+        # self.face.registerPrefix(self.prefix, None, self.on_register_failed)
         self.write_handle.listen(self.prefix)
-        self.delete_handle.listen(self.prefix)
+        # self.delete_handle.listen(self.prefix)
 
     def recover_previous_prefixes(self):
         """
@@ -43,7 +44,7 @@ class Repo(object):
             prefixes_msg.ParseFromString(ret)
             for prefix in prefixes_msg.prefixes:
                 logging.info("Existing Prefix Found: {:s}".format(prefix.name))
-                self.read_handle.listen(Name(prefix.name))
+                # self.read_handle.listen(Name(prefix.name))
         pass
 
     @staticmethod
