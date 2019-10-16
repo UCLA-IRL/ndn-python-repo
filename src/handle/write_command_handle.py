@@ -7,7 +7,7 @@ from ndn.app import NDNApp
 from ndn.encoding import Name, Component
 
 from . import ReadHandle, CommandHandle
-from src.asyncndn import fetch_segmented_data
+from src.concurrent_fetcher import concurrent_fetcher
 from src.storage import Storage
 from src.command.repo_command_parameter_pb2 import RepoCommandParameterMessage
 from src.command.repo_command_response_pb2 import RepoCommandResponseMessage
@@ -49,63 +49,54 @@ class WriteCommandHandle(CommandHandle):
         Return to client with status code 100 immediately, and then start data fetching process.
         TODO: When to start listening for interest?
         """
-        pass
-        # def after_fetched(data: Union[Data, NetworkNack, None]):
-        #     nonlocal n_success, n_fail
-        #     # If success, save to storage
-        #     if isinstance(data, Data):
-        #         n_success += 1
-        #         self.storage.put(str(data.getName()), pickle.dumps(data.wireEncode().toBytes()))
-        #         logging.info('Inserted data: {}'.format(data.getName()))
-        #     else:
-        #         n_fail += 1
-        #
-        # try:
-        #     parameter = self.decode_cmd_param_blob(interest)
-        # except RuntimeError as exc:
-        #     logging.info('Parameter interest blob decode failed')
-        #     return
-        #
-        # start_block_id = parameter.repo_command_parameter.start_block_id
-        # end_block_id = parameter.repo_command_parameter.end_block_id
-        # name = Name()
-        # for compo in parameter.repo_command_parameter.name.component:
-        #     name.append(compo)
-        #
-        # logging.info('Write handle processing insert command: {}, {}, {}'
-        #              .format(name, start_block_id, end_block_id))
-        #
-        # # Reply to client with status code 100
-        # process_id = random.randint(0, 0x7fffffff)
-        # self.m_processes[process_id] = RepoCommandResponseMessage()
-        # self.m_processes[process_id].repo_command_response.status_code = 100
-        # self.m_processes[process_id].repo_command_response.process_id = process_id
-        # self.m_processes[process_id].repo_command_response.insert_num = 0
-        #
-        # self.reply_to_cmd(interest, self.m_processes[process_id])
-        #
-        # # Start data fetching process. This semaphore size should be smaller
-        # # than the number of attempts before failure
-        # self.m_processes[process_id].repo_command_response.status_code = 300
-        # semaphore = asyncio.Semaphore(2)
-        # n_success = 0
-        # n_fail = 0
-        #
-        # await fetch_segmented_data(self.face, name, start_block_id, end_block_id,
-        #                            semaphore, after_fetched)
-        #
-        # # If both start_block_id and end_block_id are specified, check if all data have being fetched
-        # if end_block_id is None or n_success == (end_block_id - (start_block_id if start_block_id else 0) + 1):
-        #     self.m_processes[process_id].repo_command_response.status_code = 200
-        #     logging.fatal('Segment insertion success, {} items inserted'.format(n_success))
-        # else:
-        #     self.m_processes[process_id].repo_command_response.status_code = 400
-        #     logging.info('Segment insertion failure, {} items inserted'.format(n_success))
-        # self.m_processes[process_id].repo_command_response.insert_num = n_success
-        #
-        # existing = CommandHandle.update_prefixes_in_storage(self.storage, name.toUri())
-        # if not existing:
-        #     self.m_read_handle.listen(name)
-        #
-        # # Delete process state after some time
-        # await self.delete_process(process_id)
+        try:
+            cmd_param = self.decode_cmd_param_blob(int_name)
+        except RuntimeError as exc:
+            logging.info('Parameter interest blob decode failed')
+            # TODO: return response
+            return
+
+        start_block_id = parameter.repo_command_parameter.start_block_id
+        end_block_id = parameter.repo_command_parameter.end_block_id
+        name = []
+        for compo in parameter.repo_command_parameter.name.component:
+            name.append(compo)
+
+        logging.info('Write handle processing insert command: {}, {}, {}'
+                     .format(name, start_block_id, end_block_id))
+
+        # Reply to client with status code 100
+        process_id = random.randint(0, 0x7fffffff)
+        self.m_processes[process_id] = RepoCommandResponseMessage()
+        self.m_processes[process_id].repo_command_response.status_code = 100
+        self.m_processes[process_id].repo_command_response.process_id = process_id
+        self.m_processes[process_id].repo_command_response.insert_num = 0
+        self.reply_to_cmd(interest, self.m_processes[process_id])
+
+        # Start data fetching process
+        block_id = start_block_id
+        async for content in concurrent_fetcher(self.app, name, start_block_id, end_block_id):
+            data_name = name[:]
+            data_name.append(str(block_id))
+            self.storage.put(Name.to_str(data_name), pickle.dumps(content))
+            logging.info('Inserted data: {}'.format(data_name))
+            block_id += 1
+            assert block_id <= end_block_id
+
+        insert_num = block_id - start_block_id + 1
+        if end_block_id is None or block_id == end_block_id:
+            self.m_processes[process_id].repo_command_response.status_code = 200
+            logging.info('Segment insertion success, {} items inserted'.format(insert_num))
+        else:
+            self.m_processes[process_id].repo_command_response.status_code = 400
+            logging.info('Segment insertion failure, {} items inserted'.format(insert_num))
+        self.m_processes[process_id].repo_command_response.insert_num = insert_num
+
+        # Let read handle listen for this prefix
+        existing = CommandHandle.update_prefixes_in_storage(self.storage, Name.to_str(name))
+        if not existing:
+            # TODO
+            # self.m_read_handle.listen(name)
+
+        # Delete process state after some time
+        await self.delete_process(process_id)
