@@ -18,7 +18,7 @@ async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
     An async-generator to fetch segmented object. Interests are issued concurrently.
     :param app: NDNApp
     :param name: Name prefix of Data
-    :return: Data segments in order
+    :return: Yield data segments in order
     """
     cur_id = start_block_id if start_block_id is not None else 0
     final_id = end_block_id if end_block_id is not None else 0x7fffffff
@@ -30,10 +30,8 @@ async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
 
     async def retry(seq: int):
         """
-        Retry
-        :param seq:
-        :param after_fetched:
-        :return:
+        Retry 3 times fetching data of the given sequence number or fail.
+        :param seq: block_id of data
         """
         nonlocal app, name, semaphore, is_failed, received_or_fail
         int_name = name[:]
@@ -62,6 +60,9 @@ async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
         received_or_fail.set()
 
     async def dispatch_tasks():
+        """
+        Dispatch retry() tasks using semaphore.
+        """
         nonlocal semaphore, tasks, cur_id, final_id, is_failed
         while cur_id <= final_id:
             await semaphore.acquire()
