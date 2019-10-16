@@ -82,10 +82,17 @@ async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
         while recv_window + 1 in seq_to_bytes:
             yield seq_to_bytes[recv_window + 1]
             recv_window += 1
-        if recv_window == final_id or is_failed:
+        # Return if all data have been fetched, or the fetching process failed
+        if recv_window == final_id:
             await aio.gather(*tasks)
             return
-
+        elif is_failed:
+            await aio.gather(*tasks)
+            # New data may return during gather(), need to check again
+            while recv_window + 1 in seq_to_bytes:
+                yield seq_to_bytes[recv_window + 1]
+                recv_window += 1
+            return
 
 async def main(app: NDNApp):
     """
