@@ -2,16 +2,13 @@ import asyncio as aio
 import logging
 import pickle
 import random
-from typing import Optional, Callable, Union
 from ndn.app import NDNApp
 from ndn.encoding import Name, Component
 
 from . import ReadHandle, CommandHandle
 from src.concurrent_fetcher import concurrent_fetcher
 from src.storage import Storage
-from src.command.repo_command_parameter_pb2 import RepoCommandParameterMessage
 from src.command.repo_command_response_pb2 import RepoCommandResponseMessage
-from src.command.repo_storage_format_pb2 import PrefixesInStorage
 
 
 class WriteCommandHandle(CommandHandle):
@@ -34,16 +31,16 @@ class WriteCommandHandle(CommandHandle):
         """
         name_to_reg = name[:]
         name_to_reg.append('insert')
-        self.app.route(name_to_reg)(self.on_insert_interest)
+        self.app.route(name_to_reg)(self._on_insert_interest)
 
         name_to_reg = name[:]
         name_to_reg.append('insert check')
         self.app.route(name_to_reg)(self.on_check_interest)
 
-    def on_insert_interest(self, int_name, _int_param, _app_param):
-        aio.create_task(self.process_insert(int_name, _int_param, _app_param))
+    def _on_insert_interest(self, int_name, _int_param, _app_param):
+        aio.create_task(self._process_insert(int_name, _int_param, _app_param))
 
-    async def process_insert(self, int_name, _int_param, _app_param):
+    async def _process_insert(self, int_name, _int_param, _app_param):
         """
         Process segmented insertion command.
         Return to client with status code 100 immediately, and then start data fetching process.
@@ -56,11 +53,11 @@ class WriteCommandHandle(CommandHandle):
             # TODO: return response
             return
 
-        start_block_id = parameter.repo_command_parameter.start_block_id
-        end_block_id = parameter.repo_command_parameter.end_block_id
+        start_block_id = cmd_param.repo_command_parameter.start_block_id
+        end_block_id = cmd_param.repo_command_parameter.end_block_id
         name = []
-        for compo in parameter.repo_command_parameter.name.component:
-            name.append(compo)
+        for compo in cmd_param.repo_command_parameter.name.component:
+            name.append(Component.from_bytes(compo))
 
         logging.info('Write handle processing insert command: {}, {}, {}'
                      .format(name, start_block_id, end_block_id))
@@ -71,20 +68,22 @@ class WriteCommandHandle(CommandHandle):
         self.m_processes[process_id].repo_command_response.status_code = 100
         self.m_processes[process_id].repo_command_response.process_id = process_id
         self.m_processes[process_id].repo_command_response.insert_num = 0
-        self.reply_to_cmd(interest, self.m_processes[process_id])
+        self.reply_to_cmd(int_name, self.m_processes[process_id])
 
         # Start data fetching process
+        self.m_processes[process_id].repo_command_response.status_code = 300
+        semaphore = aio.Semaphore(1)
         block_id = start_block_id
-        async for content in concurrent_fetcher(self.app, name, start_block_id, end_block_id):
+        async for content in concurrent_fetcher(self.app, name, start_block_id, end_block_id, semaphore):
             data_name = name[:]
             data_name.append(str(block_id))
-            self.storage.put(Name.to_str(data_name), pickle.dumps(content))
-            logging.info('Inserted data: {}'.format(data_name))
-            block_id += 1
+            self.storage.put(Name.to_str(data_name), pickle.dumps(content.tobytes()))
             assert block_id <= end_block_id
+            block_id += 1
 
-        insert_num = block_id - start_block_id + 1
-        if end_block_id is None or block_id == end_block_id:
+        # Insert is successful if all packets are retrieved, or if end_block_id is not set
+        insert_num = block_id - start_block_id
+        if end_block_id is None or block_id == end_block_id + 1:
             self.m_processes[process_id].repo_command_response.status_code = 200
             logging.info('Segment insertion success, {} items inserted'.format(insert_num))
         else:
@@ -97,6 +96,7 @@ class WriteCommandHandle(CommandHandle):
         if not existing:
             # TODO
             # self.m_read_handle.listen(name)
+            pass
 
         # Delete process state after some time
         await self.delete_process(process_id)

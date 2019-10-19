@@ -28,7 +28,7 @@ async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
     seq_to_bytes = dict()           # Buffer for out-of-order delivery
     received_or_fail = aio.Event()  #
 
-    async def retry(seq: int):
+    async def _retry(seq: int):
         """
         Retry 3 times fetching data of the given sequence number or fail.
         :param seq: block_id of data
@@ -59,7 +59,7 @@ async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
         semaphore.release()
         received_or_fail.set()
 
-    async def dispatch_tasks():
+    async def _dispatch_tasks():
         """
         Dispatch retry() tasks using semaphore.
         """
@@ -70,11 +70,11 @@ async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
                 received_or_fail.set()
                 semaphore.release()
                 break
-            task = aio.get_event_loop().create_task(retry(cur_id))
+            task = aio.get_event_loop().create_task(_retry(cur_id))
             tasks.append(task)
             cur_id += 1
 
-    aio.create_task(dispatch_tasks())
+    aio.create_task(_dispatch_tasks())
     while True:
         await received_or_fail.wait()
         received_or_fail.clear()
@@ -93,6 +93,7 @@ async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
                 yield seq_to_bytes[recv_window + 1]
                 recv_window += 1
             return
+
 
 async def main(app: NDNApp):
     """
