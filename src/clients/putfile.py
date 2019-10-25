@@ -34,7 +34,6 @@ class PutfileClient(object):
         """
         self.app = app
         self.repo_name = repo_name
-        self.running = True
         self.name_str_to_data = dict()
 
     def _prepare_data(self, file_path: str, name_at_repo) -> int:
@@ -57,14 +56,15 @@ class PutfileClient(object):
             content = b_array[i : min(i + MAX_BYTES_IN_DATA_PACKET, len(b_array))]
             name = name_at_repo[:]
             name.append(str(seq))
-            self.name_str_to_data[Name.to_str(Name.normalize(name))] = content
+            packet = self.app.prepare_data(name, content, final_block_id=Component.from_sequence_num(num_packets - 1))
+            self.name_str_to_data[Name.to_str(Name.normalize(name))] = packet
             seq += 1
         return num_packets
 
     def _on_interest(self, int_name, _int_param, _app_param):
         logging.info(f'On interest: {Name.to_str(int_name)}')
         if Name.to_str(int_name) in self.name_str_to_data:
-            self.app.put_data(int_name, self.name_str_to_data[Name.to_str(int_name)])
+            self.app.put_raw_packet(self.name_str_to_data[Name.to_str(int_name)])
             logging.info(f'Serve data: {Name.to_str(int_name)}')
         else:
             logging.info(f'Data does not exist: {Name.to_str(int_name)}')
@@ -141,7 +141,6 @@ class PutfileClient(object):
             else:
                 # Shouldn't get here
                 assert False
-        self.running = False
 
 
 async def run_putfile_client(app: NDNApp, **kwargs):
@@ -173,6 +172,7 @@ def main():
         after_start=run_putfile_client(app, repo_name=args.repo_name,
                                        file_path=args.file_path,
                                        name_at_repo=args.name_at_repo))
+
 
 if __name__ == "__main__":
     main()

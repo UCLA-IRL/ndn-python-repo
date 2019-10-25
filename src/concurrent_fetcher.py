@@ -9,7 +9,7 @@ import asyncio as aio
 from typing import Optional
 from ndn.app import NDNApp
 from ndn.types import InterestNack, InterestTimeout
-from ndn.encoding import Name
+from ndn.encoding import Name, Component
 
 
 async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
@@ -33,7 +33,7 @@ async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
         Retry 3 times fetching data of the given sequence number or fail.
         :param seq: block_id of data
         """
-        nonlocal app, name, semaphore, is_failed, received_or_fail
+        nonlocal app, name, semaphore, is_failed, received_or_fail, final_id
         int_name = name[:]
         int_name.append(str(seq))
 
@@ -49,8 +49,12 @@ async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
                 print('Express Interest: {}'.format(Name.to_str(Name.normalize(int_name))))
                 data_name, meta_info, content = await app.express_interest(
                     int_name, must_be_fresh=True, can_be_prefix=False, lifetime=1000)
+                # Save data and update final_id
                 print('Received data: {}'.format(Name.to_str(data_name)))
                 seq_to_bytes[seq] = content
+                if meta_info is not None and meta_info.final_block_id is not None:
+                    final_id = Component.to_number(meta_info.final_block_id)
+                    pass
                 break
             except InterestNack as e:
                 print(f'Nacked with reason={e.reason}')

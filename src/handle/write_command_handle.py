@@ -72,7 +72,7 @@ class WriteCommandHandle(CommandHandle):
 
         # Start data fetching process
         self.m_processes[process_id].repo_command_response.status_code = 300
-        semaphore = aio.Semaphore(1)
+        semaphore = aio.Semaphore(10)
         block_id = start_block_id
         async for content in concurrent_fetcher(self.app, name, start_block_id, end_block_id, semaphore):
             data_name = name[:]
