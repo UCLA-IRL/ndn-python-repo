@@ -35,15 +35,15 @@ class GetfileClient(object):
         :param name_at_repo: The name with which this file is stored in the repo.
         """
         semaphore = aio.Semaphore(10)
-        int_prefix = self.repo_name[:]
-        int_prefix.extend(name_at_repo)
         b_array = bytearray()
-        async for content in concurrent_fetcher(self.app, int_prefix, 0, None, semaphore):
+        async for (data_name, meta_info, content) in concurrent_fetcher(self.app, name_at_repo, 0, None, semaphore):
             b_array.extend(content)
 
         if len(b_array) > 0:
-            logging.info('Fetching completed, writing file to disk')
-            with open(Name.to_str(name_at_repo[-1]), 'wb') as f:
+            filename = Name.to_str(name_at_repo)
+            filename = filename.strip().split('/')[-1]
+            logging.info(f'Fetching completed, writing to file {filename}')
+            with open(filename, 'wb') as f:
                 f.write(b_array)
 
 

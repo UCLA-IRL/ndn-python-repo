@@ -1,4 +1,5 @@
 import asyncio as aio
+import copy
 import logging
 import pickle
 import random
@@ -20,6 +21,10 @@ class WriteCommandHandle(CommandHandle):
     def __init__(self, app: NDNApp, storage: Storage, read_handle: ReadHandle):
         """
         Write handle need to keep a reference to write handle to register new prefixes.
+        :param app: NDNApp.
+        :param storage: Storage.
+        :param read_handle: ReadHandle. This param is necessary, because WriteCommandHandle need to
+            call ReadHandle.listen() to register new prefixes.
         """
         super(WriteCommandHandle, self).__init__(app, storage)
         self.m_read_handle = read_handle
@@ -28,6 +33,7 @@ class WriteCommandHandle(CommandHandle):
         """
         Register routes for command interests.
         This function needs to be called explicitly after initialization.
+        :param name: NonStrictName. The name prefix to listen on.
         """
         name_to_reg = name[:]
         name_to_reg.append('insert')
@@ -74,10 +80,12 @@ class WriteCommandHandle(CommandHandle):
         self.m_processes[process_id].repo_command_response.status_code = 300
         semaphore = aio.Semaphore(10)
         block_id = start_block_id
-        async for content in concurrent_fetcher(self.app, name, start_block_id, end_block_id, semaphore):
-            data_name = name[:]
-            data_name.append(str(block_id))
-            self.storage.put(Name.to_str(data_name), pickle.dumps(content.tobytes()))
+        async for (data_name, meta_info, content) in concurrent_fetcher(self.app, name, start_block_id, end_block_id, semaphore):
+            meta_info_bytes = meta_info.encode()
+            content_to_dump = pickle.dumps((Name.to_bytes(data_name),
+                                            meta_info.encode(),
+                                            content.tobytes()))
+            self.storage.put(Name.to_str(data_name), content_to_dump)
             assert block_id <= end_block_id
             block_id += 1
 
@@ -94,8 +102,7 @@ class WriteCommandHandle(CommandHandle):
         # Let read handle listen for this prefix
         existing = CommandHandle.update_prefixes_in_storage(self.storage, Name.to_str(name))
         if not existing:
-            # TODO
-            # self.m_read_handle.listen(name)
+            self.m_read_handle.listen(name)
             pass
 
         # Delete process state after some time

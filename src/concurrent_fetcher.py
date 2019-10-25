@@ -16,16 +16,16 @@ async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
                              end_block_id: Optional[int], semaphore: aio.Semaphore):
     """
     An async-generator to fetch segmented object. Interests are issued concurrently.
-    :param app: NDNApp
-    :param name: Name prefix of Data
-    :return: Yield data segments in order
+    :param app: NDNApp.
+    :param name: NonStrictName. Name prefix of Data.
+    :return: Yield (data_name, meta_info, content) tuples in order.
     """
     cur_id = start_block_id if start_block_id is not None else 0
     final_id = end_block_id if end_block_id is not None else 0x7fffffff
     is_failed = False
     tasks = []
     recv_window = cur_id - 1
-    seq_to_bytes = dict()           # Buffer for out-of-order delivery
+    seq_to_data_packet = dict()           # Buffer for out-of-order delivery
     received_or_fail = aio.Event()  #
 
     async def _retry(seq: int):
@@ -51,7 +51,7 @@ async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
                     int_name, must_be_fresh=True, can_be_prefix=False, lifetime=1000)
                 # Save data and update final_id
                 print('Received data: {}'.format(Name.to_str(data_name)))
-                seq_to_bytes[seq] = content
+                seq_to_data_packet[seq] = (data_name, meta_info, content)
                 if meta_info is not None and meta_info.final_block_id is not None:
                     final_id = Component.to_number(meta_info.final_block_id)
                     pass
@@ -83,8 +83,8 @@ async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
         await received_or_fail.wait()
         received_or_fail.clear()
         # Re-assemble bytes in order
-        while recv_window + 1 in seq_to_bytes:
-            yield seq_to_bytes[recv_window + 1]
+        while recv_window + 1 in seq_to_data_packet:
+            yield seq_to_data_packet[recv_window + 1]
             recv_window += 1
         # Return if all data have been fetched, or the fetching process failed
         if recv_window == final_id:
@@ -93,8 +93,8 @@ async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
         elif is_failed:
             await aio.gather(*tasks)
             # New data may return during gather(), need to check again
-            while recv_window + 1 in seq_to_bytes:
-                yield seq_to_bytes[recv_window + 1]
+            while recv_window + 1 in seq_to_data_packet:
+                yield seq_to_data_packet[recv_window + 1]
                 recv_window += 1
             return
 

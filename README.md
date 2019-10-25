@@ -1,13 +1,12 @@
 # NDN-Repo
 
-A quick-and-dirty Named Data Networking (NDN) Repo implementation using [PyNDN](https://github.com/named-data/PyNDN2).
+A quick-and-dirty Named Data Networking (NDN) Repo implementation using [python-ndn](https://github.com/zjkmxy/python-ndn).
 
 ## Prerequisites
 
 * Required: Python 3.6+
-* Required: [PyNDN](https://github.com/named-data/PyNDN2) - A Named Data Networking client library in Python
+* Required: [python-ndn](https://github.com/zjkmxy/python-ndn) - A Named Data Networking client library with AsyncIO support in Python 3.
 * Required: [NFD](https://github.com/named-data/NFD) - Named Data Networking Forwarding Daemon
-* Required: [Protobuf](https://developers.google.com/protocol-buffers/) - Serializing structured data
 * Optional: [LevelDB](https://github.com/google/leveldb) - Fast key-value storage library
 * Optional: [MongoDB](https://www.mongodb.com) - A document-oriented database
 * Optional: [PyMongo](https://api.mongodb.com/python/current/) - MongoDB Python interface

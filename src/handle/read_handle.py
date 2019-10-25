@@ -1,40 +1,38 @@
-import asyncio
+import asyncio as aio
 import os
 import sys
 import logging
 import asyncio
 import pickle
-from typing import Optional, Callable, Union
-from pyndn import Blob, Face, Name, Data, Interest, NetworkNack
-from pyndn.security import KeyChain
-from pyndn.encoding import ProtobufTlv
+from ndn.app import NDNApp
+from ndn.encoding import Name, Component, MetaInfo
 from src.storage import Storage
 
 
 class ReadHandle(object):
-    def __init__(self, face: Face, keychain: KeyChain, storage: Storage):
-        self.face = face
-        self.keychain = keychain
+    """
+    ReadCommandHandle processes ordinary interests, and return corresponding data if available.
+    """
+    def __init__(self, app: NDNApp, storage: Storage):
+        """
+        :param app: NDNApp.
+        :param storage: Storage.
+        """
+        self.app = app
         self.storage = storage
 
-    def listen(self, name: Name):
+    def listen(self, name):
         """
         This function needs to be called for prefix of all data stored.
+        :param name: NonStrictName.
         """
-        self.face.registerPrefix(name, None,
-                                 lambda prefix: logging.error('Prefix registration failed: %s', prefix))
-        self.face.setInterestFilter(name, self.on_interest)
-        logging.info('Read handle: listening to {}'.format(str(name)))
+        self.app.route(name)(self._on_interest)
+        logging.info(f'Read handle: listening to {Name.to_str(name)}')
 
-    def on_interest(self, _prefix, interest: Interest, face, _filter_id, _filter):
-        name = interest.getName()
-
-        if not self.storage.exists(str(name)):
+    def _on_interest(self, int_name, _int_param, _app_param):
+        if not self.storage.exists(Name.to_str(int_name)):
             return
-
-        raw_data = self.storage.get(str(name))
-        data = Data()
-        data.wireDecode(Blob(pickle.loads(raw_data)))
-        self.face.putData(data)
-
-        logging.info('Read handle: serve data {}'.format(interest.getName()))
+        (_, meta_info, content) = pickle.loads(self.storage.get(Name.to_str(int_name)))
+        meta_info = MetaInfo.parse(meta_info)
+        self.app.put_data(int_name, content, meta_info=meta_info)
+        logging.info(f'Read handle: serve data {Name.to_str(int_name)}')

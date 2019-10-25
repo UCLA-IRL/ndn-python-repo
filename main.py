@@ -22,7 +22,7 @@ def main():
     app = NDNApp()
 
     storage = MongoDBStorage(config['db_config']['mongodb']['db'], config['db_config']['mongodb']['collection'])
-    read_handle = None
+    read_handle = ReadHandle(app, storage)
     write_handle = WriteCommandHandle(app, storage, read_handle)
     delete_handle = None
     tcp_bulk_insert_handle = None
