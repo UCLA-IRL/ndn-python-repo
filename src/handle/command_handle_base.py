@@ -36,7 +36,6 @@ class CommandHandle(object):
         except RuntimeError as exc:
             response = RepoCommandResponseMessage()
             response.status_code = 403
-
         if response is None and process_id not in self.m_processes:
             response = RepoCommandResponseMessage()
             response.repo_command_response.status_code = 404
@@ -91,7 +90,7 @@ class CommandHandle(object):
             raise exc
         return parameter
     
-    async def delete_process(self, process_id: int):
+    async def schedule_delete_process(self, process_id: int):
         """
         Remove process state after some delay
         TODO: Remove hard-coded duration

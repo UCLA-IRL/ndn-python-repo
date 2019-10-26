@@ -24,7 +24,7 @@ def main():
     storage = MongoDBStorage(config['db_config']['mongodb']['db'], config['db_config']['mongodb']['collection'])
     read_handle = ReadHandle(app, storage)
     write_handle = WriteCommandHandle(app, storage, read_handle)
-    delete_handle = None
+    delete_handle = DeleteCommandHandle(app, storage)
     tcp_bulk_insert_handle = None
 
     repo = Repo(Name.from_str(config['repo_config']['repo_name']),

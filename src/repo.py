@@ -30,9 +30,8 @@ class Repo(object):
     
     def listen(self):
         self.recover_previous_prefixes()
-        # self.face.registerPrefix(self.prefix, None, self.on_register_failed)
         self.write_handle.listen(self.prefix)
-        # self.delete_handle.listen(self.prefix)
+        self.delete_handle.listen(self.prefix)
 
     def recover_previous_prefixes(self):
         """

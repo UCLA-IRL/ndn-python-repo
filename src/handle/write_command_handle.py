@@ -50,7 +50,6 @@ class WriteCommandHandle(CommandHandle):
         """
         Process segmented insertion command.
         Return to client with status code 100 immediately, and then start data fetching process.
-        TODO: When to start listening for interest?
         """
         try:
             cmd_param = self.decode_cmd_param_blob(int_name)
@@ -65,8 +64,7 @@ class WriteCommandHandle(CommandHandle):
         for compo in cmd_param.repo_command_parameter.name.component:
             name.append(Component.from_bytes(compo))
 
-        logging.info('Write handle processing insert command: {}, {}, {}'
-                     .format(name, start_block_id, end_block_id))
+        logging.info(f'Write handle processing insert command: {name}, {start_block_id}, {end_block_id}')
 
         # Reply to client with status code 100
         process_id = random.randint(0, 0x7fffffff)
@@ -106,4 +104,4 @@ class WriteCommandHandle(CommandHandle):
             pass
 
         # Delete process state after some time
-        await self.delete_process(process_id)
+        await self.schedule_delete_process(process_id)

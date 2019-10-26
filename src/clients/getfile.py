@@ -23,8 +23,8 @@ class GetfileClient(object):
     """
     def __init__(self, app: NDNApp, repo_name):
         """
-        :param app: NDNApp
-        :param repo_name: Routable name to remote table
+        :param app: NDNApp.
+        :param repo_name: NonStrictName. Routable name to remote table.
         """
         self.app = app
         self.repo_name = repo_name
@@ -32,11 +32,11 @@ class GetfileClient(object):
     async def fetch_file(self, name_at_repo):
         """
         Fetch a file from remote repo, and write to disk.
-        :param name_at_repo: The name with which this file is stored in the repo.
+        :param name_at_repo: NonStrictName. The name with which this file is stored in the repo.
         """
         semaphore = aio.Semaphore(10)
         b_array = bytearray()
-        async for (data_name, meta_info, content) in concurrent_fetcher(self.app, name_at_repo, 0, None, semaphore):
+        async for (_, _, content) in concurrent_fetcher(self.app, name_at_repo, 0, None, semaphore):
             b_array.extend(content)
 
         if len(b_array) > 0:

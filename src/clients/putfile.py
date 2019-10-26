@@ -30,7 +30,7 @@ class PutfileClient(object):
     def __init__(self, app: NDNApp, repo_name):
         """
         :param app: NDNApp
-        :param repo_name: Routable name to remote table
+        :param repo_name: NonStrictName. Routable name to remote repo.
         """
         self.app = app
         self.repo_name = repo_name
@@ -85,13 +85,13 @@ class PutfileClient(object):
 
         # Prepare cmd param
         cmd_param = RepoCommandParameterMessage()
-        name_normalized = Name.normalize(name_at_repo)
-        for compo in name_normalized:
+        for compo in Name.normalize(name_at_repo):
             compo_bytes = Component.get_value(compo).tobytes()
             try:
                 cmd_param.repo_command_parameter.name.component.append(compo_bytes)
             except Exception as e:
                 print(e)
+                return
         cmd_param.repo_command_parameter.start_block_id = 0
         cmd_param.repo_command_parameter.end_block_id = num_packets - 1
         cmd_param_bytes = ProtobufTlv.encode(cmd_param).toBytes()
@@ -101,17 +101,15 @@ class PutfileClient(object):
         name.append('insert')
         name.append(cmd_param_bytes)
         try:
-            name_str = Name.to_str(Name.normalize(name))
-            print(name_str)
-            print(f'Expressing interest: {Name.to_str(Name.normalize(name))}')
+            logging.info(f'Expressing interest: {Name.to_str(Name.normalize(name))}')
             data_name, meta_info, content = await self.app.express_interest(
                 name, must_be_fresh=True, can_be_prefix=False, lifetime=1000)
-            print(f'Received data name: {Name.to_str(data_name)}')
+            logging.info(f'Received data name: {Name.to_str(data_name)}')
         except InterestNack as e:
-            print(f'Nacked with reason: {e.reason}')
+            logging.warning(f'Nacked with reason: {e.reason}')
             return
         except InterestTimeout:
-            print(f'Timeout')
+            logging.warning(f'Timeout')
             return
 
         # Parse response from repo
@@ -130,7 +128,7 @@ class PutfileClient(object):
         while True:
             response = await checker.check_insert(self.repo_name, process_id)
             if response is None or response.repo_command_response.status_code == 300:
-                print(f'Response code is {response.repo_command_response.status_code}')
+                logging.info(f'Response code is {response.repo_command_response.status_code}')
                 await aio.sleep(1)
             elif response.repo_command_response.status_code == 200:
                 logging.info('Insert process {} status: {}, insert_num: {}'
