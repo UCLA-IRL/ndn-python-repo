@@ -13,12 +13,11 @@ import argparse
 import asyncio as aio
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name, Component
+from ndn.encoding import Name, Component, DecodeError
 from ndn.types import InterestNack, InterestTimeout
-from pyndn.encoding import ProtobufTlv
 from command_checker import CommandChecker
-from command.repo_command_parameter_pb2 import RepoCommandParameterMessage
-from command.repo_command_response_pb2 import RepoCommandResponseMessage
+from command.repo_commands import RepoCommandParameter, RepoCommandResponse
+
 
 MAX_BYTES_IN_DATA_PACKET = 2000
 
@@ -84,22 +83,29 @@ class PutfileClient(object):
         await self.app.register(name_at_repo, self._on_interest)
 
         # Prepare cmd param
-        cmd_param = RepoCommandParameterMessage()
-        for compo in Name.normalize(name_at_repo):
-            compo_bytes = Component.get_value(compo).tobytes()
-            try:
-                cmd_param.repo_command_parameter.name.component.append(compo_bytes)
-            except Exception as e:
-                print(e)
-                return
-        cmd_param.repo_command_parameter.start_block_id = 0
-        cmd_param.repo_command_parameter.end_block_id = num_packets - 1
-        cmd_param_bytes = ProtobufTlv.encode(cmd_param).toBytes()
+        # cmd_param = RepoCommandParameterMessage()
+        # for compo in Name.normalize(name_at_repo):
+        #     compo_bytes = Component.get_value(compo).tobytes()
+        #     try:
+        #         cmd_param.repo_command_parameter.name.component.append(compo_bytes)
+        #     except Exception as e:
+        #         print(e)
+        #         return
+        # cmd_param.repo_command_parameter.start_block_id = 0
+        # cmd_param.repo_command_parameter.end_block_id = num_packets - 1
+        # cmd_param_bytes = ProtobufTlv.encode(cmd_param).toBytes()
+
+        cmd_param = RepoCommandParameter()
+        cmd_param.name = name_at_repo
+        cmd_param.start_block_id = 0
+        cmd_param.end_block_id = num_packets - 1
+        cmd_param_bytes = cmd_param.encode()
 
         # Send cmd interest to repo
         name = self.repo_name[:]
         name.append('insert')
-        name.append(cmd_param_bytes)
+        name.append(Component.from_bytes(cmd_param_bytes))
+
         try:
             logging.info(f'Expressing interest: {Name.to_str(Name.normalize(name))}')
             data_name, meta_info, content = await self.app.express_interest(
@@ -113,28 +119,30 @@ class PutfileClient(object):
             return
 
         # Parse response from repo
-        cmd_response = RepoCommandResponseMessage()
         try:
-            ProtobufTlv.decode(cmd_response, content)
-        except RuntimeError as exc:
-            logging.warning('Response decoding failed', exc)
+            cmd_response = RepoCommandResponse.parse(content)
+        except DecodeError as exc:
+            logging.warning('Response blob decoding failed')
             return
-        process_id = cmd_response.repo_command_response.process_id
-        status_code = cmd_response.repo_command_response.status_code
+        process_id = cmd_response.process_id
+        status_code = cmd_response.status_code
         logging.info(f'cmd_response process {process_id} accepted: status code {status_code}')
 
         # Send insert check interest to wait until insert process completes
         checker = CommandChecker(self.app)
         while True:
             response = await checker.check_insert(self.repo_name, process_id)
-            if response is None or response.repo_command_response.status_code == 300:
-                logging.info(f'Response code is {response.repo_command_response.status_code}')
+            if response is None:
+                logging.info(f'Response code is None')
                 await aio.sleep(1)
-            elif response.repo_command_response.status_code == 200:
+            elif response.status_code == 300:
+                logging.info(f'Response code is {response.status_code}')
+                await aio.sleep(1)
+            elif response.status_code == 200:
                 logging.info('Insert process {} status: {}, insert_num: {}'
                              .format(process_id,
-                                     response.repo_command_response.status_code,
-                                     response.repo_command_response.insert_num))
+                                     response.status_code,
+                                     response.insert_num))
                 break
             else:
                 # Shouldn't get here

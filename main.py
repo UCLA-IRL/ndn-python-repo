@@ -3,7 +3,7 @@ import asyncio as aio
 import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name, Component
-
+import faulthandler; faulthandler.enable()
 from src import *
 
 DO_PROFILING = False

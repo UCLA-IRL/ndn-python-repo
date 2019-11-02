@@ -3,7 +3,6 @@ import logging
 import random
 from ndn.app import NDNApp
 from ndn.encoding import Name, Component
-from pyndn.encoding import ProtobufTlv
 from . import CommandHandle
 from src.storage import Storage
 from src.command.repo_command_parameter_pb2 import RepoCommandParameterMessage

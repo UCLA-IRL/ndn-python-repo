@@ -2,10 +2,10 @@ import asyncio
 import logging
 import pickle
 import sys
-from pyndn import Data
+# from pyndn import Data
 from . import ReadHandle, CommandHandle
 from src.storage import *
-from pyndn.encoding.tlv_0_2_wire_format import Tlv0_2WireFormat
+# from pyndn.encoding.tlv_0_2_wire_format import Tlv0_2WireFormat
 
 BUFFER_SIZE = 8000
 

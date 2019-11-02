@@ -13,7 +13,7 @@ import asyncio as aio
 import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name, Component
-from pyndn.encoding import ProtobufTlv
+# from pyndn.encoding import ProtobufTlv
 from ndn.types import InterestNack, InterestTimeout
 from command.repo_command_parameter_pb2 import RepoCommandParameterMessage
 from command.repo_command_response_pb2 import RepoCommandResponseMessage

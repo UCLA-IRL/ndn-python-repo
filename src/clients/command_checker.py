@@ -12,11 +12,9 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 import argparse
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name
+from ndn.encoding import Name, Component, TlvModel, DecodeError
 from ndn.types import InterestNack, InterestTimeout
-from pyndn.encoding import ProtobufTlv
-from command.repo_command_parameter_pb2 import RepoCommandParameterMessage
-from command.repo_command_response_pb2 import RepoCommandResponseMessage
+from command.repo_commands import RepoCommandParameter, RepoCommandResponse
 
 
 class CommandChecker(object):
@@ -27,54 +25,43 @@ class CommandChecker(object):
     def __init__(self, app: NDNApp):
         self.app = app
     
-    async def check_insert(self, repo_name, process_id: int) -> RepoCommandResponseMessage:
+    async def check_insert(self, repo_name, process_id: int) -> RepoCommandResponse:
         return await self._check('insert', repo_name, process_id)
     
-    async def check_delete(self, repo_name, process_id: int) -> RepoCommandResponseMessage:
+    async def check_delete(self, repo_name, process_id: int) -> RepoCommandResponse:
         return await self._check('delete', repo_name, process_id)
 
-    async def _check(self, method: str, repo_name, process_id: int) -> RepoCommandResponseMessage:
+    async def _check(self, method: str, repo_name, process_id: int) -> RepoCommandResponse:
         """
         Return parsed insert check response message.
         # TODO: Use command interests instead of regular interests
         """
-        cmd_param = RepoCommandParameterMessage()
-        cmd_param.repo_command_parameter.process_id = process_id
-        cmd_param_bytes = ProtobufTlv.encode(cmd_param).toBytes()
+        cmd_param = RepoCommandParameter()
+        cmd_param.process_id = process_id
+        cmd_param_bytes = cmd_param.encode()
 
         name = repo_name[:]
         name.append(method + ' check')
-        name.append(cmd_param_bytes)
+        name.append(Component.from_bytes(cmd_param_bytes))
 
         try:
-            print('Expressing interest: {}'.format(Name.to_str(Name.normalize(name))))
+            print(f'Expressing interest: {Name.to_str(Name.normalize(name))}')
             data_name, meta_info, content = await self.app.express_interest(
                 name, must_be_fresh=True, can_be_prefix=False, lifetime=1000)
-            print('Received data name: {}'.format(Name.to_str(data_name)))
+            print(f'Received data name: {Name.to_str(data_name)}')
         except InterestNack as e:
             print(f'Nacked with reason={e.reason}')
+            return None
         except InterestTimeout:
-            print(f'Timeout')
+            print(f'Timeout: {Name.to_str(Name.normalize(name))}')
+            return None
 
         try:
-            cmd_response = self.decode_cmd_response_blob(content)
-        except RuntimeError as exc:
+            cmd_response = RepoCommandResponse.parse(content)
+        except DecodeError as exc:
             logging.warning('Response blob decoding failed')
             return None
         return cmd_response
-
-    @staticmethod
-    def decode_cmd_response_blob(content) -> RepoCommandResponseMessage:
-        """
-        Decode the command response and return a RepoCommandResponseMessage object.
-        Throw RuntimeError on decoding failure.
-        """
-        response = RepoCommandResponseMessage()
-        try:
-            ProtobufTlv.decode(response, content)
-        except RuntimeError as exc:
-            raise exc
-        return response
 
 
 async def run_check(app: NDNApp, **kwargs):
@@ -84,8 +71,9 @@ async def run_check(app: NDNApp, **kwargs):
     """
     client = CommandChecker(app)
     response = await client.check_insert(kwargs['repo_name'], kwargs['process_id'])
-    status_code = response.repo_command_response.status_code
-    print('Status Code: {}'.format(status_code))
+    if response:
+        status_code = response.status_code
+        print('Status Code: {}'.format(status_code))
     app.shutdown()
 
 

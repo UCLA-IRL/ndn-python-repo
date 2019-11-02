@@ -5,12 +5,10 @@ import logging
 from typing import Optional, Callable, Union
 from ndn.app import NDNApp
 from ndn.encoding import Name, Component
-from pyndn.encoding import ProtobufTlv
 
 from src.storage import Storage
-from src.command.repo_command_parameter_pb2 import RepoCommandParameterMessage
-from src.command.repo_command_response_pb2 import RepoCommandResponseMessage
 from src.command.repo_storage_format_pb2 import PrefixesInStorage
+from src.command.repo_commands import RepoCommandParameter, RepoCommandResponse
 
 
 class CommandHandle(object):
@@ -32,13 +30,13 @@ class CommandHandle(object):
         process_id = None
         try:
             parameter = self.decode_cmd_param_blob(int_name)
-            process_id = parameter.repo_command_parameter.process_id
+            process_id = parameter.process_id
         except RuntimeError as exc:
-            response = RepoCommandResponseMessage()
+            response = RepoCommandResponse()
             response.status_code = 403
         if response is None and process_id not in self.m_processes:
-            response = RepoCommandResponseMessage()
-            response.repo_command_response.status_code = 404
+            response = RepoCommandResponse()
+            response.status_code = 404
 
         if response is None:
             self.reply_to_cmd(int_name, self.m_processes[process_id])
@@ -64,32 +62,25 @@ class CommandHandle(object):
         logging.info("add a new prefix into the database")
         return False
 
-    def reply_to_cmd(self, int_name, response: RepoCommandResponseMessage):
+    def reply_to_cmd(self, int_name, response: RepoCommandResponse):
         """
         Reply to a command interest
         """
         logging.info('Reply to command: {}'.format(Name.to_str(int_name)))
-        response_blob = ProtobufTlv.encode(response)
-        self.app.put_data(int_name, response_blob.toBytes())
+        response_bytes = response.encode()
+        self.app.put_data(int_name, response_bytes)
 
     @staticmethod
-    def decode_cmd_param_blob(name) -> RepoCommandParameterMessage:
+    def decode_cmd_param_blob(name) -> RepoCommandParameter:
         """
         Decode the command interest and return a RepoCommandParameterMessage object.
         Command interests have the format of:
         /<routable_repo_prefix>/insert/<cmd_param_blob>/<timestamp>/<random-value>/<SignatureInfo>/<SignatureValue>
         Throw RuntimeError on decoding failure.
         """
-        parameter = RepoCommandParameterMessage()
-        # param_blob = name[-5]
-        param_blob = name[-1]   # TODO: accept command interest instead of regular interests
+        param_blob = Component.get_value(name[-1])   # TODO: accept command interest instead of regular interests
+        return RepoCommandParameter.parse(param_blob)
 
-        try:
-            ProtobufTlv.decode(parameter, param_blob)
-        except RuntimeError as exc:
-            raise exc
-        return parameter
-    
     async def schedule_delete_process(self, process_id: int):
         """
         Remove process state after some delay
