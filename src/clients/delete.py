@@ -12,11 +12,9 @@ import argparse
 import asyncio as aio
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name, Component
-# from pyndn.encoding import ProtobufTlv
+from ndn.encoding import Name, Component, DecodeError
 from ndn.types import InterestNack, InterestTimeout
-from command.repo_command_parameter_pb2 import RepoCommandParameterMessage
-from command.repo_command_response_pb2 import RepoCommandResponseMessage
+from command.repo_commands import RepoCommandParameter, RepoCommandResponse
 from command_checker import CommandChecker
 
 
@@ -41,24 +39,28 @@ class DeleteClient(object):
         :param end_block_id: int.
         """
         # Send command interest
-        cmd_param = RepoCommandParameterMessage()
-        for compo in Name.normalize(prefix):
-            compo_bytes = Component.get_value(compo).tobytes()
-            try:
-                cmd_param.repo_command_parameter.name.component.append(compo_bytes)
-            except Exception as e:
-                print(e)
-                return
-        cmd_param.repo_command_parameter.start_block_id = start_block_id
-        cmd_param.repo_command_parameter.end_block_id = end_block_id
-        cmd_param_bytes = ProtobufTlv.encode(cmd_param).toBytes()
+        # cmd_param = RepoCommandParameterMessage()
+        # for compo in Name.normalize(prefix):
+        #     compo_bytes = Component.get_value(compo).tobytes()
+        #     try:
+        #         cmd_param.repo_command_parameter.name.component.append(compo_bytes)
+        #     except Exception as e:
+        #         print(e)
+        #         return
+        # cmd_param.repo_command_parameter.start_block_id = start_block_id
+        # cmd_param.repo_command_parameter.end_block_id = end_block_id
+        # cmd_param_bytes = ProtobufTlv.encode(cmd_param).toBytes()
+        cmd_param = RepoCommandParameter()
+        cmd_param.name = prefix
+        cmd_param.start_block_id = start_block_id
+        cmd_param.end_block_id = end_block_id
+        cmd_param_bytes = cmd_param.encode()
 
         # Send cmd interests to repo
         name = self.repo_name[:]
         name.append('delete')
-        name.append(cmd_param_bytes)
+        name.append(Component.from_bytes(cmd_param_bytes))
         try:
-            name_str = Name.to_str(Name.normalize(name))
             logging.info(f'Expressing interest: {Name.to_str(Name.normalize(name))}')
             data_name, meta_info, content = await self.app.express_interest(
                 name, must_be_fresh=True, can_be_prefix=False, lifetime=1000)
@@ -71,32 +73,40 @@ class DeleteClient(object):
             return
 
         # Parse response from repo
-        cmd_response = RepoCommandResponseMessage()
+        # cmd_response = RepoCommandResponseMessage()
+        # try:
+        #     ProtobufTlv.decode(cmd_response, content)
+        # except RuntimeError as exc:
+        #     logging.warning('Response decoding failed', exc)
+        #     return
+        # process_id = cmd_response.repo_command_response.process_id
+        # status_code = cmd_response.repo_command_response.status_code
+        # logging.info(f'cmd_response process {process_id} accepted: status code {status_code}')
         try:
-            ProtobufTlv.decode(cmd_response, content)
-        except RuntimeError as exc:
-            logging.warning('Response decoding failed', exc)
+            cmd_response = RepoCommandResponse.parse(content)
+        except DecodeError as exc:
+            logging.warning('Response blob decoding failed')
             return
-        process_id = cmd_response.repo_command_response.process_id
-        status_code = cmd_response.repo_command_response.status_code
+        process_id = cmd_response.process_id
+        status_code = cmd_response.status_code
         logging.info(f'cmd_response process {process_id} accepted: status code {status_code}')
 
         # Send delete check interest wait until delete process completes
         checker = CommandChecker(self.app)
         while True:
             response = await checker.check_delete(self.repo_name, process_id)
-            if response is None or response.repo_command_response.status_code == 300:
-                logging.info(f'Response code is {response.repo_command_response.status_code}')
+            if response is None:
+                logging.info(f'Response code is None')
                 await aio.sleep(1)
-            elif response.repo_command_response.status_code == 200:
+            elif response.status_code == 300:
+                logging.info(f'Response code is {response.status_code}')
+                await aio.sleep(1)
+            elif response.status_code == 200:
                 logging.info('Delete process {} status: {}, delete_num: {}'
-                             .format(process_id,
-                                     response.repo_command_response.status_code,
-                                     response.repo_command_response.delete_num))
+                             .format(process_id, response.status_code, response.delete_num))
                 break
             else:
                 # Shouldn't get here
-                print('ASSERT FALSE, status = {}'.format(response.repo_command_response.status_code))
                 assert False
 
 

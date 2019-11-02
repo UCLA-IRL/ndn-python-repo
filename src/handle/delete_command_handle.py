@@ -2,11 +2,10 @@ import asyncio as aio
 import logging
 import random
 from ndn.app import NDNApp
-from ndn.encoding import Name, Component
+from ndn.encoding import Name, Component, DecodeError
 from . import CommandHandle
 from src.storage import Storage
-from src.command.repo_command_parameter_pb2 import RepoCommandParameterMessage
-from src.command.repo_command_response_pb2 import RepoCommandResponseMessage
+from src.command.repo_commands import RepoCommandResponse
 
 
 class DeleteCommandHandle(CommandHandle):
@@ -47,33 +46,30 @@ class DeleteCommandHandle(CommandHandle):
         """
         try:
             cmd_param = self.decode_cmd_param_blob(int_name)
-        except RuntimeError as exc:
-            logging.info('Parameter interest blob decode failed')
+        except DecodeError as exc:
+            logging.warning('Response blob decoding failed')
             return
-
-        start_block_id = cmd_param.repo_command_parameter.start_block_id
-        end_block_id = cmd_param.repo_command_parameter.end_block_id
-        name = []
-        for compo in cmd_param.repo_command_parameter.name.component:
-            name.append(Component.from_bytes(compo))
+        name = cmd_param.name
+        start_block_id = cmd_param.start_block_id
+        end_block_id = cmd_param.end_block_id
 
         logging.info(f'Delete handle processing delete command: {name}, {start_block_id}, {end_block_id}')
 
         # Reply to client with status code 100
         process_id = random.randint(0, 0x7fffffff)
-        self.m_processes[process_id] = RepoCommandResponseMessage()
-        self.m_processes[process_id].repo_command_response.status_code = 100
-        self.m_processes[process_id].repo_command_response.process_id = process_id
-        self.m_processes[process_id].repo_command_response.insert_num = 0
+        self.m_processes[process_id] = RepoCommandResponse()
+        self.m_processes[process_id].status_code = 100
+        self.m_processes[process_id].process_id = process_id
+        self.m_processes[process_id].delete_num = 0
         self.reply_to_cmd(int_name, self.m_processes[process_id])
 
         # Perform delete
-        self.m_processes[process_id].repo_command_response.status_code = 300
+        self.m_processes[process_id].status_code = 300
         delete_num = await self._perform_storage_delete(name, start_block_id, end_block_id)
 
         # Delete complete, update process state
-        self.m_processes[process_id].repo_command_response.status_code = 200
-        self.m_processes[process_id].repo_command_response.delete_num = delete_num
+        self.m_processes[process_id].status_code = 200
+        self.m_processes[process_id].delete_num = delete_num
 
         # Remove process state after some time
         await self.schedule_delete_process(process_id)
@@ -91,7 +87,6 @@ class DeleteCommandHandle(CommandHandle):
             key = prefix[:]
             key.append(str(idx))
             key = Name.to_str(key)
-            print('ABOUT TO DELETE {}'.format(key))
             if self.storage.exists(key):
                 self.storage.remove(key)
                 delete_num += 1

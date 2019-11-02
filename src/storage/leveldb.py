@@ -1,5 +1,4 @@
 import os
-import sys
 import plyvel
 from .storage_base import Storage
 

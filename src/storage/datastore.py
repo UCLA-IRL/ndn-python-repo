@@ -1,5 +1,3 @@
-import os
-import sys
 from google.cloud import datastore
 from .storage_base import Storage
 from google_auth_oauthlib import flow

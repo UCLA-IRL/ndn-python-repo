@@ -61,6 +61,8 @@ class CommandChecker(object):
         except DecodeError as exc:
             logging.warning('Response blob decoding failed')
             return None
+        except Exception as e:
+            print(e)
         return cmd_response
 
 

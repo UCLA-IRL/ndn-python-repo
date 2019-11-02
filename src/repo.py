@@ -1,9 +1,6 @@
-import os
-import sys
-import asyncio
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name, Component
+from ndn.encoding import Name
 
 from src.storage import *
 from src.handle import *
@@ -43,7 +40,7 @@ class Repo(object):
             prefixes_msg.ParseFromString(ret)
             for prefix in prefixes_msg.prefixes:
                 logging.info("Existing Prefix Found: {:s}".format(prefix.name))
-                # self.read_handle.listen(Name(prefix.name))
+                self.read_handle.listen(Name.from_str(prefix.name))
         pass
 
     @staticmethod

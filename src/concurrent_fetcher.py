@@ -10,6 +10,7 @@ from typing import Optional
 from ndn.app import NDNApp
 from ndn.types import InterestNack, InterestTimeout
 from ndn.encoding import Name, Component
+from datetime import datetime
 
 
 async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
@@ -46,15 +47,16 @@ async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
                 received_or_fail.set()
                 return
             try:
+                print(datetime.now().strftime("%H:%M:%S.%f "), end='')
                 print('Express Interest: {}'.format(Name.to_str(Name.normalize(int_name))))
                 data_name, meta_info, content = await app.express_interest(
                     int_name, must_be_fresh=True, can_be_prefix=False, lifetime=1000)
                 # Save data and update final_id
+                print(datetime.now().strftime("%H:%M:%S.%f "), end='')
                 print('Received data: {}'.format(Name.to_str(data_name)))
                 seq_to_data_packet[seq] = (data_name, meta_info, content)
                 if meta_info is not None and meta_info.final_block_id is not None:
                     final_id = Component.to_number(meta_info.final_block_id)
-                    pass
                 break
             except InterestNack as e:
                 print(f'Nacked with reason={e.reason}')
@@ -105,9 +107,10 @@ async def main(app: NDNApp):
     This function is necessary because it's responsible for calling app.shutdown().
     :param app: NDNApp
     """
-    semaphore = aio.Semaphore(1)
-    async for content in concurrent_fetcher(app, Name.from_str('/example/testApp'), 0, 50, semaphore):
-        print(content)
+    semaphore = aio.Semaphore(20)
+    async for (data_name, meta_info, content) in concurrent_fetcher(app, Name.from_str('/test1.pdf'), 0, 161, semaphore):
+        pass
+        # print(content)
     app.shutdown()
 
 
