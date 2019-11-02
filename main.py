@@ -25,7 +25,9 @@ def main():
     read_handle = ReadHandle(app, storage)
     write_handle = WriteCommandHandle(app, storage, read_handle)
     delete_handle = DeleteCommandHandle(app, storage)
-    tcp_bulk_insert_handle = None
+    tcp_bulk_insert_handle = TcpBulkInsertHandle(storage, read_handle,
+                                                 config['tcp_bulk_insert']['addr'],
+                                                 config['tcp_bulk_insert']['port'])
 
     repo = Repo(Name.from_str(config['repo_config']['repo_name']),
                 app, storage, read_handle, write_handle, delete_handle, tcp_bulk_insert_handle)
