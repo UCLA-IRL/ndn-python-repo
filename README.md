@@ -7,9 +7,10 @@ A quick-and-dirty Named Data Networking (NDN) Repo implementation using [python-
 * Required: Python 3.6+
 * Required: [python-ndn](https://github.com/zjkmxy/python-ndn) - A Named Data Networking client library with AsyncIO support in Python 3.
 * Required: [NFD](https://github.com/named-data/NFD) - Named Data Networking Forwarding Daemon
-* Optional: [LevelDB](https://github.com/google/leveldb) - Fast key-value storage library
-* Optional: [MongoDB](https://www.mongodb.com) - A document-oriented database
-* Optional: [PyMongo](https://api.mongodb.com/python/current/) - MongoDB Python interface
+* Required: [Protobuf](https://developers.google.com/protocol-buffers) - Serializing structured data
+* One of:
+  * [LevelDB](https://github.com/google/leveldb) - Fast key-value storage library
+  * [MongoDB](https://www.mongodb.com) - A document-oriented database, and [PyMongo](https://api.mongodb.com/python/current/) - MongoDB Python interface
 
 ## Getting Started
 
@@ -48,7 +49,6 @@ cd src/clients && python getfile.py -r <repo_name> -n <filename_in_repo>
 - [x] Delete command
 - [x] Delete check command
 - [ ] Add command validator for `handles`
-- [ ] Currently we have issues with register prefix. We want to fix this as soon as possible.
 - [ ] Finalize database implementation for Google Cloud DataStore. (MongoDB is not very convenient to configure)
 - [ ] Now we have HTTP get Data endpoint. We might want to add a TCP get Data. This introduces design questions, e.g. Do we use port 7376 for Data fetching, or we use a different port?
 - [ ] Configure a PyNDN-Repo Docker for easier deployment

@@ -1,8 +1,7 @@
 #!./venv/bin/python3
-import asyncio as aio
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name, Component
+from ndn.encoding import Name
 import faulthandler; faulthandler.enable()
 from src import *
 

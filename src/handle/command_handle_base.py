@@ -1,8 +1,5 @@
 import asyncio
-import os
-import sys
 import logging
-from typing import Optional, Callable, Union
 from ndn.app import NDNApp
 from ndn.encoding import Name, Component
 

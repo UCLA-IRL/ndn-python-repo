@@ -8,7 +8,7 @@ HTTP/HTTPS.
 import logging
 import requests
 import base64
-from pyndn import Data, Name
+from pyndn import Data
 from pyndn.encoding.tlv_0_2_wire_format import Tlv0_2WireFormat
 import argparse
 
