@@ -36,12 +36,3 @@ class RepoCommandResponse(TlvModel):
 
 class PrefixesInStorage(TlvModel):
     prefixes = RepeatedField(NameField())
-
-
-from ndn.encoding import Name
-if __name__ == '__main__':
-    a = Name.from_str('/git/abc')
-    p = PrefixesInStorage()
-    p.prefixes.append(a)
-    p.prefixes.append(a)
-    print(p)
