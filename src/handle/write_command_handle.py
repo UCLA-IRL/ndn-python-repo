@@ -51,7 +51,7 @@ class WriteCommandHandle(CommandHandle):
         Return to client with status code 100 immediately, and then start data fetching process.
         """
         try:
-            cmd_param = self.decode_cmd_param_blob(int_name)
+            cmd_param = self.decode_cmd_param_bytes(int_name)
         except DecodeError as exc:
             logging.info('Parameter interest blob decode failed')
             # TODO: return response
@@ -95,7 +95,7 @@ class WriteCommandHandle(CommandHandle):
         self.m_processes[process_id].insert_num = insert_num
 
         # Let read handle listen for this prefix
-        existing = CommandHandle.update_prefixes_in_storage(self.storage, Name.to_str(name))
+        existing = CommandHandle.update_prefixes_in_storage(self.storage, name)
         if not existing:
             self.m_read_handle.listen(name)
             pass

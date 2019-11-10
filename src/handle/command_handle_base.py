@@ -4,8 +4,8 @@ from ndn.app import NDNApp
 from ndn.encoding import Name, Component
 
 from src.storage import Storage
-from src.command.repo_storage_format_pb2 import PrefixesInStorage
-from src.command.repo_commands import RepoCommandParameter, RepoCommandResponse
+# from src.command.repo_storage_format_pb2 import PrefixesInStorage
+from src.command.repo_commands import RepoCommandParameter, RepoCommandResponse, PrefixesInStorage
 
 
 class CommandHandle(object):
@@ -26,7 +26,7 @@ class CommandHandle(object):
         response = None
         process_id = None
         try:
-            parameter = self.decode_cmd_param_blob(int_name)
+            parameter = self.decode_cmd_param_bytes(int_name)
             process_id = parameter.process_id
         except RuntimeError as exc:
             response = RepoCommandResponse()
@@ -41,22 +41,29 @@ class CommandHandle(object):
             self.reply_to_cmd(int_name, response)
 
     @staticmethod
-    def update_prefixes_in_storage(storage: Storage, prefix: str) -> bool:
+    def update_prefixes_in_storage(storage: Storage, prefix) -> bool:
         """
+        :param storage: Storage
+        :param prefix: NonStrictName
         Add a new prefix into database
         return whether the prefix has been registered before
         """
         prefixes_msg = PrefixesInStorage()
-        ret = storage.get("prefixes")
+        ret = storage.get('prefixes')
         if ret:
-            prefixes_msg.ParseFromString(ret)
-        for prefix_item in prefixes_msg.prefixes:
-            if prefix_item.name == prefix or prefix.startswith(prefix_item.name):
+            prefixes_msg = PrefixesInStorage.parse(ret)
+
+        # Check if this prefix already exists
+        prefix_str = Name.to_str(Name.normalize(prefix))
+        for existing_prefix in prefixes_msg.prefixes:
+            existing_prefix_str = Name.to_str(existing_prefix)
+            if existing_prefix_str == prefix_str or prefix_str.startswith(existing_prefix_str):
                 return True
-        new_prefix = prefixes_msg.prefixes.add()
-        new_prefix.name = prefix
-        storage.put("prefixes", prefixes_msg.SerializeToString())
-        logging.info("add a new prefix into the database")
+
+        prefixes_msg.prefixes.append(Name.normalize(prefix))
+        prefixes_msg_bytes = prefixes_msg.encode()
+        storage.put('prefixes', bytes(prefixes_msg_bytes))
+        logging.info(f'Added new prefix into the database: {prefix_str}')
         return False
 
     def reply_to_cmd(self, int_name, response: RepoCommandResponse):
@@ -68,15 +75,15 @@ class CommandHandle(object):
         self.app.put_data(int_name, response_bytes)
 
     @staticmethod
-    def decode_cmd_param_blob(name) -> RepoCommandParameter:
+    def decode_cmd_param_bytes(name) -> RepoCommandParameter:
         """
-        Decode the command interest and return a RepoCommandParameterMessage object.
+        Decode the command interest and return a RepoCommandParameter object.
         Command interests have the format of:
         /<routable_repo_prefix>/insert/<cmd_param_blob>/<timestamp>/<random-value>/<SignatureInfo>/<SignatureValue>
         Throw RuntimeError on decoding failure.
         """
-        param_blob = Component.get_value(name[-1])   # TODO: accept command interest instead of regular interests
-        return RepoCommandParameter.parse(param_blob)
+        param_bytes = Component.get_value(name[-1])   # TODO: accept command interest instead of regular interests
+        return RepoCommandParameter.parse(param_bytes)
 
     async def schedule_delete_process(self, process_id: int):
         """

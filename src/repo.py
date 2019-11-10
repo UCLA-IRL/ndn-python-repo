@@ -4,7 +4,8 @@ from ndn.encoding import Name
 
 from src.storage import *
 from src.handle import *
-from src.command.repo_storage_format_pb2 import PrefixesInStorage
+# from src.command.repo_storage_format_pb2 import PrefixesInStorage
+from src.command.repo_commands import PrefixesInStorage
 
 
 class Repo(object):
@@ -34,14 +35,12 @@ class Repo(object):
         """
         Read from the database and get the a list of prefixes for the existing Data in the storage
         """
-        prefixes_msg = PrefixesInStorage()
         ret = self.storage.get("prefixes")
         if ret:
-            prefixes_msg.ParseFromString(ret)
+            prefixes_msg = PrefixesInStorage.parse(ret)
             for prefix in prefixes_msg.prefixes:
-                logging.info("Existing Prefix Found: {:s}".format(prefix.name))
-                self.read_handle.listen(Name.from_str(prefix.name))
-        pass
+                logging.info(f"Existing Prefix Found: {Name.to_str(prefix)}")
+                self.read_handle.listen(prefix)
 
     @staticmethod
     def on_register_failed(prefix):

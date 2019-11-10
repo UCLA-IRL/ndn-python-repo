@@ -45,7 +45,7 @@ class DeleteCommandHandle(CommandHandle):
         Return to client with status code 100 immediately, and then start data fetching process.
         """
         try:
-            cmd_param = self.decode_cmd_param_blob(int_name)
+            cmd_param = self.decode_cmd_param_bytes(int_name)
         except DecodeError as exc:
             logging.warning('Response blob decoding failed')
             return

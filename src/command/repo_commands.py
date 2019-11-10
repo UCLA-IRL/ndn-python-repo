@@ -5,7 +5,7 @@
     @Date   2019-11-01
 """
 
-from ndn.encoding import TlvModel, NameField, UintField
+from ndn.encoding import TlvModel, NameField, UintField, RepeatedField
 
 
 class RepoTypeNumber:
@@ -32,3 +32,16 @@ class RepoCommandResponse(TlvModel):
     status_code = UintField(RepoTypeNumber.STATUS_CODE)
     insert_num = UintField(RepoTypeNumber.INSERT_NUM)
     delete_num = UintField(RepoTypeNumber.DELETE_NUM)
+
+
+class PrefixesInStorage(TlvModel):
+    prefixes = RepeatedField(NameField())
+
+
+from ndn.encoding import Name
+if __name__ == '__main__':
+    a = Name.from_str('/git/abc')
+    p = PrefixesInStorage()
+    p.prefixes.append(a)
+    p.prefixes.append(a)
+    print(p)
