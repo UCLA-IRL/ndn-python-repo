@@ -19,8 +19,12 @@ db_config:
     'db': 'repo'
     'collection': 'data'
   leveldb:
-     # Default leveldb dir
-     'dir': '~/.py-ndn-repo/'
+    # Default leveldb dir
+    'dir': '~/.py-ndn-repo/'
+  sqlite3:
+    # Default sqlite file path
+    'path': '~/.py-ndn-repo/sqlite3.db'
+
 
 tcp_bulk_insert:
   'addr': '0.0.0.0'

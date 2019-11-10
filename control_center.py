@@ -68,7 +68,7 @@ def home():
     number_keys = 0
 
     try:
-        for item in controlCenterDB.get_key_list():
+        for item in controlCenterDB.keys():
             if item == 'prefixes':
                 continue
             is_cert = "/KEY/" in item

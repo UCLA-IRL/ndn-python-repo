@@ -1,8 +1,8 @@
 #!./venv/bin/python3
+import os
 import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name
-import faulthandler; faulthandler.enable()
 from src import *
 
 DO_PROFILING = False
@@ -20,7 +20,8 @@ def main():
 
     app = NDNApp()
 
-    storage = MongoDBStorage(config['db_config']['mongodb']['db'], config['db_config']['mongodb']['collection'])
+    print(os.path.expanduser(config['db_config']['sqlite3']['path']))
+    storage = SqliteStorage(config['db_config']['sqlite3']['path'])
     read_handle = ReadHandle(app, storage)
     write_handle = WriteCommandHandle(app, storage, read_handle)
     delete_handle = DeleteCommandHandle(app, storage)

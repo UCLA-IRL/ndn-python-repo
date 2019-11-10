@@ -1,12 +1,13 @@
 import pymongo
 from pymongo import MongoClient
+from typing import List, Optional
 from .storage_base import Storage
 
 
 class MongoDBStorage(Storage):
     def __init__(self, db: str, collection: str):
         """
-        Init DB with unique index on hash
+        Init DB with unique index on key
         """
         self._db = db
         self._collection = collection
@@ -33,7 +34,7 @@ class MongoDBStorage(Storage):
         except pymongo.errors.DuplicateKeyError:
             self.c_collection.update_one({"key": key}, {"$set": {"value": value}})
 
-    def get(self, key: str) -> bytes:
+    def get(self, key: str) -> Optional[bytes]:
         """
         Get document from MongoDB
         """
@@ -58,14 +59,8 @@ class MongoDBStorage(Storage):
         """
         return self.c_collection.delete_one({"key": key}).deleted_count > 0
 
-    def keys(self):
+    def keys(self) -> List[str]:
         """
         Return a set of "primary" keys
         """
         return (doc["key"] for doc in self.c_collection.find())
-
-    def get_key_list(self) -> list:  # TODO: need to implement this
-        key_list = list()
-        for doc in self.c_collection.find():
-            key_list.append(doc["key"])
-        return key_list
