@@ -57,9 +57,9 @@ class TestSqliteStorage(StorageTestFixture):
         StorageTestFixture.test_main()
 
 
+# Unit tests for optional DBs only if they can be successfully imported
 try:
     from src.storage import MongoDBStorage
-
     class TestMongoDBStorage(StorageTestFixture):
         """
         Test MongoDBStorage
@@ -68,6 +68,5 @@ try:
         def test_main():
             StorageTestFixture.storage = SqliteStorage()
             StorageTestFixture.test_main()
-
 except ImportError as exc:
     pass
