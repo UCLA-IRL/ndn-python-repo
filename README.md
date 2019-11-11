@@ -19,13 +19,11 @@ For macOS and Ubuntu:
 git clone https://github.com/JonnyKong/NDN-Repo.git
 
 # 1) Create virtual env
-python3 -m venv ./venv
-./venv/bin/python -m pip install -r requirements.txt
+make venv
 source ./venv/bin/activate
 
-# 2) Compile protobuf files
-cd src/command
-make
+# 2) Run unit tests
+make test
 
 # 3) Start a repo instance
 python main.py

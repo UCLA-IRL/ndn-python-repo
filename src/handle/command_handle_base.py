@@ -4,7 +4,6 @@ from ndn.app import NDNApp
 from ndn.encoding import Name, Component
 
 from src.storage import Storage
-# from src.command.repo_storage_format_pb2 import PrefixesInStorage
 from src.command.repo_commands import RepoCommandParameter, RepoCommandResponse, PrefixesInStorage
 
 

@@ -4,7 +4,6 @@ from ndn.encoding import Name
 
 from src.storage import *
 from src.handle import *
-# from src.command.repo_storage_format_pb2 import PrefixesInStorage
 from src.command.repo_commands import PrefixesInStorage
 
 

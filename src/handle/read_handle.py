@@ -3,7 +3,6 @@ import pickle
 from ndn.app import NDNApp
 from ndn.encoding import Name, MetaInfo
 from src.storage import Storage
-from datetime import datetime
 
 
 class ReadHandle(object):

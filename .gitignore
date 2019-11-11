@@ -112,3 +112,5 @@ venv.bak/
 **/.DS_Store
 .vscode/
 .leveldb/
+.pytest_cache/
+repo.db

@@ -65,10 +65,11 @@ class SqliteStorage(Storage):
         :return: bool
         """
         c = self.conn.cursor()
-        return c.execute("""
+        n_removed = c.execute("""
             DELETE FROM data
             WHERE key = ?
         """, (key, )).rowcount
+        return n_removed > 0
 
     def keys(self) -> List[str]:
         """
