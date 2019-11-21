@@ -1,9 +1,13 @@
-import yaml
 import logging
+import os
+import yaml
 
 
 def get_yaml():
-    path = '_config.yaml'
+    path = '/usr/local/etc/ndn/ndn-repo.conf'
+    if not os.path.exists(path):
+        path = '_config.yaml'
+        
     try:
         with open(path, 'r', encoding='utf-8') as file:
             config = yaml.safe_load(file)

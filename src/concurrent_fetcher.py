@@ -80,7 +80,7 @@ async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
             tasks.append(task)
             cur_id += 1
 
-    aio.create_task(_dispatch_tasks())
+    aio.get_event_loop().create_task(_dispatch_tasks())
     while True:
         await received_or_fail.wait()
         received_or_fail.clear()

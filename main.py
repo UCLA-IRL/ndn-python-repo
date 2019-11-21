@@ -1,4 +1,3 @@
-#!./venv/bin/python3
 import os
 import logging
 from ndn.app import NDNApp
@@ -20,8 +19,7 @@ def main():
 
     app = NDNApp()
 
-    print(os.path.expanduser(config['db_config']['sqlite3']['path']))
-    storage = SqliteStorage(config['db_config']['sqlite3']['path'])
+    storage = SqliteStorage()
     read_handle = ReadHandle(app, storage)
     write_handle = WriteCommandHandle(app, storage, read_handle)
     delete_handle = DeleteCommandHandle(app, storage)

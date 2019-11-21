@@ -43,7 +43,7 @@ class WriteCommandHandle(CommandHandle):
         self.app.route(name_to_reg)(self.on_check_interest)
 
     def _on_insert_interest(self, int_name, _int_param, _app_param):
-        aio.create_task(self._process_insert(int_name, _int_param, _app_param))
+        aio.get_event_loop().create_task(self._process_insert(int_name, _int_param, _app_param))
 
     async def _process_insert(self, int_name, _int_param, _app_param):
         """

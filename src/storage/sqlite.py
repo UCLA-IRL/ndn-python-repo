@@ -5,7 +5,7 @@ from .storage_base import Storage
 
 
 class SqliteStorage(Storage):
-    def __init__(self, db_path: str = 'repo.db'):
+    def __init__(self, db_path: str = '~/.ndn/repo.db'):
         """
         Init table "data" with the attribute "key" being the primary key
         :param db_path: str. Path to database file

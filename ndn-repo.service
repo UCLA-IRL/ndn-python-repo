@@ -1,0 +1,9 @@
+[Unit]
+Description=NDN Repo Service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3.6 /usr/local/bin/ndn-repo
+
+[Install]
+WantedBy=multi-user.target

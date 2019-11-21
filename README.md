@@ -18,15 +18,17 @@ For macOS and Ubuntu:
 ```bash
 git clone https://github.com/JonnyKong/NDN-Repo.git
 
-# 1) Create virtual env
-make venv
-source ./venv/bin/activate
+# 1) Install dependencies
+pip3 install -r requirements.txt
 
 # 2) Run unit tests
 make test
 
-# 3) Start a repo instance
-python main.py
+# 3) Install NDN-Repo
+sudo make install
+
+# 4) Start a repo instance
+systemctl start ndn-repo.service
 
 # Insert a file into the repo
 cd src/clients && python putfile.py -r <repo_name> -f <path_to_file> -n <filename_in_repo>
