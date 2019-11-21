@@ -27,14 +27,19 @@ make test
 # 3) Install NDN-Repo
 sudo make install
 
-# 4) Start a repo instance
-systemctl start ndn-repo.service
+# 4.1) Start a repo instance with systemd (Ubuntu)
+sudo systemctl start ndn-repo.service
+# 4.2) ... or start a repo instance directly
+python3 main.py
+
+# 5) Check repo status (Ubuntu)
+sudo journalctl -u ndn-repo.service
 
 # Insert a file into the repo
-cd src/clients && python putfile.py -r <repo_name> -f <path_to_file> -n <filename_in_repo>
+cd src/clients && python3 putfile.py -r <repo_name> -f <path_to_file> -n <filename_in_repo>
 
 # Fetch a file from the repo
-cd src/clients && python getfile.py -r <repo_name> -n <filename_in_repo>
+cd src/clients && python3 getfile.py -r <repo_name> -n <filename_in_repo>
 ```
 
 ## TODO
