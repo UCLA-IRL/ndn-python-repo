@@ -37,16 +37,15 @@ class TcpBulkInsertHandle(object):
                     siz = await read_tl_num_from_stream(self.reader)
                     data_bytes = await self.reader.readexactly(siz)
                 except aio.IncompleteReadError as exc:
+                    self.writer.close()
                     logging.info('Closed TCP connection')
                     return
                 except Exception as exc:
                     print(exc)
                     return
-                (data_name, meta_info, content, _) = parse_data(data_bytes, with_tl=False)
-                content_to_dump = pickle.dumps((Name.to_bytes(data_name),
-                                                meta_info.encode(),
-                                                content.tobytes()))
-                self.storage.put(Name.to_str(data_name), content_to_dump)
+                # Parse data again to obtain the name
+                (data_name, _, _, _) = parse_data(data_bytes, with_tl=False)
+                self.storage.put(Name.to_str(data_name), data_bytes)
                 logging.info(f'Inserted data: {Name.to_str(data_name)}')
 
     def __init__(self, storage: Storage, read_handle: ReadHandle,
