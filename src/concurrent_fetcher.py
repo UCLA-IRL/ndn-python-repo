@@ -9,7 +9,7 @@ import asyncio as aio
 from typing import Optional
 from ndn.app import NDNApp
 from ndn.types import InterestNack, InterestTimeout
-from ndn.encoding import Name, Component
+from ndn.encoding import Name, Component, ndn_format_0_3
 from datetime import datetime
 
 
@@ -19,7 +19,7 @@ async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
     An async-generator to fetch segmented object. Interests are issued concurrently.
     :param app: NDNApp.
     :param name: NonStrictName. Name prefix of Data.
-    :return: Yield (data_name, meta_info, content) tuples in order.
+    :return: Yield (data_bytes) tuples in order.
     """
     cur_id = start_block_id if start_block_id is not None else 0
     final_id = end_block_id if end_block_id is not None else 0x7fffffff
@@ -48,13 +48,20 @@ async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
                 return
             try:
                 print(datetime.now().strftime("%H:%M:%S.%f "), end='')
-                print('Express Interest: {}'.format(Name.to_str(Name.normalize(int_name))))
-                data_name, meta_info, content = await app.express_interest(
+                print('Express Interest: {}'.format(Name.to_str(int_name)))
+
+                # Get the data name first, and then use the name to get the entire packet value (including sig). This
+                # is necessary because express_interest() does not return the sig, which is needed by the repo. An
+                # additional decoding step is necessary to obtain the metadata.
+                data_name, _, _ = await app.express_interest(
                     int_name, must_be_fresh=True, can_be_prefix=False, lifetime=1000)
+                data_bytes = app.get_original_packet_value(data_name)
+                (_, meta_info, content, sig) = ndn_format_0_3.parse_data(data_bytes, with_tl=False)
+
                 # Save data and update final_id
                 print(datetime.now().strftime("%H:%M:%S.%f "), end='')
                 print('Received data: {}'.format(Name.to_str(data_name)))
-                seq_to_data_packet[seq] = (data_name, meta_info, content)
+                seq_to_data_packet[seq] = data_bytes
                 if meta_info is not None and meta_info.final_block_id is not None:
                     final_id = Component.to_number(meta_info.final_block_id)
                 break
@@ -108,9 +115,9 @@ async def main(app: NDNApp):
     :param app: NDNApp
     """
     semaphore = aio.Semaphore(20)
-    async for (data_name, meta_info, content) in concurrent_fetcher(app, Name.from_str('/test1.pdf'), 0, 161, semaphore):
-        pass
-        # print(content)
+    async for data_bytes in concurrent_fetcher(app, Name.from_str('/test1.pdf'), 0, 161, semaphore):
+        (data_name, meta_info, content, sig) = ndn_format_0_3.parse_data(data_bytes, with_tl=False)
+        print(Name.to_str(data_name))
     app.shutdown()
 
 

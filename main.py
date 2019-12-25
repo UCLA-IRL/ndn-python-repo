@@ -4,13 +4,13 @@ from ndn.app import NDNApp
 from ndn.encoding import Name
 from src import *
 
+
 DO_PROFILING = False
 if DO_PROFILING:
     import cProfile, pstats, io
     from pstats import SortKey
     pr = cProfile.Profile()
     pr.enable()
-
 
 
 def main():
@@ -42,7 +42,6 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         pass
-
 
 
 if DO_PROFILING:

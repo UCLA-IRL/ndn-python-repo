@@ -53,7 +53,7 @@ class CommandHandle(object):
             prefixes_msg = PrefixesInStorage.parse(ret)
 
         # Check if this prefix already exists
-        prefix_str = Name.to_str(Name.normalize(prefix))
+        prefix_str = Name.to_str(prefix)
         for existing_prefix in prefixes_msg.prefixes:
             existing_prefix_str = Name.to_str(existing_prefix)
             if existing_prefix_str == prefix_str or prefix_str.startswith(existing_prefix_str):

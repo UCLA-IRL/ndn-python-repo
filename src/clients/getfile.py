@@ -13,7 +13,7 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 import asyncio as aio
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name
+from ndn.encoding import Name, ndn_format_0_3
 from concurrent_fetcher import concurrent_fetcher
 
 
@@ -36,7 +36,8 @@ class GetfileClient(object):
         """
         semaphore = aio.Semaphore(10)
         b_array = bytearray()
-        async for (_, _, content) in concurrent_fetcher(self.app, name_at_repo, 0, None, semaphore):
+        async for data_bytes in concurrent_fetcher(self.app, name_at_repo, 0, None, semaphore):
+            (_, _, content, _) = ndn_format_0_3.parse_data(data_bytes, with_tl=False)
             b_array.extend(content)
 
         if len(b_array) > 0:

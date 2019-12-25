@@ -1,9 +1,8 @@
 import asyncio as aio
 import logging
-import pickle
 import random
 from ndn.app import NDNApp
-from ndn.encoding import Name, DecodeError
+from ndn.encoding import Name, DecodeError, ndn_format_0_3
 
 from . import ReadHandle, CommandHandle
 from src.concurrent_fetcher import concurrent_fetcher
@@ -75,12 +74,10 @@ class WriteCommandHandle(CommandHandle):
         self.m_processes[process_id].status_code = 300
         semaphore = aio.Semaphore(10)
         block_id = start_block_id
-        async for (data_name, meta_info, content) in concurrent_fetcher(self.app, name, start_block_id, end_block_id, semaphore):
-            meta_info_bytes = meta_info.encode()
-            content_to_dump = pickle.dumps((Name.to_bytes(data_name),
-                                            meta_info.encode(),
-                                            content.tobytes()))
-            self.storage.put(Name.to_str(data_name), content_to_dump)
+        async for data_bytes in concurrent_fetcher(self.app, name, start_block_id, end_block_id, semaphore):
+            # Obtain data name by parsing data
+            (data_name, _, _, _) = ndn_format_0_3.parse_data(data_bytes, with_tl=False)
+            self.storage.put(Name.to_str(data_name), data_bytes)
             assert block_id <= end_block_id
             block_id += 1
 

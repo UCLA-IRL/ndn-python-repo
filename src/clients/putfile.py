@@ -17,6 +17,7 @@ from ndn.encoding import Name, Component, DecodeError
 from ndn.types import InterestNack, InterestTimeout
 from command_checker import CommandChecker
 from command.repo_commands import RepoCommandParameter, RepoCommandResponse
+from ndn.security import KeychainDigest
 
 
 MAX_BYTES_IN_DATA_PACKET = 2000
@@ -56,7 +57,7 @@ class PutfileClient(object):
             name = name_at_repo[:]
             name.append(str(seq))
             packet = self.app.prepare_data(name, content, final_block_id=Component.from_sequence_num(num_packets - 1))
-            self.name_str_to_data[Name.to_str(Name.normalize(name))] = packet
+            self.name_str_to_data[Name.to_str(name)] = packet
             seq += 1
         return num_packets
 
@@ -82,19 +83,6 @@ class PutfileClient(object):
         # self.app.route(name_at_repo)(self._on_interest)
         await self.app.register(name_at_repo, self._on_interest)
 
-        # Prepare cmd param
-        # cmd_param = RepoCommandParameterMessage()
-        # for compo in Name.normalize(name_at_repo):
-        #     compo_bytes = Component.get_value(compo).tobytes()
-        #     try:
-        #         cmd_param.repo_command_parameter.name.component.append(compo_bytes)
-        #     except Exception as e:
-        #         print(e)
-        #         return
-        # cmd_param.repo_command_parameter.start_block_id = 0
-        # cmd_param.repo_command_parameter.end_block_id = num_packets - 1
-        # cmd_param_bytes = ProtobufTlv.encode(cmd_param).toBytes()
-
         cmd_param = RepoCommandParameter()
         cmd_param.name = name_at_repo
         cmd_param.start_block_id = 0
@@ -107,7 +95,7 @@ class PutfileClient(object):
         name.append(Component.from_bytes(cmd_param_bytes))
 
         try:
-            logging.info(f'Expressing interest: {Name.to_str(Name.normalize(name))}')
+            logging.info(f'Expressing interest: {Name.to_str(name)}')
             data_name, meta_info, content = await self.app.express_interest(
                 name, must_be_fresh=True, can_be_prefix=False, lifetime=1000)
             logging.info(f'Received data name: {Name.to_str(data_name)}')
@@ -173,7 +161,7 @@ def main():
                         datefmt='%Y-%m-%d %H:%M:%S',
                         level=logging.INFO)
 
-    app = NDNApp()
+    app = NDNApp(face=None, keychain=KeychainDigest())
     app.run_forever(
         after_start=run_putfile_client(app, repo_name=args.repo_name,
                                        file_path=args.file_path,

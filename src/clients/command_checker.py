@@ -45,7 +45,7 @@ class CommandChecker(object):
         name.append(Component.from_bytes(cmd_param_bytes))
 
         try:
-            print(f'Expressing interest: {Name.to_str(Name.normalize(name))}')
+            print(f'Expressing interest: {Name.to_str(name)}')
             data_name, meta_info, content = await self.app.express_interest(
                 name, must_be_fresh=True, can_be_prefix=False, lifetime=1000)
             print(f'Received data name: {Name.to_str(data_name)}')
@@ -53,7 +53,7 @@ class CommandChecker(object):
             print(f'Nacked with reason={e.reason}')
             return None
         except InterestTimeout:
-            print(f'Timeout: {Name.to_str(Name.normalize(name))}')
+            print(f'Timeout: {Name.to_str(name)}')
             return None
 
         try:
