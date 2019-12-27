@@ -1,0 +1,74 @@
+"""
+    This script ports sqlite db file from repo-ng to NDN-Repo.
+    It takes as input a repo-ng sqlite database file, traverse the database and inserts data to
+    an NDN-Repo using TCP bulk insertion.
+
+    @Author jonnykong@cs.ucla.edu
+    @Date   2019-12-26
+"""
+
+import argparse
+import asyncio as aio
+import os
+import sqlite3
+from ndn.encoding import Name, Component, ndn_format_0_3, tlv_var
+
+
+def create_sqlite3_connection(db_file):
+    conn = None
+    try:
+        conn = sqlite3.connect(db_file)
+    except Exception as e:
+        print(e)
+    return conn
+
+
+def convert_name(name: bytes) -> str:
+    """
+    Convert the name to print.
+    """
+    # Remove ImplicitSha256DigestComponent TLV
+    data_bytes = name[:-34]    
+
+    # Prepend TL of Name
+    type_len = tlv_var.get_tl_num_size(ndn_format_0_3.TypeNumber.DATA)
+    len_len = tlv_var.get_tl_num_size(len(data_bytes))
+    buf = bytearray(type_len + len_len + len(data_bytes))
+    offset = 0
+    offset += tlv_var.write_tl_num(ndn_format_0_3.TypeNumber.NAME, buf, offset)
+    offset += tlv_var.write_tl_num(len(data_bytes), buf, offset)
+    buf[offset:] = data_bytes
+
+    # Convert bytes to URI format
+    name = Name.from_bytes(buf)
+    return Name.to_str(name)
+
+
+async def port_over_tcp(src_db_file, dest_addr='127.0.0.1', dest_port='7376'):
+    conn_from = create_sqlite3_connection(src_db_file)
+    reader, writer = await aio.open_connection(dest_addr, dest_port)
+
+    # Read from source database
+    cur = conn_from.cursor()
+    cur.execute('SELECT name, data FROM NDN_REPO_V2')
+    rows = cur.fetchall()
+    for row in rows:
+        print('Porting data:', convert_name(row[0]))
+        writer.write(row[1])
+    
+    writer.close()
+    conn_from.close()
+
+
+async def main():
+    parser = argparse.ArgumentParser(description='port')
+    parser.add_argument('-d', '--dbfile',
+                        required=True, help='Source database file')
+    args = parser.parse_args()
+    
+    src_db_file = os.path.expanduser(args.dbfile)
+    await port_over_tcp(src_db_file)
+
+
+if __name__ == '__main__':
+    aio.run(main())

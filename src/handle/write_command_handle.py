@@ -95,7 +95,6 @@ class WriteCommandHandle(CommandHandle):
         existing = CommandHandle.update_prefixes_in_storage(self.storage, name)
         if not existing:
             self.m_read_handle.listen(name)
-            pass
 
         # Delete process state after some time
         await self.schedule_delete_process(process_id)

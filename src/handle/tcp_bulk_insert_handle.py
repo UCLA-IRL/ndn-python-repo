@@ -2,7 +2,7 @@ import asyncio as aio
 import logging
 import pickle
 import sys
-from . import ReadHandle
+from . import ReadHandle, CommandHandle
 from src.storage import *
 from ndn.encoding import Name, read_tl_num_from_stream, parse_data
 from ndn.encoding import TypeNumber
@@ -47,6 +47,10 @@ class TcpBulkInsertHandle(object):
                 (data_name, _, _, _) = parse_data(data_bytes, with_tl=False)
                 self.storage.put(Name.to_str(data_name), data_bytes)
                 logging.info(f'Inserted data: {Name.to_str(data_name)}')
+                # Register prefix for this data
+                existing = CommandHandle.update_prefixes_in_storage(self.storage, data_name)
+                if not existing:
+                    self.read_handle.listen(data_name)
 
     def __init__(self, storage: Storage, read_handle: ReadHandle,
                  server_addr: str, server_port: str):
