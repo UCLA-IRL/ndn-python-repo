@@ -2,7 +2,7 @@ import os
 import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name
-from src import *
+from ndn_repo import *
 
 
 DO_PROFILING = False

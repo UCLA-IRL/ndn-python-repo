@@ -4,8 +4,8 @@ import requests
 
 from flask import Flask, escape, request, url_for
 from flask import render_template, make_response
-from src import config
-from src import MongoDBStorage
+from ndn_repo import config
+from ndn_repo import MongoDBStorage
 
 import random
 import string

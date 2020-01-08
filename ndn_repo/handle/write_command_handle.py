@@ -5,9 +5,9 @@ from ndn.app import NDNApp
 from ndn.encoding import Name, DecodeError, ndn_format_0_3
 
 from . import ReadHandle, CommandHandle
-from src.concurrent_fetcher import concurrent_fetcher
-from src.storage import Storage
-from src.command.repo_commands import RepoCommandResponse
+from ..concurrent_fetcher import concurrent_fetcher
+from ..storage import Storage
+from ..command.repo_commands import RepoCommandResponse
 
 
 class WriteCommandHandle(CommandHandle):

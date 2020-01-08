@@ -3,7 +3,7 @@ import logging
 import pickle
 import sys
 from . import ReadHandle, CommandHandle
-from src.storage import *
+from ..storage import *
 from ndn.encoding import Name, read_tl_num_from_stream, parse_data
 from ndn.encoding import TypeNumber
 

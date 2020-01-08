@@ -14,7 +14,7 @@ import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name, Component, TlvModel, DecodeError
 from ndn.types import InterestNack, InterestTimeout
-from command.repo_commands import RepoCommandParameter, RepoCommandResponse
+from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse
 
 
 class CommandChecker(object):

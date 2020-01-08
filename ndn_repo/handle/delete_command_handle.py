@@ -4,8 +4,8 @@ import random
 from ndn.app import NDNApp
 from ndn.encoding import Name, DecodeError
 from . import CommandHandle
-from src.storage import Storage
-from src.command.repo_commands import RepoCommandResponse
+from ..storage import Storage
+from ..command.repo_commands import RepoCommandResponse
 
 
 class DeleteCommandHandle(CommandHandle):

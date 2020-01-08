@@ -14,8 +14,8 @@ import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name, Component, DecodeError
 from ndn.types import InterestNack, InterestTimeout
-from command.repo_commands import RepoCommandParameter, RepoCommandResponse
-from command_checker import CommandChecker
+from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse
+from .command_checker import CommandChecker
 
 
 class DeleteClient(object):
