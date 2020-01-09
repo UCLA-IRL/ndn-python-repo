@@ -1,7 +1,7 @@
 import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name, tlv_var, ndn_format_0_3
-from src.storage import Storage
+from ..storage import Storage
 
 
 class ReadHandle(object):

@@ -2,9 +2,9 @@ import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name
 
-from src.storage import *
-from src.handle import *
-from src.command.repo_commands import PrefixesInStorage
+from .storage import *
+from .handle import *
+from .command.repo_commands import PrefixesInStorage
 
 
 class Repo(object):

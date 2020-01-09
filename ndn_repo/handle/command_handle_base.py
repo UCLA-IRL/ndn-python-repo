@@ -3,8 +3,8 @@ import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name, Component
 
-from src.storage import Storage
-from src.command.repo_commands import RepoCommandParameter, RepoCommandResponse, PrefixesInStorage
+from ..storage import Storage
+from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse, PrefixesInStorage
 
 
 class CommandHandle(object):

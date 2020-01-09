@@ -4,7 +4,7 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import abc
 import pytest
-from src.storage import *
+from ndn_repo.storage import *
 
 
 class StorageTestFixture(object):

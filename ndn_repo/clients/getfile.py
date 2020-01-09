@@ -14,7 +14,7 @@ import asyncio as aio
 import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name, ndn_format_0_3
-from concurrent_fetcher import concurrent_fetcher
+from ..concurrent_fetcher import concurrent_fetcher
 
 
 class GetfileClient(object):
