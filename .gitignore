@@ -114,3 +114,4 @@ venv.bak/
 .leveldb/
 .pytest_cache/
 repo.db
+NDN_Repo.egg-info/

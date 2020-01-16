@@ -43,6 +43,9 @@ class PutfileClient(object):
         :param name_at_repo: Name used to store file at repo
         :return: Number of packets required to send this file
         """
+        if not os.path.exists(file_path):
+            logging.error(f'file {file_path} does not exist')
+            return 0
         with open(file_path, 'rb') as binary_file:
             b_array = bytearray(binary_file.read())
         if len(b_array) == 0:
@@ -78,7 +81,6 @@ class PutfileClient(object):
         num_packets = self._prepare_data(file_path, name_at_repo)
         if num_packets == 0:
             return
-
         # Register prefix for responding interests from repo
         # self.app.route(name_at_repo)(self._on_interest)
         await self.app.register(name_at_repo, self._on_interest)
