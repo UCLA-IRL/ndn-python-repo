@@ -11,14 +11,16 @@ A Named Data Networking (NDN) Repo implementation using [python-ndn](https://git
   * [LevelDB](https://github.com/google/leveldb) - Fast key-value storage library
   * [MongoDB](https://www.mongodb.com) - A document-oriented database, and [PyMongo](https://api.mongodb.com/python/current/) - MongoDB Python interface
 
-## Installation
+## Install in user directory (without systemd)
 
-Install in user directory (without systemd):
+Install the latest release with pip:
 
 ```bash
-# 1) Install the latest release with pip:
 $ pip3 install NDN-Repo
-# Optionally, you can install the latest development version from local:
+```
+Optionally, you can install the latest development version from local:
+
+```bash
 $ git clone https://github.com/JonnyKong/NDN-Repo.git
 $ cd NDN-Repo && pip3 install -e .
 
@@ -26,19 +28,24 @@ $ cd NDN-Repo && pip3 install -e .
 $ ndn-python-repo
 ```
 
-Install in system directory with systemd support:
+## Install in system directory with systemd support:
+
+Install the latest release with pip
 
 ``````bash
-# 1) Install the latest release with pip
 $ sudo /usr/bin/pip3 install NDN-Repo
-# Optionally, you can install the latest development version from local:
+```
+Optionally, you can install the latest development version from local:
+```bash
 $ git clone https://github.com/JonnyKong/NDN-Repo.git
 $ cd NDN-Repo && sudo /usr/bin/pip3 install -e .
-
-# 2) Install systemd script
-$ ndn-python-repo-install
-
-# 3) Start, stop and monitor a repo instance with systemd
+```
+Install systemd scripts:
+```
+$ sudo ndn-python-repo-install
+```
+Start, stop and monitor a repo instance with systemd:
+```bash
 $ sudo systemctl start ndn-python-repo
 $ sudo systemctl stop ndn-python-repo
 $ sudo systemctl status ndn-python-repo
