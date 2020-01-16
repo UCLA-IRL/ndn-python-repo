@@ -3,7 +3,7 @@ Description=NDN Repo Service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/python3 /usr/local/bin/ndn-repo
+ExecStart=/usr/local/bin/ndn-python-repo
 
 [Install]
 WantedBy=multi-user.target

@@ -1,6 +1,6 @@
 # NDN-Repo
 
-A quick-and-dirty Named Data Networking (NDN) Repo implementation using [python-ndn](https://github.com/zjkmxy/python-ndn).
+A Named Data Networking (NDN) Repo implementation using [python-ndn](https://github.com/zjkmxy/python-ndn).
 
 ## Prerequisites
 
@@ -11,51 +11,41 @@ A quick-and-dirty Named Data Networking (NDN) Repo implementation using [python-
   * [LevelDB](https://github.com/google/leveldb) - Fast key-value storage library
   * [MongoDB](https://www.mongodb.com) - A document-oriented database, and [PyMongo](https://api.mongodb.com/python/current/) - MongoDB Python interface
 
-## Getting Started
+## Installation
 
-For macOS and Ubuntu:
+Install in user directory (without systemd):
 
 ```bash
-git clone https://github.com/JonnyKong/NDN-Repo.git
+# 1) Install the latest release with pip:
+$ pip3 install NDN-Repo
+# Optionally, you can install the latest development version from local:
+$ git clone https://github.com/JonnyKong/NDN-Repo.git
+$ cd NDN-Repo && pip3 install -e .
 
-# 1) Install dependencies
-pip3 install -r requirements.txt
-
-# 2) Run unit tests
-make test
-
-# 3) Install NDN-Repo
-sudo make install
-
-# 4.1) Start a repo instance with systemd (Ubuntu)
-sudo systemctl start ndn-repo.service
-# 4.2) ... or start a repo instance directly
-python3 main.py
-
-# 5) Check repo status (Ubuntu)
-sudo journalctl -u ndn-repo.service
-
-# Insert a file into the repo
-cd src/clients && python3 putfile.py -r <repo_name> -f <path_to_file> -n <filename_in_repo>
-
-# Fetch a file from the repo
-cd src/clients && python3 getfile.py -r <repo_name> -n <filename_in_repo>
+# 2) Start a repo instance:
+$ ndn-python-repo
 ```
+
+Install in system directory with systemd support:
+
+``````bash
+# 1) Install the latest release with pip
+$ sudo /usr/bin/pip3 install NDN-Repo
+# Optionally, you can install the latest development version from local:
+$ git clone https://github.com/JonnyKong/NDN-Repo.git
+$ cd NDN-Repo && sudo /usr/bin/pip3 install -e .
+
+# 2) Install systemd script
+$ ndn-python-repo-install
+
+# 3) Start, stop and monitor a repo instance with systemd
+$ sudo systemctl start ndn-python-repo
+$ sudo systemctl stop ndn-python-repo
+$ sudo systemctl status ndn-python-repo
+``````
 
 ## TODO
 
-- [x] TCP Bulk Insertion functionality, tested using NDNCERT
-- [x] Control Center basic Web interface
-- [x] Control Center backend: list Data, delete Data, display up-to-date Repo status, commands (stop, start, restart)
-- [x] HTTP Get Data Demo program (http_get_data.py in directory `src`)
-- [x] Add an instructions page
-- [x] Insert check command
-- [x] Delete command
-- [x] Delete check command
 - [ ] Add command validator for `handles`
-- [ ] Finalize database implementation for Google Cloud DataStore. (MongoDB is not very convenient to configure)
-- [ ] Now we have HTTP get Data endpoint. We might want to add a TCP get Data. This introduces design questions, e.g. Do we use port 7376 for Data fetching, or we use a different port?
 - [ ] Configure a PyNDN-Repo Docker for easier deployment
-- [ ] Nail down protocol design
 - [ ] Implement Trust Schema for Data and command verification
-- [ ] Add more demo programs, and improve documentations

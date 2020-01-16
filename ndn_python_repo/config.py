@@ -5,9 +5,9 @@ from pkg_resources import resource_filename
 
 
 def get_yaml():
-    path = '/usr/local/etc/ndn/ndn-repo.conf'
+    path = '/usr/local/etc/ndn/ndn-python-repo.conf'
     if not os.path.exists(path):
-        path = resource_filename(__name__, 'ndn-repo.conf')
+        path = resource_filename(__name__, 'ndn-python-repo.conf')
         
     try:
         with open(path, 'r', encoding='utf-8') as file:

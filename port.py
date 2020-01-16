@@ -50,7 +50,7 @@ async def port_over_tcp(src_db_file, dest_addr='127.0.0.1', dest_port='7376'):
 
     # Read from source database
     cur = conn_from.cursor()
-    cur.execute('SELECT name, data FROM NDN_REPO_V2')
+    cur.execute('SELECT name, data from ndn_python_repo_V2')
     rows = cur.fetchall()
     for row in rows:
         print('Porting data:', convert_name(row[0]))

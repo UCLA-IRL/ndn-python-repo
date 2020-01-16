@@ -52,13 +52,14 @@ setup(
 
     entry_points={
         'console_scripts': [
-            'ndn-repo = ndn_repo.cmd.main:main',
+            'ndn-python-repo = ndn_python_repo.cmd.main:main',
+            'ndn-python-repo-install = ndn_python_repo.cmd.install:main'
         ],
     },
 
     data_files=[
-        # ('/usr/local/etc/ndn', ['ndn-repo.conf']),
-        # ('/etc/systemd/system/', ['ndn-repo.service']),
+        # ('/usr/local/etc/ndn', ['ndn_python_repo/ndn-python-repo.conf']),
+        # ('/etc/systemd/system/', ['ndn_python_repo/ndn-python-repo.service']),
     ],
 
     package_data={

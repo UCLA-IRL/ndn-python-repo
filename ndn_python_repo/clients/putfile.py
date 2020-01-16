@@ -59,7 +59,9 @@ class PutfileClient(object):
             content = b_array[i : min(i + MAX_BYTES_IN_DATA_PACKET, len(b_array))]
             name = name_at_repo[:]
             name.append(str(seq))
-            packet = self.app.prepare_data(name, content, final_block_id=Component.from_sequence_num(num_packets - 1))
+            packet = self.app.prepare_data(name, content, 
+                final_block_id=Component.from_sequence_num(num_packets - 1),
+                freshness_period=1000000)
             self.name_str_to_data[Name.to_str(name)] = packet
             seq += 1
         return num_packets
