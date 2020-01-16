@@ -41,7 +41,7 @@ $ git clone https://github.com/JonnyKong/NDN-Repo.git
 $ cd NDN-Repo && sudo /usr/bin/pip3 install -e .
 ```
 Install systemd scripts:
-```
+```bash
 $ sudo ndn-python-repo-install
 ```
 Start, stop and monitor a repo instance with systemd:
