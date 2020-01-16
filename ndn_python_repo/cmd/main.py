@@ -16,7 +16,6 @@ def main() -> int:
 
         app = NDNApp()
 
-        print("db path", config['db_config']['sqlite3']['path'])
         storage = SqliteStorage(config['db_config']['sqlite3']['path'])
         read_handle = ReadHandle(app, storage)
         write_handle = WriteCommandHandle(app, storage, read_handle)

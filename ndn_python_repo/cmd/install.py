@@ -9,7 +9,7 @@ def install(source, destination):
 
 def main():
     source = resource_filename(__name__, '../ndn-python-repo.conf')
-    destination = '/usr/local/etc/ndn'
+    destination = '/usr/local/etc/ndn/'
     install(source, destination)
 
     source = resource_filename(__name__, '../ndn-python-repo.service')
