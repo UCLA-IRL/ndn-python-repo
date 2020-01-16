@@ -32,7 +32,7 @@ $ ndn-python-repo
 
 Install the latest release with pip
 
-``````bash
+```bash
 $ sudo /usr/bin/pip3 install NDN-Repo
 ```
 Optionally, you can install the latest development version from local:
@@ -49,7 +49,7 @@ Start, stop and monitor a repo instance with systemd:
 $ sudo systemctl start ndn-python-repo
 $ sudo systemctl stop ndn-python-repo
 $ sudo systemctl status ndn-python-repo
-``````
+```
 
 ## TODO
 
