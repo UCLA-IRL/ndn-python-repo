@@ -10,6 +10,10 @@ class SqliteStorage(Storage):
         Init table "data" with the attribute "key" being the primary key
         :param db_path: str. Path to database file
         """
+        db_path = os.path.expanduser(db_path)
+        if not os.path.exists(os.path.dirname(db_path)):
+            os.makedirs(os.path.dirname(db_path))
+
         self.conn = sqlite3.connect(os.path.expanduser(db_path))
         c = self.conn.cursor()
         c.execute("""
