@@ -1,7 +1,7 @@
 """
-    This script ports sqlite db file from repo-ng to NDN-Repo.
+    This script ports sqlite db file from repo-ng to ndn-python-repo.
     It takes as input a repo-ng sqlite database file, traverse the database and inserts data to
-    an NDN-Repo using TCP bulk insertion.
+    an ndn-python-repo using TCP bulk insertion.
 
     @Author jonnykong@cs.ucla.edu
     @Date   2019-12-26

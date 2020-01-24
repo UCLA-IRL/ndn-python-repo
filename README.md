@@ -1,4 +1,4 @@
-# NDN-Repo
+# ndn-python-repo
 
 A Named Data Networking (NDN) Repo implementation using [python-ndn](https://github.com/zjkmxy/python-ndn).
 
@@ -16,15 +16,15 @@ A Named Data Networking (NDN) Repo implementation using [python-ndn](https://git
 Install the latest release with pip:
 
 ```bash
-$ pip3 install NDN-Repo
+$ pip3 install ndn-python-repo
 ```
 Optionally, you can install the latest development version from local:
 
 ```bash
-$ git clone https://github.com/JonnyKong/NDN-Repo.git
-$ cd NDN-Repo && pip3 install -e .
+$ git clone https://github.com/JonnyKong/ndn-python-repo.git
+$ cd ndn-python-repo && pip3 install -e .
 
-# 2) Start a repo instance:
+# Start a repo instance:
 $ ndn-python-repo
 ```
 
@@ -33,12 +33,12 @@ $ ndn-python-repo
 Install the latest release with pip
 
 ```bash
-$ sudo /usr/bin/pip3 install NDN-Repo
+$ sudo /usr/bin/pip3 install ndn-python-repo
 ```
 Optionally, you can install the latest development version from local:
 ```bash
-$ git clone https://github.com/JonnyKong/NDN-Repo.git
-$ cd NDN-Repo && sudo /usr/bin/pip3 install -e .
+$ git clone https://github.com/JonnyKong/ndn-python-repo.git
+$ cd ndn-python-repo && sudo /usr/bin/pip3 install -e .
 ```
 Install systemd scripts:
 ```bash
@@ -54,5 +54,5 @@ $ sudo systemctl status ndn-python-repo
 ## TODO
 
 - [ ] Add command validator for `handles`
-- [ ] Configure a PyNDN-Repo Docker for easier deployment
+- [ ] Configure a ndn-python-repo Docker for easier deployment
 - [ ] Implement Trust Schema for Data and command verification

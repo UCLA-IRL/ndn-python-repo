@@ -3,19 +3,19 @@
 from setuptools import setup, find_packages
 
 
-__version__ = "0.1b1"
+__version__ = "0.1a2"
 
 setup(
-    name='NDN-Repo',
+    name='ndn-python-repo',
     version=__version__,
     description='An NDN Repo implementation using Python',
-    url='https://github.com/JonnyKong/NDN-Repo',
+    url='https://github.com/JonnyKong/ndn-python-repo',
     author='Zhaoning Kong',
     author_email='jonnykong@cs.ucla.edu',
-    download_url='https://pypi.python.org/pypi/NDN-Repo',
+    download_url='https://pypi.python.org/pypi/ndn-python-repo',
     project_urls={
-        "Bug Tracker": "https://github.com/JonnyKong/NDN-Repo/issues",
-        "Source Code": "https://github.com/JonnyKong/NDN-Repo",
+        "Bug Tracker": "https://github.com/JonnyKong/ndn-python-repo/issues",
+        "Source Code": "https://github.com/JonnyKong/ndn-python-repo",
     },
     license='Apache License 2.0',
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
