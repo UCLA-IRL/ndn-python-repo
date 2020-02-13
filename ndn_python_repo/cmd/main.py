@@ -31,6 +31,8 @@ def main() -> int:
         app.run_forever()
     except KeyboardInterrupt:
         pass
+    except FileNotFoundError:
+        print('Error: could not connect to NFD.')
     return 0
 
 

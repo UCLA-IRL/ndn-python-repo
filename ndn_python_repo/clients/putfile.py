@@ -24,9 +24,7 @@ MAX_BYTES_IN_DATA_PACKET = 2000
 
 
 class PutfileClient(object):
-    """
-    This client serves random segmented data
-    """
+    
     def __init__(self, app: NDNApp, repo_name):
         """
         :param app: NDNApp
