@@ -7,7 +7,10 @@ class LevelDBStorage(Storage):
     def __init__(self, dir: str):
         db_dir = os.path.expanduser(dir)
         if not os.path.exists(db_dir):
-            os.makedirs(db_dir)
+            try:
+                os.makedirs(db_dir)
+            except PermissionError:
+                raise PermissionError(f'Could not create database directory: {db_path}') from None
         self.db = plyvel.DB(db_dir, create_if_missing=True)
 
     def put(self, key: str, value: bytes):

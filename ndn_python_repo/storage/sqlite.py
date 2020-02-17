@@ -12,7 +12,10 @@ class SqliteStorage(Storage):
         """
         db_path = os.path.expanduser(db_path)
         if not os.path.exists(os.path.dirname(db_path)):
-            os.makedirs(os.path.dirname(db_path))
+            try:
+                os.makedirs(os.path.dirname(db_path))
+            except PermissionError:
+                raise PermissionError(f'Could not create database directory: {db_path}') from None
 
         self.conn = sqlite3.connect(os.path.expanduser(db_path))
         c = self.conn.cursor()
@@ -25,7 +28,10 @@ class SqliteStorage(Storage):
         self.conn.commit()
 
     def __del__(self):
-        self.conn.close()
+        try:
+            self.conn.close()
+        except AttributeError:
+            pass
 
     def put(self, key: str, value: bytes):
         """
