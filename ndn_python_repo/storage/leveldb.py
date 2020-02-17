@@ -6,6 +6,8 @@ from .storage_base import Storage
 class LevelDBStorage(Storage):
     def __init__(self, dir: str):
         db_dir = os.path.expanduser(dir)
+        if not os.path.exists(db_dir):
+            os.makedirs(db_dir)
         self.db = plyvel.DB(db_dir, create_if_missing=True)
 
     def put(self, key: str, value: bytes):

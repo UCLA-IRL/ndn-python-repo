@@ -60,7 +60,7 @@ class TcpBulkInsertHandle(object):
         async def run():
             self.server = await aio.start_server(self.startReceive, server_addr, server_port)
             addr = self.server.sockets[0].getsockname()
-            logging.info(f'Serving on {addr}')
+            logging.info(f'TCP insertion handle serving on {addr}')
             async with self.server:
                 await self.server.serve_forever()
 
@@ -74,7 +74,7 @@ class TcpBulkInsertHandle(object):
         else:
             coro = aio.start_server(self.startReceive, server_addr, server_port, loop=event_loop)
             server = event_loop.run_until_complete(coro)
-            logging.info('Serving on {}'.format(server.sockets[0].getsockname()))
+            logging.info('TCP insertion handle serving on {}'.format(server.sockets[0].getsockname()))
 
     async def startReceive(self, reader, writer):
         """

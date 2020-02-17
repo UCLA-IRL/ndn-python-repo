@@ -11,12 +11,13 @@ def main() -> int:
                         level=logging.INFO)
 
     try:
+        app = NDNApp()
+        
         config = get_yaml()
         logging.info(config)
 
-        app = NDNApp()
+        storage = StorageFactory.create_storage_handle(config['db_config'])
 
-        storage = SqliteStorage(config['db_config']['sqlite3']['path'])
         read_handle = ReadHandle(app, storage)
         write_handle = WriteCommandHandle(app, storage, read_handle)
         delete_handle = DeleteCommandHandle(app, storage)
