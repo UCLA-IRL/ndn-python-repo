@@ -35,7 +35,7 @@ $ ndn-python-repo
 
 ## Configuration
 
-Configuration file location: `/usr/local/etc/ndn`.
+Configuration file location: `/usr/local/etc/ndn/ndn-python-repo.conf`.
 
 ## Systemd Support
 
