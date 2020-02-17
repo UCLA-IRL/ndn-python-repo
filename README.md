@@ -11,24 +11,7 @@ A Named Data Networking (NDN) Repo implementation using [python-ndn](https://git
   * [LevelDB](https://github.com/google/leveldb) - Fast key-value storage library
   * [MongoDB](https://www.mongodb.com) - A document-oriented database, and [PyMongo](https://api.mongodb.com/python/current/) - MongoDB Python interface
 
-## Install in user directory (without systemd)
-
-Install the latest release with pip:
-
-```bash
-$ pip3 install ndn-python-repo
-```
-Optionally, you can install the latest development version from local:
-
-```bash
-$ git clone https://github.com/JonnyKong/ndn-python-repo.git
-$ cd ndn-python-repo && pip3 install -e .
-
-# Start a repo instance:
-$ ndn-python-repo
-```
-
-## Install in system directory with systemd support:
+## Install & Run
 
 Install the latest release with pip
 
@@ -44,15 +27,22 @@ Install systemd scripts:
 ```bash
 $ sudo ndn-python-repo-install
 ```
+Start a repo instance:
+
+```bash
+$ ndn-python-repo
+```
+
+## Configuration
+
+Configuration file location: `/usr/local/etc/ndn`.
+
+## Systemd Support
+
 Start, stop and monitor a repo instance with systemd:
+
 ```bash
 $ sudo systemctl start ndn-python-repo
 $ sudo systemctl stop ndn-python-repo
 $ sudo systemctl status ndn-python-repo
 ```
-
-## TODO
-
-- [ ] Add command validator for `handles`
-- [ ] Configure a ndn-python-repo Docker for easier deployment
-- [ ] Implement Trust Schema for Data and command verification
