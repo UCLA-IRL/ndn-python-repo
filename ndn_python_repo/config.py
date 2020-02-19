@@ -1,11 +1,13 @@
 import logging
 import os
 import yaml
+from pkg_resources import resource_filename
 
 
 def get_yaml(path):
+    # if fall back to internal config file, so that repo can run without any external configs
     if path == None:
-        path = '/usr/local/etc/ndn/ndn-python-repo.conf'
+        path = resource_filename(__name__, 'ndn-python-repo.conf.sample')
         
     try:
         with open(path, 'r', encoding='utf-8') as file:
@@ -18,4 +20,3 @@ def get_yaml(path):
 # For testing
 if __name__ == "__main__":
     print(get_yaml())
-

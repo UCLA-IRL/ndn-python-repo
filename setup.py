@@ -63,7 +63,7 @@ setup(
     ],
 
     package_data={
-        '': ['*.conf', '*.service'],
+        '': ['*.conf.sample', '*.service'],
     },
     include_package_data=True,
 )
