@@ -7,7 +7,6 @@
 
 import os
 import sys
-import argparse
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import asyncio as aio
@@ -46,36 +45,3 @@ class GetfileClient(object):
             logging.info(f'Fetching completed, writing to file {filename}')
             with open(filename, 'wb') as f:
                 f.write(b_array)
-
-
-async def run_getfile_client(app: NDNApp, **kwargs):
-    """
-    Async helper function to run the GetfileClient.
-    This function is necessary because it's responsible for calling app.shutdown().
-    """
-    client = GetfileClient(app, Name.from_str(kwargs['repo_name']))
-    await client.fetch_file(Name.from_str(kwargs['name_at_repo']))
-    app.shutdown()
-
-
-def main():
-    parser = argparse.ArgumentParser(description='getfile')
-    parser.add_argument('-r', '--repo_name',
-                        required=True, help='Name of repo')
-    parser.add_argument('-n', '--name_at_repo',
-                        required=True, help='Name used to store file at Repo')
-    args = parser.parse_args()
-
-    logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
-                        datefmt='%Y-%m-%d %H:%M:%S',
-                        level=logging.INFO)
-
-    app = NDNApp()
-    app.run_forever(
-        after_start=run_getfile_client(app, repo_name=args.repo_name,
-                                       name_at_repo=args.name_at_repo))
-
-
-if __name__ == "__main__":
-    main()
-

@@ -9,7 +9,6 @@ import os
 import sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
-import argparse
 import asyncio as aio
 import logging
 from ndn.app import NDNApp
@@ -137,39 +136,3 @@ class PutfileClient(object):
             else:
                 # Shouldn't get here
                 assert False
-
-
-async def run_putfile_client(app: NDNApp, **kwargs):
-    """
-    Async helper function to run the PutfileClient.
-    This function is necessary because it's responsible for calling app.shutdown().
-    """
-    client = PutfileClient(app, Name.from_str(kwargs['repo_name']))
-    await client.insert_file(kwargs['file_path'], Name.from_str(kwargs['name_at_repo']))
-    app.shutdown()
-
-
-def main():
-    parser = argparse.ArgumentParser(description='putfile')
-    parser.add_argument('-r', '--repo_name',
-                        required=True, help='Name of repo')
-    parser.add_argument('-f', '--file_path',
-                        required=True, help='Path to input file')
-    parser.add_argument('-n', '--name_at_repo',
-                        required=True, help='Name used to store file at Repo')
-    args = parser.parse_args()
-
-    logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
-                        datefmt='%Y-%m-%d %H:%M:%S',
-                        level=logging.INFO)
-
-    app = NDNApp(face=None, keychain=KeychainDigest())
-    app.run_forever(
-        after_start=run_putfile_client(app, repo_name=args.repo_name,
-                                       file_path=args.file_path,
-                                       name_at_repo=args.name_at_repo))
-
-
-if __name__ == "__main__":
-    main()
-

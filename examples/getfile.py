@@ -5,6 +5,7 @@
     @Date   2020-01-14
 """
 
+import argparse
 import asyncio as aio
 import logging
 from ndn.app import NDNApp
@@ -13,20 +14,33 @@ from ndn.security import KeychainDigest
 from ndn_python_repo.clients import GetfileClient
 
 
-async def main(app):
-    repo_name = Name.from_str('testrepo')
-    file_name_at_repo = Name.from_str('test.pdf')
-
-    c = GetfileClient(app=app, repo_name=repo_name)
-    await c.fetch_file(file_name_at_repo)
-
+async def run_getfile_client(app: NDNApp, **kwargs):
+    """
+    Async helper function to run the GetfileClient.
+    This function is necessary because it's responsible for calling app.shutdown().
+    """
+    client = GetfileClient(app, Name.from_str(kwargs['repo_name']))
+    await client.fetch_file(Name.from_str(kwargs['name_at_repo']))
     app.shutdown()
 
 
-if __name__ == '__main__':
+def main():
+    parser = argparse.ArgumentParser(description='getfile')
+    parser.add_argument('-r', '--repo_name',
+                        required=True, help='Name of repo')
+    parser.add_argument('-n', '--name_at_repo',
+                        required=True, help='Name used to store file at Repo')
+    args = parser.parse_args()
+
     logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
                         level=logging.INFO)
-    app = NDNApp(face=None, keychain=KeychainDigest())
+
+    app = NDNApp()
     app.run_forever(
-        after_start=main(app))
+        after_start=run_getfile_client(app, repo_name=args.repo_name,
+                                       name_at_repo=args.name_at_repo))
+
+
+if __name__ == "__main__":
+    main()
