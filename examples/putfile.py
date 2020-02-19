@@ -19,8 +19,8 @@ async def run_putfile_client(app: NDNApp, **kwargs):
     Async helper function to run the PutfileClient.
     This function is necessary because it's responsible for calling app.shutdown().
     """
-    client = PutfileClient(app, Name.from_str(kwargs['repo_name']))
-    await client.insert_file(kwargs['file_path'], Name.from_str(kwargs['name_at_repo']))
+    client = PutfileClient(app, kwargs['repo_name'])
+    await client.insert_file(kwargs['file_path'], kwargs['name_at_repo'])
     app.shutdown()
 
 
@@ -40,9 +40,10 @@ def main():
 
     app = NDNApp(face=None, keychain=KeychainDigest())
     app.run_forever(
-        after_start=run_putfile_client(app, repo_name=args.repo_name,
+        after_start=run_putfile_client(app, 
+                                       repo_name=Name.from_str(args.repo_name),
                                        file_path=args.file_path,
-                                       name_at_repo=args.name_at_repo))
+                                       name_at_repo=Name.from_str(args.name_at_repo)))
 
 
 if __name__ == "__main__":

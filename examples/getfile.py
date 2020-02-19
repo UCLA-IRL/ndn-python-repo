@@ -19,8 +19,8 @@ async def run_getfile_client(app: NDNApp, **kwargs):
     Async helper function to run the GetfileClient.
     This function is necessary because it's responsible for calling app.shutdown().
     """
-    client = GetfileClient(app, Name.from_str(kwargs['repo_name']))
-    await client.fetch_file(Name.from_str(kwargs['name_at_repo']))
+    client = GetfileClient(app, kwargs['repo_name'])
+    await client.fetch_file(kwargs['name_at_repo'])
     app.shutdown()
 
 
@@ -38,8 +38,9 @@ def main():
 
     app = NDNApp()
     app.run_forever(
-        after_start=run_getfile_client(app, repo_name=args.repo_name,
-                                       name_at_repo=args.name_at_repo))
+        after_start=run_getfile_client(app, 
+                                       repo_name=Name.from_str(args.repo_name),
+                                       name_at_repo=Name.from_str(args.name_at_repo)))
 
 
 if __name__ == "__main__":
