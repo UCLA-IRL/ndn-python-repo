@@ -5,7 +5,8 @@
     @Date   2019-09-26
 """
 
-import os, sys
+import os
+import sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import argparse
@@ -88,43 +89,3 @@ class DeleteClient(object):
             else:
                 # Shouldn't get here
                 assert False
-
-
-async def run_delete_client(app: NDNApp, **kwargs):
-    """
-    Async helper function to run the DeleteClient.
-    This function is necessary because it's responsible for calling app.shutdown().
-    """
-    client = DeleteClient(app, Name.from_str(kwargs['repo_name']))
-    await client.delete_file(Name.from_str(kwargs['prefix']),
-                             int(kwargs['start_block_id']),
-                             int(kwargs['end_block_id']))
-    app.shutdown()
-
-
-def main():
-    parser = argparse.ArgumentParser(description='putfile')
-    parser.add_argument('-r', '--repo_name',
-                        required=True, help='Name of repo')
-    parser.add_argument('-p', '--prefix',
-                        required=True, help='Prefix of data')
-    parser.add_argument('-s', '--start_block_id',
-                        required=True, help='Start Block ID')
-    parser.add_argument('-e', '--end_block_id',
-                        required=True, help='End Block ID')
-    args = parser.parse_args()
-
-    logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
-                        datefmt='%Y-%m-%d %H:%M:%S',
-                        level=logging.INFO)
-
-    app = NDNApp()
-    app.run_forever(
-        after_start=run_delete_client(app, repo_name=args.repo_name,
-                                      prefix=args.prefix,
-                                      start_block_id=args.start_block_id,
-                                      end_block_id=args.end_block_id))
-
-
-if __name__ == '__main__':
-    main()

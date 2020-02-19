@@ -8,10 +8,10 @@
 import argparse
 import asyncio as aio
 import logging
-from ndn_python_repo.clients import PutfileClient
 from ndn.app import NDNApp
 from ndn.encoding import Name
 from ndn.security import KeychainDigest
+from ndn_python_repo.clients import PutfileClient
 
 
 async def run_putfile_client(app: NDNApp, **kwargs):

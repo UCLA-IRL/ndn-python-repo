@@ -1,6 +1,7 @@
 import asyncio as aio
 import logging
 import random
+import sys
 from ndn.app import NDNApp
 from ndn.encoding import Name, DecodeError
 from . import CommandHandle
@@ -41,8 +42,9 @@ class DeleteCommandHandle(CommandHandle):
     
     async def _process_delete(self, int_name, _int_param, _app_param):
         """
-        Process segmented delete command.
+        Process delete command.
         Return to client with status code 100 immediately, and then start data fetching process.
+        # TODO: un-register prefix
         """
         try:
             cmd_param = self.decode_cmd_param_bytes(int_name)
@@ -76,12 +78,17 @@ class DeleteCommandHandle(CommandHandle):
 
     async def _perform_storage_delete(self, prefix, start_block_id: int, end_block_id: int) -> int:
         """
-        Delete items from storage.
+        Delete data packets between [start_block_id, end_block_id]. If end_block_id is None, delete
+        all continuous data packets from start_block_id.
         :param prefix: NonStrictName.
         :param start_block_id: int.
         :param end_block_id: int.
         :return: The number of data items deleted.
         """
+
+        if end_block_id == None:
+            end_block_id = sys.maxsize
+
         delete_num = 0
         for idx in range(start_block_id, end_block_id + 1):
             key = prefix[:]
@@ -90,6 +97,9 @@ class DeleteCommandHandle(CommandHandle):
             if self.storage.exists(key):
                 self.storage.remove(key)
                 delete_num += 1
+            else:
+                # assume sequence numbers are continuous
+                break
             # Temporarily release control to make the process non-blocking
             await aio.sleep(0)
         return delete_num
