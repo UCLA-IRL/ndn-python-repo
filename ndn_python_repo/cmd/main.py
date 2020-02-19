@@ -21,7 +21,10 @@ def process_cmd_opts():
         parser.add_argument('-v', '--version',
                             help='print current version and exit', action='store_true')
         parser.add_argument('-c', '--config',
-                            help='override default config file')
+                            help='path to config file')
+        parser.add_argument('-r', '--repo_name',
+                            help="""repo's routable prefix. If this option is specified, it 
+                                    overrides the prefix in the config file""")
         args = parser.parse_args()
         return args
 
@@ -32,13 +35,23 @@ def process_cmd_opts():
     return args
 
 
+def process_config(cmdline_args):
+    """
+    Read and process config file. Some config options are overridden by cmdline args.
+    """
+    config = get_yaml(cmdline_args.config)
+    if cmdline_args.repo_name != None:
+        config['repo_config']['repo_name'] = cmdline_args.repo_name
+    return config
+
+
 def main() -> int:
     logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
                         level=logging.INFO)
 
-    args = process_cmd_opts()
-    config = get_yaml(args.config)
+    cmdline_args = process_cmd_opts()
+    config = process_config(cmdline_args)
     logging.info(config)
 
     storage = StorageFactory.create_storage_handle(config['db_config'])
