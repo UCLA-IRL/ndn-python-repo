@@ -38,15 +38,14 @@ setup(
     packages=find_packages(exclude=['tests']),
 
     install_requires=[
-        "python-ndn >= 0.2b1",
+        "python-ndn >= 0.2b2",
         "Flask >= 1.1.1",
         "PyYAML >= 5.1.2",
     ],
     extras_require={
-        'test': [
-            'pytest',
-            'pytest-cov',
-        ],
+        'test': [ 'pytest', 'pytest-cov'],
+        'leveldb': ['plyvel'],
+        'mongodb': ['pymongo']
     },
     python_requires=">=3.6",
 
