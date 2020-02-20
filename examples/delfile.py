@@ -19,13 +19,10 @@ async def run_delete_client(app: NDNApp, **kwargs):
     Async helper function to run the DeleteClient.
     This function is necessary because it's responsible for calling app.shutdown().
     """
-    start_block_id = int(kwargs['start_block_id']) if kwargs['start_block_id'] != None else 0
-    end_block_id = int(kwargs['end_block_id']) if kwargs['end_block_id'] != None else None
-
     client = DeleteClient(app, kwargs['repo_name'])
     await client.delete_file(kwargs['name_at_repo'],
-                             start_block_id,
-                             end_block_id)
+                             kwargs['start_block_id'],
+                             kwargs['end_block_id'])
     app.shutdown()
 
 

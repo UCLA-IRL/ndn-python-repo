@@ -12,9 +12,7 @@ class Repo(object):
                  write_handle: WriteCommandHandle, delete_handle: DeleteCommandHandle,
                  tcp_bulk_insert_handle: TcpBulkInsertHandle):
         """
-        Registers routable prefix, and calls listen() on all handles
-        TODO: Remove face as input, put it in handles only
-        TODO: Remove storage as input, put it in handles only
+        Registers routable prefix, and calls listen() on all handles.
         """
         self.prefix = prefix
         self.app = app

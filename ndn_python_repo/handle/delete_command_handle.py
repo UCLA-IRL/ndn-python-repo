@@ -48,12 +48,18 @@ class DeleteCommandHandle(CommandHandle):
         """
         try:
             cmd_param = self.decode_cmd_param_bytes(int_name)
+            if cmd_param.name == None:
+                raise DecodeError()
         except DecodeError as exc:
-            logging.warning('Response blob decoding failed')
+            logging.warning('Parameter interest decoding failed')
+            ret = RepoCommandResponse()
+            ret.status_code = 403
+            self.reply_to_cmd(int_name, ret)
             return
+        
         name = cmd_param.name
-        start_block_id = cmd_param.start_block_id
-        end_block_id = cmd_param.end_block_id
+        start_block_id = cmd_param.start_block_id if cmd_param.start_block_id else 0
+        end_block_id = cmd_param.end_block_id if cmd_param.end_block_id else sys.maxsize
 
         logging.info(f'Delete handle processing delete command: {name}, {start_block_id}, {end_block_id}')
 
@@ -85,10 +91,6 @@ class DeleteCommandHandle(CommandHandle):
         :param end_block_id: int.
         :return: The number of data items deleted.
         """
-
-        if end_block_id == None:
-            end_block_id = sys.maxsize
-
         delete_num = 0
         for idx in range(start_block_id, end_block_id + 1):
             key = prefix[:]

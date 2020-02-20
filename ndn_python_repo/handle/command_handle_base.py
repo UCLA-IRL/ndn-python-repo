@@ -28,12 +28,17 @@ class CommandHandle(object):
         try:
             parameter = self.decode_cmd_param_bytes(int_name)
             process_id = parameter.process_id
+            print("Process ID: ", process_id)
+            if process_id == None:
+                raise DecodeError()
         except (RuntimeError, DecodeError) as exc:
             response = RepoCommandResponse()
             response.status_code = 403
+            logging.warning('Command blob decoding failed')
         if response is None and process_id not in self.m_processes:
             response = RepoCommandResponse()
             response.status_code = 404
+            logging.warning('Process does not exist')
 
         if response is None:
             self.reply_to_cmd(int_name, self.m_processes[process_id])
@@ -72,7 +77,7 @@ class CommandHandle(object):
         """
         logging.info('Reply to command: {}'.format(Name.to_str(int_name)))
         response_bytes = response.encode()
-        self.app.put_data(int_name, response_bytes)
+        self.app.put_data(int_name, response_bytes, freshness_period=1000)
 
     @staticmethod
     def decode_cmd_param_bytes(name) -> RepoCommandParameter:
