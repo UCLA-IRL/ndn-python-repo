@@ -1,8 +1,8 @@
+#!/usr/bin/env python3
 """
     NDN Repo delfile example.
 
     @Author jonnykong@cs.ucla.edu
-    @Date   2020-02-18
 """
 
 import argparse
@@ -16,7 +16,7 @@ from ndn_python_repo.clients import DeleteClient
 
 async def run_delete_client(app: NDNApp, **kwargs):
     """
-    Async helper function to run the DeleteClient. 
+    Async helper function to run the DeleteClient.
     This function is necessary because it's responsible for calling app.shutdown().
     """
     start_block_id = int(kwargs['start_block_id']) if kwargs['start_block_id'] != None else 0
@@ -44,13 +44,13 @@ def main():
     logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
                         level=logging.INFO)
-    
+
     start_block_id = int(args.start_block_id) if args.start_block_id else None
     end_block_id = int(args.end_block_id) if args.end_block_id else None
 
     app = NDNApp()
     app.run_forever(
-        after_start=run_delete_client(app, 
+        after_start=run_delete_client(app,
                                       repo_name=Name.from_str(args.repo_name),
                                       name_at_repo=Name.from_str(args.name_at_repo),
                                       start_block_id=start_block_id,
