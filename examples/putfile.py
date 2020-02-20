@@ -1,8 +1,8 @@
+#!/usr/bin/env python3
 """
     NDN Repo putfile example.
 
     @Author jonnykong@cs.ucla.edu
-    @Date   2020-01-14
 """
 
 import argparse
@@ -40,11 +40,11 @@ def main():
 
     app = NDNApp(face=None, keychain=KeychainDigest())
     app.run_forever(
-        after_start=run_putfile_client(app, 
+        after_start=run_putfile_client(app,
                                        repo_name=Name.from_str(args.repo_name),
                                        file_path=args.file_path,
                                        name_at_repo=Name.from_str(args.name_at_repo)))
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

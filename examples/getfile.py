@@ -1,8 +1,8 @@
+#!/usr/bin/env python3
 """
     NDN Repo getfile example.
 
     @Author jonnykong@cs.ucla.edu
-    @Date   2020-01-14
 """
 
 import argparse
@@ -38,10 +38,10 @@ def main():
 
     app = NDNApp()
     app.run_forever(
-        after_start=run_getfile_client(app, 
+        after_start=run_getfile_client(app,
                                        repo_name=Name.from_str(args.repo_name),
                                        name_at_repo=Name.from_str(args.name_at_repo)))
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

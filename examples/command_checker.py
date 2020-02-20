@@ -1,8 +1,8 @@
+#!/usr/bin/env python3
 """
     NDN Repo command checker example.
 
     @Author jonnykong@cs.ucla.edu
-    @Date   2020-02-18
 """
 
 import argparse
@@ -32,7 +32,7 @@ def main():
     parser.add_argument('-r', '--repo_name',
                         required=True, help='Name of repo')
     parser.add_argument('-p', '--process_id',
-                        required=True, help="Process ID")
+                        required=True, help='Process ID')
     args = parser.parse_args()
 
     logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
@@ -41,8 +41,8 @@ def main():
 
     app = NDNApp()
     app.run_forever(
-        after_start=run_check(app, 
-                              repo_name=Name.from_str(args.repo_name), 
+        after_start=run_check(app,
+                              repo_name=Name.from_str(args.repo_name),
                               process_id=int(args.process_id)))
 
 
