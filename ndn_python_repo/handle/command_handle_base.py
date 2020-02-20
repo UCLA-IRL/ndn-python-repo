@@ -2,6 +2,7 @@ import asyncio
 import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name, Component
+from ndn.encoding.tlv_model import DecodeError
 
 from ..storage import Storage
 from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse, PrefixesInStorage
@@ -27,7 +28,7 @@ class CommandHandle(object):
         try:
             parameter = self.decode_cmd_param_bytes(int_name)
             process_id = parameter.process_id
-        except RuntimeError as exc:
+        except (RuntimeError, DecodeError) as exc:
             response = RepoCommandResponse()
             response.status_code = 403
         if response is None and process_id not in self.m_processes:
