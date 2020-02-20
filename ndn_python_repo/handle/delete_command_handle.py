@@ -50,7 +50,7 @@ class DeleteCommandHandle(CommandHandle):
             cmd_param = self.decode_cmd_param_bytes(int_name)
             if cmd_param.name == None:
                 raise DecodeError()
-        except DecodeError as exc:
+        except (DecodeError, IndexError) as exc:
             logging.warning('Parameter interest decoding failed')
             ret = RepoCommandResponse()
             ret.status_code = 403

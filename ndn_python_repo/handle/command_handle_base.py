@@ -31,7 +31,7 @@ class CommandHandle(object):
             print("Process ID: ", process_id)
             if process_id == None:
                 raise DecodeError()
-        except (RuntimeError, DecodeError) as exc:
+        except (DecodeError, IndexError, RuntimeError) as exc:
             response = RepoCommandResponse()
             response.status_code = 403
             logging.warning('Command blob decoding failed')
