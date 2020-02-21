@@ -38,7 +38,7 @@ class DeleteCommandHandle(CommandHandle):
         self.app.route(name_to_reg)(self.on_check_interest)
 
     def _on_delete_interest(self, int_name, _int_param, _app_param):
-        aio.create_task(self._process_delete(int_name, _int_param, _app_param))
+        aio.get_event_loop().create_task(self._process_delete(int_name, _int_param, _app_param))
     
     async def _process_delete(self, int_name, _int_param, _app_param):
         """
