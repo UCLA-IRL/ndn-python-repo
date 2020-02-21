@@ -52,7 +52,8 @@ setup(
     entry_points={
         'console_scripts': [
             'ndn-python-repo = ndn_python_repo.cmd.main:main',
-            'ndn-python-repo-install = ndn_python_repo.cmd.install:main'
+            'ndn-python-repo-install = ndn_python_repo.cmd.install:main',
+            'ndn-python-repo-port = ndn_python_repo.cmd.port:main'
         ],
     },
 

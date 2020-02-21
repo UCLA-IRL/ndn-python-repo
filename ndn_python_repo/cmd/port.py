@@ -44,7 +44,7 @@ def convert_name(name: bytes) -> str:
     return Name.to_str(name)
 
 
-async def port_over_tcp(src_db_file, dest_addr='127.0.0.1', dest_port='7376'):
+async def port_over_tcp(src_db_file: str, dest_addr: str, dest_port: str):
     conn_from = create_sqlite3_connection(src_db_file)
     reader, writer = await aio.open_connection(dest_addr, dest_port)
 
@@ -60,15 +60,25 @@ async def port_over_tcp(src_db_file, dest_addr='127.0.0.1', dest_port='7376'):
     conn_from.close()
 
 
-async def main():
+def main() -> int:
     parser = argparse.ArgumentParser(description='port')
     parser.add_argument('-d', '--dbfile',
                         required=True, help='Source database file')
+    parser.add_argument('-a', '--addr',
+                        required=True, help='IP address of python repo')
+    parser.add_argument('-p', '--port',
+                        required=True, help='Port of python repo')
     args = parser.parse_args()
+
+    if args.addr == None:
+        args.addr = '127.0.0.1'
+    if args.port == None:
+        args.addr = '7376'
     
-    src_db_file = os.path.expanduser(args.dbfile)
-    await port_over_tcp(src_db_file)
+    src_db_file = os.path.expanduser(args.dbfile, args.addr, args.port)
+    aio.run(port_over_tcp(src_db_file))
+    return 0
 
 
 if __name__ == '__main__':
-    aio.run(main())
+    sys.exit(main())
