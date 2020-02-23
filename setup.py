@@ -39,7 +39,6 @@ setup(
 
     install_requires=[
         "python-ndn >= 0.2b2",
-        "Flask >= 1.1.1",
         "PyYAML >= 5.1.2",
     ],
     extras_require={
