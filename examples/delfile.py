@@ -46,12 +46,16 @@ def main():
     end_block_id = int(args.end_block_id) if args.end_block_id else None
 
     app = NDNApp()
-    app.run_forever(
-        after_start=run_delete_client(app,
-                                      repo_name=Name.from_str(args.repo_name),
-                                      name_at_repo=Name.from_str(args.name_at_repo),
-                                      start_block_id=start_block_id,
-                                      end_block_id=end_block_id))
+
+    try:
+        app.run_forever(
+            after_start=run_delete_client(app,
+                                        repo_name=Name.from_str(args.repo_name),
+                                        name_at_repo=Name.from_str(args.name_at_repo),
+                                        start_block_id=start_block_id,
+                                        end_block_id=end_block_id))
+    except FileNotFoundError:
+        print('Error: could not connect to NFD.')
 
 
 if __name__ == '__main__':

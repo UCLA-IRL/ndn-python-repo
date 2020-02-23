@@ -37,10 +37,14 @@ def main():
                         level=logging.INFO)
 
     app = NDNApp()
-    app.run_forever(
-        after_start=run_getfile_client(app,
-                                       repo_name=Name.from_str(args.repo_name),
-                                       name_at_repo=Name.from_str(args.name_at_repo)))
+    try:
+        app.run_forever(
+            after_start=run_getfile_client(app,
+                                           repo_name=Name.from_str(args.repo_name),
+                                           name_at_repo=Name.from_str(args.name_at_repo)))
+    except FileNotFoundError:
+        print('Error: could not connect to NFD.')
+
 
 
 if __name__ == '__main__':
