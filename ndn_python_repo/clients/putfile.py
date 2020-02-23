@@ -81,7 +81,6 @@ class PutfileClient(object):
         if num_packets == 0:
             return
         # Register prefix for responding interests from repo
-        # self.app.route(name_at_repo)(self._on_interest)
         await self.app.register(name_at_repo, self._on_interest)
 
         cmd_param = RepoCommandParameter()
