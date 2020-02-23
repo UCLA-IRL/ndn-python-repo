@@ -79,6 +79,7 @@ class SqliteStorage(Storage):
             DELETE FROM data
             WHERE key = ?
         """, (key, )).rowcount
+        self.conn.commit()
         return n_removed > 0
 
     def keys(self) -> List[str]:
