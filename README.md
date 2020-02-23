@@ -34,7 +34,7 @@ Optionally, you can specify the configuration file on the command line (`ndn-pyt
 
 A sample configuration file with default configurations is provided here: [ndn-python-repo.conf.sample](ndn_python_repo/ndn-python-repo.conf.sample).
 
-#### Change the default database
+### Change the default database
 
 The default database is sqlite3. Optionally, you can install ndn-python-repo with additional database support:
 
@@ -57,3 +57,12 @@ $ sudo systemctl start ndn-python-repo
 $ sudo systemctl stop ndn-python-repo
 $ sudo systemctl status ndn-python-repo
 ```
+
+## Migrate from repo-ng
+
+To migrate data from repo-ng:
+
+```bash
+$ ndn-python-repo-port -d <path-to-repo-ng-dbfile> -a <ndn-python-repo-ipaddr> -p <ndn-python-repo-port>
+```
+
