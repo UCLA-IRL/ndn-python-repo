@@ -50,10 +50,10 @@ def main():
     try:
         app.run_forever(
             after_start=run_delete_client(app,
-                                        repo_name=Name.from_str(args.repo_name),
-                                        name_at_repo=Name.from_str(args.name_at_repo),
-                                        start_block_id=start_block_id,
-                                        end_block_id=end_block_id))
+                                          repo_name=Name.from_str(args.repo_name),
+                                          name_at_repo=Name.from_str(args.name_at_repo),
+                                          start_block_id=start_block_id,
+                                          end_block_id=end_block_id))
     except FileNotFoundError:
         print('Error: could not connect to NFD.')
 

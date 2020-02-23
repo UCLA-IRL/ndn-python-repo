@@ -28,7 +28,6 @@ class CommandHandle(object):
         try:
             parameter = self.decode_cmd_param_bytes(int_name)
             process_id = parameter.process_id
-            print("Process ID: ", process_id)
             if process_id == None:
                 raise DecodeError()
         except (DecodeError, IndexError, RuntimeError) as exc:
@@ -46,30 +45,50 @@ class CommandHandle(object):
             self.reply_to_cmd(int_name, response)
 
     @staticmethod
-    def update_prefixes_in_storage(storage: Storage, prefix) -> bool:
+    def add_prefixes_in_storage(storage: Storage, prefix) -> bool:
         """
         :param storage: Storage
         :param prefix: NonStrictName
-        Add a new prefix into database
-        return whether the prefix has been registered before
+        Add a new prefix into database.
+        Return whether the prefix has been registered before.
         """
         prefixes_msg = PrefixesInStorage()
         ret = storage.get('prefixes')
         if ret:
             prefixes_msg = PrefixesInStorage.parse(ret)
 
-        # Check if this prefix already exists
-        prefix_str = Name.to_str(prefix)
-        for existing_prefix in prefixes_msg.prefixes:
-            existing_prefix_str = Name.to_str(existing_prefix)
-            if existing_prefix_str == prefix_str or prefix_str.startswith(existing_prefix_str):
-                return True
-
-        prefixes_msg.prefixes.append(Name.normalize(prefix))
-        prefixes_msg_bytes = prefixes_msg.encode()
-        storage.put('prefixes', bytes(prefixes_msg_bytes))
-        logging.info(f'Added new prefix into the database: {prefix_str}')
-        return False
+        prefix = Name.normalize(prefix)
+        if prefix in prefixes_msg.prefixes:
+            return True
+        else:
+            prefixes_msg.prefixes.append(prefix)
+            prefixes_msg_bytes = prefixes_msg.encode()
+            storage.put('prefixes', bytes(prefixes_msg_bytes))
+            logging.info(f'Added new prefix into the database: {Name.to_str(prefix)}')
+            return False
+    
+    @staticmethod
+    def remove_prefixes_in_storage(storage: Storage, prefix):
+        """
+        :param storage: Storage
+        :param prefix: NonStrictName
+        Remove a new prefix into database.
+        Return whether the prefix is successfully removed.
+        """
+        prefixes_msg = PrefixesInStorage()
+        ret = storage.get('prefixes')
+        if ret:
+            prefixes_msg = PrefixesInStorage.parse(ret)
+        
+        prefix = Name.normalize(prefix)
+        if prefix in prefixes_msg.prefixes:
+            prefixes_msg.prefixes.remove(Name.normalize(prefix))
+            prefixes_msg_bytes = prefixes_msg.encode()
+            storage.put('prefixes', bytes(prefixes_msg_bytes))
+            logging.info(f'Removed existing prefix from the database: {Name.to_str(prefix)}')
+            return True
+        else:
+            return False
 
     def reply_to_cmd(self, int_name, response: RepoCommandResponse):
         """

@@ -1,3 +1,4 @@
+import asyncio as aio
 import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name, tlv_var, ndn_format_0_3
@@ -23,6 +24,13 @@ class ReadHandle(object):
         """
         self.app.route(name)(self._on_interest)
         logging.info(f'Read handle: listening to {Name.to_str(name)}')
+    
+    def unlisten(self, name):
+        """
+        :param name: NonStrictName.
+        """
+        aio.ensure_future(self.app.unregister(name))
+        logging.info(f'Read handle: stop listening to {Name.to_str(name)}')
 
     def _on_interest(self, int_name, _int_param, _app_param):
         if not self.storage.exists(Name.to_str(int_name)):

@@ -96,7 +96,7 @@ class WriteCommandHandle(CommandHandle):
         self.m_processes[process_id].insert_num = insert_num
 
         # Let read handle listen for this prefix
-        existing = CommandHandle.update_prefixes_in_storage(self.storage, name)
+        existing = CommandHandle.add_prefixes_in_storage(self.storage, name)
         if not existing:
             self.m_read_handle.listen(name)
 

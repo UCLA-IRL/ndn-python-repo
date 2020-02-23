@@ -4,7 +4,7 @@ import random
 import sys
 from ndn.app import NDNApp
 from ndn.encoding import Name, DecodeError
-from . import CommandHandle
+from . import ReadHandle, CommandHandle
 from ..storage import Storage
 from ..command.repo_commands import RepoCommandResponse
 
@@ -14,14 +14,16 @@ class DeleteCommandHandle(CommandHandle):
     DeleteCommandHandle processes delete command handles, and deletes corresponding data stored
     in the database.
     TODO: Add validator
-    TODO: Un-register prefixes after delete.
     """
-    def __init__(self, app: NDNApp, storage: Storage):
+    def __init__(self, app: NDNApp, storage: Storage, read_handle: ReadHandle):
         """
         :param app: NDNApp.
         :param storage: Storage.
+        :param read_handle: ReadHandle. This param is necessary because DeleteCommandHandle need to
+            unregister prefixes.
         """
         super(DeleteCommandHandle, self).__init__(app, storage)
+        self.m_read_handle = read_handle
 
     def listen(self, name: Name):
         """
@@ -70,6 +72,11 @@ class DeleteCommandHandle(CommandHandle):
         self.m_processes[process_id].process_id = process_id
         self.m_processes[process_id].delete_num = 0
         self.reply_to_cmd(int_name, self.m_processes[process_id])
+
+        # Un-register prefix
+        existing = CommandHandle.remove_prefixes_in_storage(self.storage, name)
+        if existing:
+            self.m_read_handle.unlisten(name)
 
         # Perform delete
         self.m_processes[process_id].status_code = 300

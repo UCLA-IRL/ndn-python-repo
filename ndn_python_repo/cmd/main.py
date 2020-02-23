@@ -60,7 +60,7 @@ def main() -> int:
 
     read_handle = ReadHandle(app, storage)
     write_handle = WriteCommandHandle(app, storage, read_handle)
-    delete_handle = DeleteCommandHandle(app, storage)
+    delete_handle = DeleteCommandHandle(app, storage, read_handle)
     tcp_bulk_insert_handle = TcpBulkInsertHandle(storage, read_handle,
                                                     config['tcp_bulk_insert']['addr'],
                                                     config['tcp_bulk_insert']['port'])
