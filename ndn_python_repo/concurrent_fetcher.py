@@ -14,7 +14,7 @@ from datetime import datetime
 
 
 async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
-                             end_block_id: Optional[int], semaphore: aio.Semaphore):
+                             end_block_id: Optional[int], semaphore: aio.Semaphore, **kwargs):
     """
     An async-generator to fetch segmented object. Interests are issued concurrently.
     :param app: NDNApp.
@@ -54,7 +54,7 @@ async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
                 # is necessary because express_interest() does not return the sig, which is needed by the repo. An
                 # additional decoding step is necessary to obtain the metadata.
                 data_name, _, _ = await app.express_interest(
-                    int_name, must_be_fresh=True, can_be_prefix=False, lifetime=1000)
+                    int_name, must_be_fresh=True, can_be_prefix=False, lifetime=1000, **kwargs)
                 data_bytes = app.get_original_packet_value(data_name)
                 (_, meta_info, content, sig) = ndn_format_0_3.parse_data(data_bytes, with_tl=False)
 
