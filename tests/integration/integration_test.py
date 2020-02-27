@@ -12,19 +12,15 @@ import tempfile
 import uuid
 
 
-inline_cfg = """
+sqlite3_path = os.path.join(tempfile.mkdtemp(), 'sqlite3_test.db')
+inline_cfg = f"""
 ---
 repo_config:
   repo_name: 'testrepo'
 db_config:
   db_type: 'sqlite3'
   sqlite3:
-    'path': '~/.ndn/ndn-python-repo/sqlite3_test.db'
-  leveldb:
-    'dir': '~/.ndn/ndn-python-repo/leveldb_test/'
-  mongodb:
-    'db': 'repo_test'
-    'collection': 'data'
+    'path': '{sqlite3_path}'
 tcp_bulk_insert:
   'addr': '0.0.0.0'
   'port': '7376'
@@ -42,6 +38,7 @@ class RepoTestSuite(object):
 
         tmp_cfg_path = self.create_tmp_cfg()
         self.files_to_cleanup.append(tmp_cfg_path)
+        self.files_to_cleanup.append(sqlite3_path)
         self.repo_proc = subprocess.Popen(['ndn-python-repo', '-c', tmp_cfg_path])
         
         self.app = NDNApp(face=None, keychain=KeychainDigest())
@@ -50,8 +47,9 @@ class RepoTestSuite(object):
     def cleanup(self):
         self.repo_proc.kill()
         for file in self.files_to_cleanup:
-            print('Cleaning up tmp file:', file)
-            os.remove(file)
+            if os.path.exists(file):
+                print('Cleaning up tmp file:', file)
+                os.remove(file)
     
     def create_tmp_file(self, size_bytes=4096):
         tmp_file_path = os.path.join(tempfile.mkdtemp(), 'tempfile')
@@ -63,7 +61,6 @@ class RepoTestSuite(object):
         tmp_cfg_path = os.path.join(tempfile.mkdtemp(), 'ndn-python-repo.cfg')
         with open(tmp_cfg_path, 'w') as f:
             f.write(inline_cfg)
-        print('Tmp cfg:', tmp_cfg_path)
         return tmp_cfg_path
 
     async def run(self):
@@ -73,7 +70,6 @@ class RepoTestSuite(object):
 class TestBasic(RepoTestSuite):
     async def run(self):
         await aio.sleep(1)  # wait for repo to startup
-
         filepath1 = self.create_tmp_file()
         filepath2 = uuid.uuid4().hex.upper()[0:6]
         
@@ -94,21 +90,19 @@ class TestBasic(RepoTestSuite):
 
 class TestLargeFile(RepoTestSuite):
     async def run(self):
+        await aio.sleep(1)  # wait for repo to startup
         filepath1 = self.create_tmp_file(size_bytes=40*1024*1024)
         filepath2 = uuid.uuid4().hex.upper()[0:6]
         
         # put file
         pc = PutfileClient(self.app, Name.from_str('/testrepo'))
         await pc.insert_file(filepath1, Name.from_str(filepath2))
-
         # get file
         gc = GetfileClient(self.app, Name.from_str('/testrepo'))
         await gc.fetch_file(Name.from_str(filepath2))
-
         # diff
         ret = filecmp.cmp(filepath1, filepath2)
         print("Is same: ", ret)
-
         # cleanup
         self.files_to_cleanup.append(filepath1)
         self.files_to_cleanup.append(filepath2)

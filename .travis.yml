@@ -45,19 +45,20 @@ before_install:
   - echo $LC_ALL
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo apt-get install libboost1.65-all-dev ; fi
   - if [ "$TRAVIS_OS_NAME" = "osx"   ]; then brew reinstall openssl                    ; fi
-  - git clone https://github.com/named-data/ndn-cxx.git
-  - git checkout -b ndn-cxx-0.7.0
-  - cd ndn-cxx
-  - ./waf configure
-  - ./waf
-  - sudo ./waf install && cd ..
-  - git clone https://github.com/named-data/NFD.git
-  - git checkout -b NFD-0.7.0
-  - cd NFD && ./waf configure --without-libpcap --without-websocket && ./waf && sudo ./waf install && cd ..
+  - git clone https://github.com/named-data/ndn-cxx.git && cd ndn-cxx
+  - git checkout ndn-cxx-0.7.0
+  - ./waf configure && ./waf && sudo ./waf install && cd ..
+  - git clone https://github.com/named-data/NFD.git && cd NFD
+  - git checkout NFD-0.7.0
+  - ./waf configure --without-libpcap --without-websocket && ./waf && sudo ./waf install && cd ..
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo ldconfig ; fi
+  - ndnsec-key-gen test
   - sudo nfd start -c /usr/local/etc/ndn/nfd.conf.sample &
 install:
   - pip3 install pytest
+  - pip3 install wheel
   - pip3 install .
 script:
   - pytest
+  - cd tests/integration
+  - python3 integration_test.py
