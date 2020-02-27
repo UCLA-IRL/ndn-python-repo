@@ -1,7 +1,5 @@
 import os
 import sys
-sys.path.insert(1, os.path.join(sys.path[0], '..'))
-
 import abc
 import pytest
 from ndn_python_repo.storage import *
