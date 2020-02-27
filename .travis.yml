@@ -60,5 +60,3 @@ install:
   - pip3 install .
 script:
   - pytest
-  - cd tests/integration
-  - python3 integration_test.py
