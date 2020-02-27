@@ -25,19 +25,19 @@ class DeleteCommandHandle(CommandHandle):
         super(DeleteCommandHandle, self).__init__(app, storage)
         self.m_read_handle = read_handle
 
-    def listen(self, name: Name):
+    def listen(self, prefix: Name):
         """
         Register routes for command interests.
         This function needs to be called explicitly after initialization.
         :param name: NonStrictName. The name prefix to listen on.
         """
-        name_to_reg = name[:]
-        name_to_reg.append('delete')
-        self.app.route(name_to_reg)(self._on_delete_interest)
+        prefix_to_reg = prefix[:]
+        prefix_to_reg.append('delete')
+        self.app.route(prefix_to_reg)(self._on_delete_interest)
 
-        name_to_reg = name[:]
-        name_to_reg.append('delete check')
-        self.app.route(name_to_reg)(self.on_check_interest)
+        prefix_to_reg = prefix[:]
+        prefix_to_reg.append('delete check')
+        self.app.route(prefix_to_reg)(self.on_check_interest)
 
     def _on_delete_interest(self, int_name, _int_param, _app_param):
         aio.get_event_loop().create_task(self._process_delete(int_name, _int_param, _app_param))
@@ -54,9 +54,7 @@ class DeleteCommandHandle(CommandHandle):
                 raise DecodeError()
         except (DecodeError, IndexError) as exc:
             logging.warning('Parameter interest decoding failed')
-            ret = RepoCommandResponse()
-            ret.status_code = 403
-            self.reply_to_cmd(int_name, ret)
+            self.reply_with_status(int_name, 403)
             return
         
         name = cmd_param.name
@@ -71,7 +69,7 @@ class DeleteCommandHandle(CommandHandle):
         self.m_processes[process_id].status_code = 100
         self.m_processes[process_id].process_id = process_id
         self.m_processes[process_id].delete_num = 0
-        self.reply_to_cmd(int_name, self.m_processes[process_id])
+        self.reply_with_response(int_name, self.m_processes[process_id])
 
         # Un-register prefix
         existing = CommandHandle.remove_prefixes_in_storage(self.storage, name)

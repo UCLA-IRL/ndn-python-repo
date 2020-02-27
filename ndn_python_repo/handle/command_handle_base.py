@@ -17,7 +17,7 @@ class CommandHandle(object):
         self.storage = storage
         self.m_processes = dict()
 
-    def listen(self, name: Name):
+    def listen(self, prefix: Name):
         raise NotImplementedError
 
     def on_check_interest(self, int_name, _int_param, _app_param):
@@ -40,9 +40,9 @@ class CommandHandle(object):
             logging.warning('Process does not exist')
 
         if response is None:
-            self.reply_to_cmd(int_name, self.m_processes[process_id])
+            self.reply_with_response(int_name, self.m_processes[process_id])
         else:
-            self.reply_to_cmd(int_name, response)
+            self.reply_with_response(int_name, response)
 
     @staticmethod
     def add_prefixes_in_storage(storage: Storage, prefix) -> bool:
@@ -89,11 +89,13 @@ class CommandHandle(object):
             return True
         else:
             return False
+    
+    def reply_with_status(self, int_name: Name, status_code: int):
+        ret = RepoCommandResponse()
+        ret.status_code = status_code
+        self.reply_with_response(int_name, ret)
 
-    def reply_to_cmd(self, int_name, response: RepoCommandResponse):
-        """
-        Reply to a command interest
-        """
+    def reply_with_response(self, int_name, response: RepoCommandResponse):
         logging.info('Reply to command: {}'.format(Name.to_str(int_name)))
         response_bytes = response.encode()
         self.app.put_data(int_name, response_bytes, freshness_period=1000)

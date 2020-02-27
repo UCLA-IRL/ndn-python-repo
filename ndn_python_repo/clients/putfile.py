@@ -114,6 +114,13 @@ class PutfileClient(object):
             return
         process_id = cmd_response.process_id
         status_code = cmd_response.status_code
+        
+        if status_code == 401:
+            logging.info('This insertion command or insertion check command is invalidated')
+            return
+        if status_code == 403:
+            logging.warning('Malformed command')
+            return
         logging.info(f'cmd_response process {process_id} accepted: status code {status_code}')
 
         # Send insert check interest to wait until insert process completes

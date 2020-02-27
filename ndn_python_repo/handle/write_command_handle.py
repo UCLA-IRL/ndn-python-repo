@@ -26,20 +26,24 @@ class WriteCommandHandle(CommandHandle):
         """
         super(WriteCommandHandle, self).__init__(app, storage)
         self.m_read_handle = read_handle
+        self.prefix = None
 
-    def listen(self, name):
+    def listen(self, prefix):
         """
         Register routes for command interests.
         This function needs to be called explicitly after initialization.
-        :param name: NonStrictName. The name prefix to listen on.
+        :param perfix: NonStrictName. The name prefix to listen on.
         """
-        name_to_reg = name[:]
-        name_to_reg.append('insert')
-        self.app.route(name_to_reg)(self._on_insert_interest)
+        # remember the prefix to check against the namespace of incoming data
+        self.prefix = prefix
 
-        name_to_reg = name[:]
-        name_to_reg.append('insert check')
-        self.app.route(name_to_reg)(self.on_check_interest)
+        prefix_to_reg = prefix[:]
+        prefix_to_reg.append('insert')
+        self.app.route(prefix_to_reg)(self._on_insert_interest)
+
+        prefix_to_reg = prefix[:]
+        prefix_to_reg.append('insert check')
+        self.app.route(prefix_to_reg)(self.on_check_interest)
 
     def _on_insert_interest(self, int_name, _int_param, _app_param):
         aio.get_event_loop().create_task(self._process_insert(int_name, _int_param, _app_param))
@@ -54,10 +58,8 @@ class WriteCommandHandle(CommandHandle):
             if cmd_param.name == None:
                 raise DecodeError()
         except (DecodeError, IndexError) as exc:
-            logging.info('Parameter interest blob decoding failed')
-            ret = RepoCommandResponse()
-            ret.status_code = 403
-            self.reply_to_cmd(int_name, ret)
+            logging.warning('Parameter interest blob decoding failed')
+            self.reply_with_status(int_name, 403)
             return
 
         name = cmd_param.name
@@ -65,6 +67,12 @@ class WriteCommandHandle(CommandHandle):
         end_block_id = cmd_param.end_block_id
 
         logging.info(f'Write handle processing insert command: {name}, {start_block_id}, {end_block_id}')
+        
+        # rejects any data that overlaps with repo's own namespace
+        if Name.is_prefix(self.prefix, name) or Name.is_prefix(name, self.prefix):
+            logging.warning('Inserted data name overlaps with repo prefix')
+            self.reply_with_status(int_name, 401)
+            return
 
         # Reply to client with status code 100
         process_id = random.randint(0, 0x7fffffff)
@@ -72,7 +80,7 @@ class WriteCommandHandle(CommandHandle):
         self.m_processes[process_id].status_code = 100
         self.m_processes[process_id].process_id = process_id
         self.m_processes[process_id].insert_num = 0
-        self.reply_to_cmd(int_name, self.m_processes[process_id])
+        self.reply_with_response(int_name, self.m_processes[process_id])
 
         # Start data fetching process
         self.m_processes[process_id].status_code = 300

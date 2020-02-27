@@ -17,20 +17,20 @@ class ReadHandle(object):
         self.app = app
         self.storage = storage
 
-    def listen(self, name):
+    def listen(self, prefix):
         """
         This function needs to be called for prefix of all data stored.
-        :param name: NonStrictName.
+        :param prefix: NonStrictName.
         """
-        self.app.route(name)(self._on_interest)
-        logging.info(f'Read handle: listening to {Name.to_str(name)}')
+        self.app.route(prefix)(self._on_interest)
+        logging.info(f'Read handle: listening to {Name.to_str(prefix)}')
     
-    def unlisten(self, name):
+    def unlisten(self, prefix):
         """
         :param name: NonStrictName.
         """
-        aio.ensure_future(self.app.unregister(name))
-        logging.info(f'Read handle: stop listening to {Name.to_str(name)}')
+        aio.ensure_future(self.app.unregister(prefix))
+        logging.info(f'Read handle: stop listening to {Name.to_str(prefix)}')
 
     def _on_interest(self, int_name, _int_param, _app_param):
         if not self.storage.exists(Name.to_str(int_name)):
