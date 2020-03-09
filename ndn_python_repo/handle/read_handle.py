@@ -33,9 +33,9 @@ class ReadHandle(object):
         logging.info(f'Read handle: stop listening to {Name.to_str(prefix)}')
 
     def _on_interest(self, int_name, _int_param, _app_param):
-        if not self.storage.exists(Name.to_str(int_name)):
-            return
         data_bytes = self.storage.get(Name.to_str(int_name))
+        if data_bytes == None:
+            return
 
         # Append TL
         type_len = tlv_var.get_tl_num_size(ndn_format_0_3.TypeNumber.DATA)
