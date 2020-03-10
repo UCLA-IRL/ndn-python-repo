@@ -6,22 +6,23 @@
 """
 
 import asyncio as aio
-from typing import Optional
+from datetime import datetime
+import logging
 from ndn.app import NDNApp
 from ndn.types import InterestNack, InterestTimeout
 from ndn.encoding import Name, Component, ndn_format_0_3
-from datetime import datetime
+from typing import Optional
 
 
-async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
-                             end_block_id: Optional[int], semaphore: aio.Semaphore, **kwargs):
+async def concurrent_fetcher(app: NDNApp, name, start_block_id: int, end_block_id: Optional[int], 
+                             semaphore: aio.Semaphore, **kwargs):
     """
     An async-generator to fetch segmented object. Interests are issued concurrently.
     :param app: NDNApp.
     :param name: NonStrictName. Name prefix of Data.
     :return: Yield (data_bytes) tuples in order.
     """
-    cur_id = start_block_id if start_block_id is not None else 0
+    cur_id = start_block_id
     final_id = end_block_id if end_block_id is not None else 0x7fffffff
     is_failed = False
     tasks = []
@@ -47,8 +48,7 @@ async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
                 received_or_fail.set()
                 return
             try:
-                print(datetime.now().strftime("%H:%M:%S.%f "), end='')
-                print('Express Interest: {}'.format(Name.to_str(int_name)))
+                logging.info('Express Interest: {}'.format(Name.to_str(int_name)))
 
                 # Get the data name first, and then use the name to get the entire packet value (including sig). This
                 # is necessary because express_interest() does not return the sig, which is needed by the repo. An
@@ -59,16 +59,15 @@ async def concurrent_fetcher(app: NDNApp, name, start_block_id: Optional[int],
                 (_, meta_info, content, sig) = ndn_format_0_3.parse_data(data_bytes, with_tl=False)
 
                 # Save data and update final_id
-                print(datetime.now().strftime("%H:%M:%S.%f "), end='')
-                print('Received data: {}'.format(Name.to_str(data_name)))
+                logging.info('Received data: {}'.format(Name.to_str(data_name)))
                 seq_to_data_packet[seq] = data_bytes
                 if meta_info is not None and meta_info.final_block_id is not None:
                     final_id = Component.to_number(meta_info.final_block_id)
                 break
             except InterestNack as e:
-                print(f'Nacked with reason={e.reason}')
+                logging.info(f'Nacked with reason={e.reason}')
             except InterestTimeout:
-                print(f'Timeout')
+                logging.info(f'Timeout')
         semaphore.release()
         received_or_fail.set()
 
