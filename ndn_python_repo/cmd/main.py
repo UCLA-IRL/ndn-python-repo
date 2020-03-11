@@ -54,7 +54,7 @@ def main() -> int:
     config = process_config(cmdline_args)
     logging.info(config)
 
-    storage = StorageFactory.create_storage_handle(config['db_config'])
+    storage = create_storage(config['db_config'])
 
     app = NDNApp()
 

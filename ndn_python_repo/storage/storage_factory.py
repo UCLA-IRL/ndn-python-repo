@@ -19,32 +19,29 @@ except ImportError as exc:
     pass
 
 
-class StorageFactory():
+def create_storage(config):
+    """
+    Factory method to create storage handle.
+    :param config: config object created by parsing yaml
+    :return: handle
+    """
+    db_type = config['db_type']
     
-    @staticmethod
-    def create_storage_handle(config):
-        """
-        Factory method to create storage handle.
-        :param config: config object created by parsing yaml
-        :return: handle
-        """
-        db_type = config['db_type']
-        
-        try:
-            if db_type == 'sqlite3':
-                db_path = config[db_type]['path']
-                ret = SqliteStorage(db_path)
-            elif db_type == 'leveldb':
-                db_dir = config[db_type]['dir']
-                ret = LevelDBStorage(db_dir)
-            elif db_type == 'mongodb':
-                db_name = config[db_type]['db']
-                db_collection = config[db_type]['collection']
-                ret = MongoDBStorage(db_name, db_collection)
-            else:
-                raise NameError()
+    try:
+        if db_type == 'sqlite3':
+            db_path = config[db_type]['path']
+            ret = SqliteStorage(db_path)
+        elif db_type == 'leveldb':
+            db_dir = config[db_type]['dir']
+            ret = LevelDBStorage(db_dir)
+        elif db_type == 'mongodb':
+            db_name = config[db_type]['db']
+            db_collection = config[db_type]['collection']
+            ret = MongoDBStorage(db_name, db_collection)
+        else:
+            raise NameError()
 
-        except NameError as exc:
-            raise NotImplementedError(f'Unsupported database backend: {db_type}')
-        
-        return ret
+    except NameError as exc:
+        raise NotImplementedError(f'Unsupported database backend: {db_type}')
+    
+    return ret
