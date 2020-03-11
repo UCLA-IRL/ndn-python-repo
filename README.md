@@ -1,6 +1,6 @@
 # ndn-python-repo
 
-[![Build Status](https://travis-ci.org/JonnyKong/ndn-python-repo.svg?branch=master)](https://travis-ci.org/JonnyKong/ndn-python-repo)
+[![Build Status](https://travis-ci.org/JonnyKong/ndn-python-repo.svg?branch=master)](https://travis-ci.org/JonnyKong/ndn-python-repo) [![PyPI version](https://badge.fury.io/py/ndn-python-repo.svg)](https://badge.fury.io/py/ndn-python-repo)
 
 A Named Data Networking (NDN) Repo implementation using [python-ndn](https://github.com/zjkmxy/python-ndn).
 
