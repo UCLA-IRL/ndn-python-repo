@@ -1,4 +1,5 @@
 import asyncio as aio
+import io
 import logging
 import pickle
 import sys
@@ -32,10 +33,12 @@ class TcpBulkInsertHandle(object):
             """
             while True:
                 try:
-                    ret = await read_tl_num_from_stream(self.reader)
+                    bio = io.BytesIO()
+                    ret = await read_tl_num_from_stream(self.reader, bio)
                     assert ret == TypeNumber.DATA
-                    siz = await read_tl_num_from_stream(self.reader)
-                    data_bytes = await self.reader.readexactly(siz)
+                    siz = await read_tl_num_from_stream(self.reader, bio)
+                    bio.write(await self.reader.readexactly(siz))
+                    data_bytes = bio.getvalue()
                 except aio.IncompleteReadError as exc:
                     self.writer.close()
                     logging.info('Closed TCP connection')
@@ -44,7 +47,7 @@ class TcpBulkInsertHandle(object):
                     print(exc)
                     return
                 # Parse data again to obtain the name
-                (data_name, _, _, _) = parse_data(data_bytes, with_tl=False)
+                data_name, _, _, _ = parse_data(data_bytes, with_tl=True)
                 self.storage.put(Name.to_str(data_name), data_bytes)
                 logging.info(f'Inserted data: {Name.to_str(data_name)}')
                 # Register prefix for this data

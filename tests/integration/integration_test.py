@@ -3,6 +3,7 @@ import filecmp
 from ndn.app import NDNApp
 from ndn.encoding import Name, Component
 from ndn.security import KeychainDigest
+from ndn.types import InterestNack, InterestTimeout
 from ndn_python_repo.clients import GetfileClient, PutfileClient, CommandChecker
 from ndn_python_repo.command.repo_commands import RepoCommandParameter, RepoCommandResponse
 import os
@@ -15,6 +16,7 @@ import uuid
 
 sqlite3_path = os.path.join(tempfile.mkdtemp(), 'sqlite3_test.db')
 repo_name = 'testrepo'
+port = 7377
 inline_cfg = f"""
 ---
 repo_config:
@@ -25,7 +27,7 @@ db_config:
     'path': '{sqlite3_path}'
 tcp_bulk_insert:
   'addr': '0.0.0.0'
-  'port': '7377'
+  'port': '{port}'
 """
 
 
@@ -197,8 +199,33 @@ class TestSingleDataInsert(RepoTestSuite):
         self.app.shutdown()
 
 
+class TestTcpBulkInsert(RepoTestSuite):
+    async def run(self):
+        await aio.sleep(1)  # wait for repo to startup
+
+        reader, writer = await aio.open_connection('127.0.0.1', port)
+
+        # insert data '/test/0'
+        writer.write(b'\x06?\x07\t\x08\x04test\x08\x010\x14\x03\x18\x01\x00\x15\x06foobar'
+                     b'\x16\x03\x1b\x01\x00\x17 \x94?\\\xae\x99\xd5\xd6\xa5\x18\xac\x00'
+                     b'\xe3\xcaX\x82\x972,\xf1\xebUQ\xa5I%\xb3\xd5\xac\xcc\xc6\x80Q')
+        writer.close()
+
+        # content should be 'foobar'
+        try:
+            _, _, content = await self.app.express_interest(Name.from_str('/test/0'))
+            assert content.tobytes().decode() == 'foobar'
+        except InterestNack as e:
+            assert f'Nacked with reason={e.reason}'
+        except InterestTimeout:
+            assert False, 'Timeout'
+        
+        self.app.shutdown()
+
+
 if __name__ == '__main__':
-    TestBasic().test_main()
-    TestLargeFile().test_main()
-    TestInvalidParam().test_main()
-    TestSingleDataInsert().test_main()
+    # TestBasic().test_main()
+    # TestLargeFile().test_main()
+    # TestInvalidParam().test_main()
+    # TestSingleDataInsert().test_main()
+    TestTcpBulkInsert().test_main()

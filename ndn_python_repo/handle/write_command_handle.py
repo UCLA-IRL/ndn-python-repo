@@ -2,7 +2,7 @@ import asyncio as aio
 import logging
 import random
 from ndn.app import NDNApp
-from ndn.encoding import Name, DecodeError, ndn_format_0_3
+from ndn.encoding import Name, DecodeError
 from ndn.types import InterestNack, InterestTimeout
 
 from . import ReadHandle, CommandHandle
@@ -141,11 +141,9 @@ class WriteCommandHandle(CommandHandle):
         :param name: NonStrictName.
         :return:  Number of data packets fetched.
         """
-        # first get the data name, then use the name to get the entire packet
         try:
-            data_name, _, _ = await self.app.express_interest(
-                name, must_be_fresh=True, can_be_prefix=False, lifetime=1000)
-            data_bytes = self.app.get_original_packet_value(data_name)
+            data_name, _, _, data_bytes = await self.app.express_interest(
+                name, need_raw_packet=True, must_be_fresh=True, can_be_prefix=False, lifetime=1000)
         except InterestNack as e:
             logging.info(f'Nacked with reason={e.reason}')
             return 0
@@ -153,7 +151,6 @@ class WriteCommandHandle(CommandHandle):
             logging.info(f'Timeout')
             return 0
         self.storage.put(Name.to_str(data_name), data_bytes)
-        print('Receive single interest')
         return 1
 
     async def fetch_segmented_data(self, name, start_block_id: int, end_block_id: Optional[int]):
@@ -164,9 +161,7 @@ class WriteCommandHandle(CommandHandle):
         """
         semaphore = aio.Semaphore(10)
         block_id = start_block_id
-        async for data_bytes in concurrent_fetcher(self.app, name, start_block_id, end_block_id, semaphore):
-            # Obtain data name by parsing data
-            (data_name, _, _, _) = ndn_format_0_3.parse_data(data_bytes, with_tl=False)
+        async for (data_name, _, _, data_bytes) in concurrent_fetcher(self.app, name, start_block_id, end_block_id, semaphore):
             self.storage.put(Name.to_str(data_name), data_bytes)
             assert block_id <= end_block_id
             block_id += 1

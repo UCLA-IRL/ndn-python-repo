@@ -37,5 +37,5 @@ class TestConcurrentFetcherBasic(ConcurrentFetcherTestSuite):
 
     async def app_main(self):
         semaphore = aio.Semaphore(1)
-        async for data_bytes in concurrent_fetcher(self.app, Name.from_str('/test'), 0, 0, semaphore, nonce=None):
-            data_name, meta_info, content, sig = ndn_format_0_3.parse_data(data_bytes, with_tl=True)
+        async for (data_name, _, _, _) in concurrent_fetcher(self.app, Name.from_str('/test'), 0, 0, semaphore, nonce=None):
+            assert Name.to_str(data_name) == '/test/0'

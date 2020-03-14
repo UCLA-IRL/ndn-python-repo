@@ -1,7 +1,7 @@
 import asyncio as aio
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name, tlv_var, ndn_format_0_3
+from ndn.encoding import Name, tlv_var
 from ..storage import Storage
 
 
@@ -36,16 +36,5 @@ class ReadHandle(object):
         data_bytes = self.storage.get(Name.to_str(int_name))
         if data_bytes == None:
             return
-
-        # Append TL
-        type_len = tlv_var.get_tl_num_size(ndn_format_0_3.TypeNumber.DATA)
-        len_len = tlv_var.get_tl_num_size(len(data_bytes))
-        wire = bytearray(type_len + len_len + len(data_bytes))
-
-        offset = 0
-        offset += tlv_var.write_tl_num(ndn_format_0_3.TypeNumber.DATA, wire, offset)
-        offset += tlv_var.write_tl_num(len(data_bytes), wire, offset)
-        wire[offset:] = data_bytes
-
-        self.app.put_raw_packet(wire)
+        self.app.put_raw_packet(data_bytes)
         logging.info(f'Read handle: serve data {Name.to_str(int_name)}')
