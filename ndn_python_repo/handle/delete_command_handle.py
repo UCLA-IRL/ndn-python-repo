@@ -100,7 +100,7 @@ class DeleteCommandHandle(CommandHandle):
         for idx in range(start_block_id, end_block_id + 1):
             key = prefix[:]
             key.append(str(idx))
-            key = Name.to_str(key)
+            key = Name.to_bytes(key)
             if self.storage.exists(key):
                 self.storage.remove(key)
                 delete_num += 1

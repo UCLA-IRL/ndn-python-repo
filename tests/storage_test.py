@@ -15,33 +15,33 @@ class StorageTestFixture(object):
     def test_main():
         StorageTestFixture._test_put()
         StorageTestFixture._test_get()
-        StorageTestFixture.__test_remove()
+        StorageTestFixture._test_remove()
         StorageTestFixture._test_exists()
 
     @staticmethod
     def _test_put():
-        StorageTestFixture.storage.put('test_key_1', bytes([0x00, 0x01, 0x02, 0x03, 0x04]))
+        StorageTestFixture.storage.put(b'test_key_1', bytes([0x00, 0x01, 0x02, 0x03, 0x04]))
 
     @staticmethod
     def _test_get():
         b_in = bytes([0x00, 0x01, 0x02, 0x03, 0x04])
-        StorageTestFixture.storage.put('test_key_1', b_in)
-        b_out = StorageTestFixture.storage.get('test_key_1')
+        StorageTestFixture.storage.put(b'test_key_1', b_in)
+        b_out = StorageTestFixture.storage.get(b'test_key_1')
         assert b_in == b_out
 
     @staticmethod
-    def __test_remove():
-        StorageTestFixture.storage.put('test_key_1', bytes([0x00, 0x01, 0x02, 0x03, 0x04]))
-        assert StorageTestFixture.storage.remove('test_key_1')
-        assert StorageTestFixture.storage.remove('test_key_1') is False
+    def _test_remove():
+        StorageTestFixture.storage.put(b'test_key_1', bytes([0x00, 0x01, 0x02, 0x03, 0x04]))
+        assert StorageTestFixture.storage.remove(b'test_key_1')
+        assert StorageTestFixture.storage.remove(b'test_key_1') is False
 
     @staticmethod
     def _test_exists():
-        StorageTestFixture.storage.remove('test_key_1')
-        StorageTestFixture.storage.remove('test_key_2')
-        StorageTestFixture.storage.put('test_key_1', bytes([0x00, 0x01, 0x02, 0x03, 0x04]))
-        assert StorageTestFixture.storage.exists('test_key_1')
-        assert StorageTestFixture.storage.exists('test_key_2') is False
+        StorageTestFixture.storage.remove(b'test_key_1')
+        StorageTestFixture.storage.remove(b'test_key_2')
+        StorageTestFixture.storage.put(b'test_key_1', bytes([0x00, 0x01, 0x02, 0x03, 0x04]))
+        assert StorageTestFixture.storage.exists(b'test_key_1')
+        assert StorageTestFixture.storage.exists(b'test_key_2') is False
 
 
 # Default DB is SQLite
@@ -55,15 +55,28 @@ class TestSqliteStorage(StorageTestFixture):
         StorageTestFixture.test_main()
 
 # Unit tests for optional DBs only if they can be successfully imported
-try:
-    from src.storage import MongoDBStorage
-    class TestMongoDBStorage(StorageTestFixture):
-        """
-        Test MongoDBStorage
-        """
-        @staticmethod
-        def test_main():
-            StorageTestFixture.storage = MongoDBStorage('_test_db', '_test_collection')
-            StorageTestFixture.test_main()
-except ImportError as exc:
-    pass
+class TestLevelDBStorage(StorageTestFixture):
+    """
+    Test MongoDBStorage
+    """
+    @staticmethod
+    def test_main(tmp_path):
+        try:
+            from ndn_python_repo.storage import LevelDBStorage
+        except ImportError as exc:
+            return
+        StorageTestFixture.storage = LevelDBStorage(tmp_path)
+        StorageTestFixture.test_main()
+
+class TestMongoDBStorage(StorageTestFixture):
+    """
+    Test MongoDBStorage
+    """
+    @staticmethod
+    def test_main(tmp_path):
+        try:
+            from ndn_python_repo.storage import MongoDBStorage
+        except ImportError as exc:
+            return
+        StorageTestFixture.storage = MongoDBStorage('_test_db', '_test_collection')
+        StorageTestFixture.test_main()

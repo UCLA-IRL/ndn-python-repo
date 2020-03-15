@@ -33,7 +33,7 @@ class ReadHandle(object):
         logging.info(f'Read handle: stop listening to {Name.to_str(prefix)}')
 
     def _on_interest(self, int_name, _int_param, _app_param):
-        data_bytes = self.storage.get(Name.to_str(int_name))
+        data_bytes = self.storage.get(Name.to_bytes(int_name))
         if data_bytes == None:
             return
         self.app.put_raw_packet(data_bytes)

@@ -21,7 +21,7 @@ class SqliteStorage(Storage):
         c = self.conn.cursor()
         c.execute("""
             CREATE TABLE IF NOT EXISTS data (
-                key     TEXT PRIMARY KEY,
+                key     BLOB PRIMARY KEY,
                 value   BLOB
             )
         """)
@@ -33,10 +33,10 @@ class SqliteStorage(Storage):
         except AttributeError:
             pass
 
-    def put(self, key: str, value: bytes):
+    def put(self, key: bytes, value: bytes):
         """
         Insert document into sqlite3, overwrite if already exists.
-        :param key: str
+        :param key: bytes
         :param value: bytes
         """
         c = self.conn.cursor()
@@ -45,10 +45,10 @@ class SqliteStorage(Storage):
         """, (key, value))
         self.conn.commit()
 
-    def get(self, key: str) -> Optional[bytes]:
+    def get(self, key: bytes) -> Optional[bytes]:
         """
         Get value from sqlite3.
-        :param key: str
+        :param key: bytes
         :return: bytes
         """
         c = self.conn.cursor()
@@ -60,18 +60,18 @@ class SqliteStorage(Storage):
         ret = c.fetchone()
         return ret[0] if ret else None
 
-    def exists(self, key: str) -> bool:
+    def exists(self, key: bytes) -> bool:
         """
         Return whether document exists.
-        :param key: str
+        :param key: bytes
         :return: bool
         """
         return self.get(key) is not None
 
-    def remove(self, key: str) -> bool:
+    def remove(self, key: bytes) -> bool:
         """
         Return whether removal is successful
-        :param key: str
+        :param key: bytes
         :return: bool
         """
         c = self.conn.cursor()
@@ -82,10 +82,10 @@ class SqliteStorage(Storage):
         self.conn.commit()
         return n_removed > 0
 
-    def keys(self) -> List[str]:
+    def keys(self) -> List[bytes]:
         """
         Get the list of keys
-        :return: List[str]
+        :return: List[bytes]
         """
         ret = []
         c = self.conn.cursor()

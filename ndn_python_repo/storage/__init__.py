@@ -12,8 +12,3 @@ try:
     from .mongodb import MongoDBStorage
 except ImportError as exc:
     pass
-
-try:
-    from .datastore import DataStoreStorage
-except ImportError as exc:
-    pass

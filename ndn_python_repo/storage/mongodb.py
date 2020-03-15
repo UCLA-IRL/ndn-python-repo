@@ -5,6 +5,7 @@ from .storage_base import Storage
 
 
 class MongoDBStorage(Storage):
+
     def __init__(self, db: str, collection: str):
         """
         Init DB with unique index on key
@@ -17,11 +18,12 @@ class MongoDBStorage(Storage):
         self.c_collection = self.c_db[self._collection]
 
         client = MongoClient(self._uri)
+        client.server_info()    # will throw an exception if not connected
         c_db = client[self._db]
         c_collection = c_db[self._collection]
         c_collection.create_index('key', unique=True)
 
-    def put(self, key: str, value: bytes):
+    def put(self, key: bytes, value: bytes):
         """
         Insert document into MongoDB, overwrite if already exists.
         """
@@ -34,7 +36,7 @@ class MongoDBStorage(Storage):
         except pymongo.errors.DuplicateKeyError:
             self.c_collection.update_one({"key": key}, {"$set": {"value": value}})
 
-    def get(self, key: str) -> Optional[bytes]:
+    def get(self, key: bytes) -> Optional[bytes]:
         """
         Get document from MongoDB
         """
@@ -44,7 +46,7 @@ class MongoDBStorage(Storage):
         else:
             return None
 
-    def exists(self, key: str) -> bool:
+    def exists(self, key: bytes) -> bool:
         """
         Return whether document exists
         """
@@ -53,7 +55,7 @@ class MongoDBStorage(Storage):
         else:
             return False
 
-    def remove(self, key: str) -> bool:
+    def remove(self, key: bytes) -> bool:
         """
         Return whether removal is successful
         """

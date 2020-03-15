@@ -32,13 +32,13 @@ class Repo(object):
         """
         Read from the database and get the a list of prefixes for the existing Data in the storage
         """
-        ret = self.storage.get("prefixes")
+        ret = self.storage.get(b'prefixes')
         if ret:
             prefixes_msg = PrefixesInStorage.parse(ret)
             for prefix in prefixes_msg.prefixes:
-                logging.info(f"Existing Prefix Found: {Name.to_str(prefix)}")
+                logging.info(f'Existing Prefix Found: {Name.to_str(prefix)}')
                 self.read_handle.listen(prefix)
 
     @staticmethod
     def on_register_failed(prefix):
-        logging.error("Prefix registration failed: %s", prefix)
+        logging.error(f'Prefix registration failed: {prefix}')

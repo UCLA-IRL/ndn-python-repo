@@ -150,7 +150,7 @@ class WriteCommandHandle(CommandHandle):
         except InterestTimeout:
             logging.info(f'Timeout')
             return 0
-        self.storage.put(Name.to_str(data_name), data_bytes)
+        self.storage.put(Name.to_bytes(data_name), data_bytes)
         return 1
 
     async def fetch_segmented_data(self, name, start_block_id: int, end_block_id: Optional[int]):
@@ -162,7 +162,7 @@ class WriteCommandHandle(CommandHandle):
         semaphore = aio.Semaphore(10)
         block_id = start_block_id
         async for (data_name, _, _, data_bytes) in concurrent_fetcher(self.app, name, start_block_id, end_block_id, semaphore):
-            self.storage.put(Name.to_str(data_name), data_bytes)
+            self.storage.put(Name.to_bytes(data_name), data_bytes)
             assert block_id <= end_block_id
             block_id += 1
         insert_num = block_id - start_block_id
