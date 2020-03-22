@@ -16,37 +16,28 @@ class Storage:
     def _remove(self, key: bytes) -> bool:
         raise NotImplementedError
 
-    def put_data_packet(self, name: NonStrictName, data: bytes):
-        # remove name's TL as key to support prefix search
+    def _get_name_bytes_wo_tl(name: NonStrictName) -> bytes:
+        # remove name's TL as key to support efficient prefix search
         name = Name.to_bytes(name)
         offset = 0
         offset += parse_tl_num(name, offset)[1]
         offset += parse_tl_num(name, offset)[1]
-        key = name[offset:]
-        
+        return name[offset:]
+
+
+    ###### wrappers around key-value store
+
+    def put_data_packet(self, name: NonStrictName, data: bytes):
         # compute expire_time_ms by adding freshnessPeriod to current time
         _, meta_info, _, _ = parse_data(data)
         expire_time_ms = int(time.time() * 1000)
         if meta_info.freshness_period:
             expire_time_ms += meta_info.freshness_period
 
-        self._put(key, data, expire_time_ms)
-    
+        self._put(_get_name_bytes_wo_tl(name), data, expire_time_ms)
+
     def get_data_packet(self, name: NonStrictName, can_be_prefix=False, must_be_fresh=False):
-        # remove name TL
-        name = Name.to_bytes(name)
-        offset = 0
-        offset += parse_tl_num(name, offset)[1]
-        offset += parse_tl_num(name, offset)[1]
-        key = name[offset:]
+        return self._get(_get_name_bytes_wo_tl(name), can_be_prefix, must_be_fresh)
 
-        return self._get(key, can_be_prefix, must_be_fresh)
-    
     def remove_data_packet(self, name: NonStrictName):
-        name = Name.to_bytes(name)
-        offset = 0
-        offset += parse_tl_num(name, offset)[1]
-        offset += parse_tl_num(name, offset)[1]
-        key = name[offset:]
-
-        return self._remove(key)
+        return self._remove(_get_name_bytes_wo_tl(name))
