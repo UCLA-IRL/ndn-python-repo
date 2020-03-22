@@ -29,9 +29,3 @@ class LevelDBStorage(Storage):
             return True
         else:
             return False
-
-    def get_key_list(self) -> list:
-        key_list = list()
-        for key, value in self.db:
-            key_list.append(key)
-        return key_list

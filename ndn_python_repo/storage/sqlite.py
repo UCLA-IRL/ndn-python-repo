@@ -81,18 +81,3 @@ class SqliteStorage(Storage):
         """, (key, )).rowcount
         self.conn.commit()
         return n_removed > 0
-
-    def keys(self) -> List[bytes]:
-        """
-        Get the list of keys
-        :return: List[bytes]
-        """
-        ret = []
-        c = self.conn.cursor()
-        c.execute("""
-            SELECT  key
-            FROM    data
-        """)
-        for row in c:
-            ret.append(row[0])
-        return ret

@@ -60,9 +60,3 @@ class MongoDBStorage(Storage):
         Return whether removal is successful
         """
         return self.c_collection.delete_one({"key": key}).deleted_count > 0
-
-    def keys(self) -> List[str]:
-        """
-        Return a set of "primary" keys
-        """
-        return (doc["key"] for doc in self.c_collection.find())
