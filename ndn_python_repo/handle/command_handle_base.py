@@ -53,7 +53,7 @@ class CommandHandle(object):
         Return whether the prefix has been registered before.
         """
         prefixes_msg = PrefixesInStorage()
-        ret = storage.get(b'prefixes')
+        ret = storage._get(b'prefixes')
         if ret:
             prefixes_msg = PrefixesInStorage.parse(ret)
 
@@ -63,7 +63,7 @@ class CommandHandle(object):
         else:
             prefixes_msg.prefixes.append(prefix)
             prefixes_msg_bytes = prefixes_msg.encode()
-            storage.put(b'prefixes', bytes(prefixes_msg_bytes))
+            storage._put(b'prefixes', bytes(prefixes_msg_bytes))
             logging.info(f'Added new prefix into the database: {Name.to_str(prefix)}')
             return False
     
@@ -76,7 +76,7 @@ class CommandHandle(object):
         Return whether the prefix is successfully removed.
         """
         prefixes_msg = PrefixesInStorage()
-        ret = storage.get(b'prefixes')
+        ret = storage._get(b'prefixes')
         if ret:
             prefixes_msg = PrefixesInStorage.parse(ret)
         
@@ -84,7 +84,7 @@ class CommandHandle(object):
         if prefix in prefixes_msg.prefixes:
             prefixes_msg.prefixes.remove(Name.normalize(prefix))
             prefixes_msg_bytes = prefixes_msg.encode()
-            storage.put(b'prefixes', bytes(prefixes_msg_bytes))
+            storage._put(b'prefixes', bytes(prefixes_msg_bytes))
             logging.info(f'Removed existing prefix from the database: {Name.to_str(prefix)}')
             return True
         else:

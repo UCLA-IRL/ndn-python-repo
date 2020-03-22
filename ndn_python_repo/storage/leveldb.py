@@ -16,8 +16,11 @@ class LevelDBStorage(Storage):
     def put(self, key: bytes, value: bytes):
         self.db.put(key, value)
 
-    def get(self, key: bytes) -> bytes:
-        return self.db.get(key)
+    def get(self, key: bytes, can_be_prefix=False, must_be_fresh=False) -> bytes:
+        if not can_be_prefix:
+            return self.db.get(key)
+        else:
+            pass
 
     def exists(self, key: bytes) -> bool:
         ret = self.db.get(key)

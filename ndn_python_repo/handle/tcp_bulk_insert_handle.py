@@ -48,7 +48,7 @@ class TcpBulkInsertHandle(object):
                     return
                 # Parse data again to obtain the name
                 data_name, _, _, _ = parse_data(data_bytes, with_tl=True)
-                self.storage.put(Name.to_bytes(data_name), data_bytes)
+                self.storage.put_data_packet(data_name, data_bytes)
                 logging.info(f'Inserted data: {Name.to_str(data_name)}')
                 # Register prefix for this data
                 existing = CommandHandle.add_prefixes_in_storage(self.storage, data_name)

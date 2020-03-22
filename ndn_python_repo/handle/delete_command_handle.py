@@ -100,9 +100,8 @@ class DeleteCommandHandle(CommandHandle):
         for idx in range(start_block_id, end_block_id + 1):
             key = prefix[:]
             key.append(str(idx))
-            key = Name.to_bytes(key)
-            if self.storage.exists(key):
-                self.storage.remove(key)
+            if self.storage.get_data_packet(key) == None:
+                self.storage.remove_data_packet(key)
                 delete_num += 1
             else:
                 # assume sequence numbers are continuous

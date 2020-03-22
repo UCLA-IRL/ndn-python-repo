@@ -32,7 +32,7 @@ class Repo(object):
         """
         Read from the database and get the a list of prefixes for the existing Data in the storage
         """
-        ret = self.storage.get(b'prefixes')
+        ret = self.storage._get(b'prefixes')
         if ret:
             prefixes_msg = PrefixesInStorage.parse(ret)
             for prefix in prefixes_msg.prefixes:

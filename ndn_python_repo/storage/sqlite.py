@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import time
 from typing import List, Optional
 from .storage_base import Storage
 
@@ -21,8 +22,9 @@ class SqliteStorage(Storage):
         c = self.conn.cursor()
         c.execute("""
             CREATE TABLE IF NOT EXISTS data (
-                key     BLOB PRIMARY KEY,
-                value   BLOB
+                key BLOB PRIMARY KEY,
+                value BLOB,
+                expire_time_ms INTEGER
             )
         """)
         self.conn.commit()
@@ -33,42 +35,39 @@ class SqliteStorage(Storage):
         except AttributeError:
             pass
 
-    def put(self, key: bytes, value: bytes):
+    def _put(self, key: bytes, value: bytes, expire_time_ms=None):
         """
         Insert document into sqlite3, overwrite if already exists.
         :param key: bytes
         :param value: bytes
+        :param expire_time_ms: Optional[int]
         """
         c = self.conn.cursor()
         c.execute("""
-            INSERT OR REPLACE INTO data (key, value) VALUES (?, ?)
-        """, (key, value))
+            INSERT OR REPLACE INTO data (key, value, expire_time_ms) VALUES (?, ?, ?)
+        """, (key, value, expire_time_ms))
         self.conn.commit()
 
-    def get(self, key: bytes) -> Optional[bytes]:
+    def _get(self, key: bytes, can_be_prefix=False, must_be_fresh=False) -> Optional[bytes]:
         """
         Get value from sqlite3.
         :param key: bytes
         :return: bytes
         """
         c = self.conn.cursor()
-        c.execute("""
-            SELECT  value
-            FROM    data
-            WHERE   key = ?
-        """, (key, ))
+        query = 'SELECT value FROM data WHERE '
+        if must_be_fresh:
+            query += f'(expire_time_ms IS NULL or expire_time_ms > {int(time.time() * 1000)}) AND '
+        if can_be_prefix:
+            query += 'hex(key) LIKE ?'
+            c.execute(query, (key.hex() + '%', ))
+        else:
+            query += 'key = ?'
+            c.execute(query, (key, ))
         ret = c.fetchone()
         return ret[0] if ret else None
 
-    def exists(self, key: bytes) -> bool:
-        """
-        Return whether document exists.
-        :param key: bytes
-        :return: bool
-        """
-        return self.get(key) is not None
-
-    def remove(self, key: bytes) -> bool:
+    def _remove(self, key: bytes) -> bool:
         """
         Return whether removal is successful
         :param key: bytes
