@@ -37,27 +37,28 @@ class SqliteStorage(Storage):
 
     def _put(self, key: bytes, value: bytes, expire_time_ms=None):
         """
-        Insert document into sqlite3, overwrite if already exists.
-        :param key: bytes
-        :param value: bytes
-        :param expire_time_ms: Optional[int]
+        Insert value and its expiration time into sqlite3, overwrite if already exists.
+        :param key: bytes.
+        :param value: bytes.
+        :param expire_time_ms: Optional[int]. Value is not fresh if expire_time_ms is not specified.
         """
         c = self.conn.cursor()
-        c.execute("""
-            INSERT OR REPLACE INTO data (key, value, expire_time_ms) VALUES (?, ?, ?)
-        """, (key, value, expire_time_ms))
+        c.execute('INSERT OR REPLACE INTO data (key, value, expire_time_ms) VALUES (?, ?, ?)',
+            (key, value, expire_time_ms))
         self.conn.commit()
 
     def _get(self, key: bytes, can_be_prefix=False, must_be_fresh=False) -> Optional[bytes]:
         """
         Get value from sqlite3.
-        :param key: bytes
-        :return: bytes
+        :param key: bytes.
+        :param can_be_prefix: bool. 
+        :param must_be_fresh: bool.
+        :return: bytes.
         """
         c = self.conn.cursor()
         query = 'SELECT value FROM data WHERE '
         if must_be_fresh:
-            query += f'(expire_time_ms IS NULL or expire_time_ms > {int(time.time() * 1000)}) AND '
+            query += f'(expire_time_ms > {int(time.time() * 1000)}) AND '
         if can_be_prefix:
             query += 'hex(key) LIKE ?'
             c.execute(query, (key.hex() + '%', ))
@@ -69,14 +70,11 @@ class SqliteStorage(Storage):
 
     def _remove(self, key: bytes) -> bool:
         """
-        Return whether removal is successful
-        :param key: bytes
-        :return: bool
+        Remove value from sqlite. Return whether removal is successful.
+        :param key: bytes.
+        :return: bool.
         """
         c = self.conn.cursor()
-        n_removed = c.execute("""
-            DELETE FROM data
-            WHERE key = ?
-        """, (key, )).rowcount
+        n_removed = c.execute('DELETE FROM data WHERE key = ?', (key, )).rowcount
         self.conn.commit()
         return n_removed > 0

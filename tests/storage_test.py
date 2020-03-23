@@ -63,8 +63,11 @@ class StorageTestFixture(object):
         data_bytes_out1 = StorageTestFixture.storage.get_data_packet(Name.from_str('/test_get_prefix'))
         data_bytes_out2 = StorageTestFixture.storage.get_data_packet(Name.from_str('/test_get_prefix'),
             can_be_prefix=True)
+        data_bytes_out3 = StorageTestFixture.storage.get_data_packet(Name.from_str('/test_get_prefi'),
+            can_be_prefix=True)
         assert data_bytes_out1 == None
         assert data_bytes_out2 == data_bytes_in
+        assert data_bytes_out3 == None  # should be None because the last name component doesn't match
 
 
 # Default DB is SQLite
