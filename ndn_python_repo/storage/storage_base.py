@@ -16,6 +16,7 @@ class Storage:
     def _remove(self, key: bytes) -> bool:
         raise NotImplementedError
 
+    @staticmethod
     def _get_name_bytes_wo_tl(name: NonStrictName) -> bytes:
         # remove name's TL as key to support efficient prefix search
         name = Name.to_bytes(name)
@@ -33,11 +34,10 @@ class Storage:
         expire_time_ms = int(time.time() * 1000)
         if meta_info.freshness_period:
             expire_time_ms += meta_info.freshness_period
-
-        self._put(_get_name_bytes_wo_tl(name), data, expire_time_ms)
+        self._put(self._get_name_bytes_wo_tl(name), data, expire_time_ms)
 
     def get_data_packet(self, name: NonStrictName, can_be_prefix=False, must_be_fresh=False):
-        return self._get(_get_name_bytes_wo_tl(name), can_be_prefix, must_be_fresh)
+        return self._get(self._get_name_bytes_wo_tl(name), can_be_prefix, must_be_fresh)
 
     def remove_data_packet(self, name: NonStrictName):
-        return self._remove(_get_name_bytes_wo_tl(name))
+        return self._remove(self._get_name_bytes_wo_tl(name))
