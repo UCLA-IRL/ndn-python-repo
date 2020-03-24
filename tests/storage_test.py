@@ -83,7 +83,7 @@ class TestSqliteStorage(StorageTestFixture):
 # Unit tests for optional DBs only if they can be successfully imported
 class TestLevelDBStorage(StorageTestFixture):
     """
-    Test MongoDBStorage
+    Test LevelDBStorage
     """
     @staticmethod
     def test_main(tmp_path):

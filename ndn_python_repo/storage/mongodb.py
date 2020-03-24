@@ -1,14 +1,16 @@
+import base64
 import pymongo
 from pymongo import MongoClient
-from typing import List, Optional
 from .storage_base import Storage
+import time
+from typing import List, Optional
 
 
 class MongoDBStorage(Storage):
 
     def __init__(self, db: str, collection: str):
         """
-        Init DB with unique index on key
+        Init DB with unique index on key.
         """
         self._db = db
         self._collection = collection
@@ -23,40 +25,54 @@ class MongoDBStorage(Storage):
         c_collection = c_db[self._collection]
         c_collection.create_index('key', unique=True)
 
-    def put(self, key: bytes, value: bytes):
+    def _put(self, key: bytes, value: bytes, expire_time_ms: int=None):
         """
-        Insert document into MongoDB, overwrite if already exists.
+        Insert document into MongoDB, overwrite if already exists. MongoDB supports prefix search 
+        only on strings, so keys are stored in base16 format.
+        Base32 and base64 dont't work here, because they don't preserve prefix search semantics.
+        :param key: bytes.
+        :param value: bytes.
+        :param expire_time_ms: Optional[int]. Value is not fresh if expire_time_ms is not specified.
         """
+        key = base64.b16encode(key).decode()
         document = {
-            "key": key,
-            "value": value
+            'key': key,
+            'value': value,
+            'expire_time_ms': expire_time_ms
         }
         try:
             self.c_collection.insert_one(document).inserted_id
         except pymongo.errors.DuplicateKeyError:
-            self.c_collection.update_one({"key": key}, {"$set": {"value": value}})
+            self.c_collection.update_one({'key': key}, 
+                {'$set': {'value': value, 'expire_time_ms': expire_time_ms}})
 
-    def get(self, key: bytes) -> Optional[bytes]:
+    def _get(self, key: bytes, can_be_prefix=False, must_be_fresh=False) -> Optional[bytes]:
         """
-        Get document from MongoDB
+        Get document from MongoDB.
+        :param key: bytes.
+        :param can_be_prefix: bool. 
+        :param must_be_fresh: bool.
+        :return: bytes.
         """
-        ret = self.c_collection.find_one({"key": key})
+        key = base64.b16encode(key).decode()
+        query = dict()
+        if not can_be_prefix:
+            query.update({'key': key})
+        else:
+            query.update({'key': {'$regex': '^' + key}})
+        if must_be_fresh:
+            query.update({'expire_time_ms': {'$gt': int(time.time() * 1000)}})
+        ret = self.c_collection.find_one(query)
         if ret:
-            return ret["value"]
+            return ret['value']
         else:
             return None
 
-    def exists(self, key: bytes) -> bool:
+    def _remove(self, key: bytes) -> bool:
         """
-        Return whether document exists
+        Remove value from MongoDB, return whether removal is successful.
+        :param key: bytes.
+        :return: bool.
         """
-        if self.c_collection.find_one({"key": key}):
-            return True
-        else:
-            return False
-
-    def remove(self, key: bytes) -> bool:
-        """
-        Return whether removal is successful
-        """
+        key = base64.b16encode(key).decode()
         return self.c_collection.delete_one({"key": key}).deleted_count > 0
