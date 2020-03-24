@@ -38,7 +38,7 @@ setup(
     packages=find_packages(exclude=['tests']),
 
     install_requires=[
-        "python-ndn >= 0.2b2",
+        "python-ndn >= 0.2b2.post1",
         "PyYAML >= 5.1.2",
     ],
     extras_require={
