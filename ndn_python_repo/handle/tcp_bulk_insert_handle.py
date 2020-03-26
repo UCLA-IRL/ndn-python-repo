@@ -54,6 +54,7 @@ class TcpBulkInsertHandle(object):
                 existing = CommandHandle.add_prefixes_in_storage(self.storage, data_name)
                 if not existing:
                     self.read_handle.listen(data_name)
+                await aio.sleep(0)
 
     def __init__(self, storage: Storage, read_handle: ReadHandle,
                  server_addr: str, server_port: str):

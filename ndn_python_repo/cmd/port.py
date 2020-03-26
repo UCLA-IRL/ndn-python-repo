@@ -11,6 +11,7 @@ import argparse
 import asyncio as aio
 import os
 import sqlite3
+import sys
 from ndn.encoding import Name, Component, ndn_format_0_3, tlv_var
 
 
@@ -75,8 +76,8 @@ def main() -> int:
     if args.port == None:
         args.addr = '7376'
     
-    src_db_file = os.path.expanduser(args.dbfile, args.addr, args.port)
-    aio.run(port_over_tcp(src_db_file))
+    src_db_file = os.path.expanduser(args.dbfile)
+    aio.run(port_over_tcp(src_db_file, args.addr, args.port))
     return 0
 
 
