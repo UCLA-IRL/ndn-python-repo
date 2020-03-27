@@ -3,7 +3,7 @@
 from setuptools import setup, find_packages
 
 
-__version__ = "0.2a1"
+__version__ = "0.2a3"
 
 setup(
     name='ndn-python-repo',

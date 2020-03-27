@@ -77,7 +77,7 @@ def main() -> int:
         args.addr = '7376'
     
     src_db_file = os.path.expanduser(args.dbfile)
-    aio.run(port_over_tcp(src_db_file, args.addr, args.port))
+    aio.get_event_loop().run_until_complete(port_over_tcp(src_db_file, args.addr, args.port))
     return 0
 
 
