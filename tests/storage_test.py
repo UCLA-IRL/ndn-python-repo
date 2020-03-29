@@ -77,7 +77,7 @@ class TestSqliteStorage(StorageTestFixture):
     """
     @staticmethod
     def test_main(tmp_path):
-        StorageTestFixture.storage = SqliteStorage(tmp_path / "test.db")
+        StorageTestFixture.storage = SqliteStorage(tmp_path / 'test.db')
         StorageTestFixture.test_main()
 
 # Unit tests for optional DBs only if they can be successfully imported

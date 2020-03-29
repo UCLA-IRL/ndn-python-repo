@@ -12,7 +12,7 @@ class SqliteStorage(Storage):
         :param db_path: str. Path to database file
         """
         db_path = os.path.expanduser(db_path)
-        if not os.path.exists(os.path.dirname(db_path)):
+        if len(os.path.dirname(db_path)) > 0 and not os.path.exists(os.path.dirname(db_path)):
             try:
                 os.makedirs(os.path.dirname(db_path))
             except PermissionError:
@@ -29,7 +29,7 @@ class SqliteStorage(Storage):
         """)
         self.conn.commit()
 
-    def __del__(self):
+    def close(self):
         try:
             self.conn.close()
         except AttributeError:
