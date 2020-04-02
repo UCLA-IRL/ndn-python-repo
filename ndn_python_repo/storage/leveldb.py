@@ -14,9 +14,6 @@ class LevelDBStorage(Storage):
             except PermissionError:
                 raise PermissionError(f'Could not create database directory: {db_path}') from None
         self.db = plyvel.DB(db_dir, create_if_missing=True)
-    
-    def __del__(self):
-        self.db.close()
 
     def _put(self, key: bytes, value: bytes, expire_time_ms: int=None):
         """
