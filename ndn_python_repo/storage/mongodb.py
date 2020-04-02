@@ -1,6 +1,6 @@
 import base64
 import pymongo
-from pymongo import MongoClient, UpdateOne
+from pymongo import MongoClient, ReplaceOne
 from .storage_base import Storage
 from typing import List, Optional
 
@@ -34,12 +34,12 @@ class MongoDBStorage(Storage):
         :param expire_time_ms: Optional[int]. Value is not fresh if expire_time_ms is not specified.
         """
         key = base64.b16encode(key).decode()
-        update = {'$set' : {
+        replace = {
             'key': key,
             'value': value,
             'expire_time_ms': expire_time_ms,
-        }}
-        self.c_collection.update_one({'key': key}, update, upsert=True)
+        }
+        self.c_collection.replace_one({'key': key}, replace, upsert=True)
     
     def _put_batch(self, keys: List[bytes], values: List[bytes], expire_time_mss:List[Optional[int]]):
         """
@@ -49,14 +49,14 @@ class MongoDBStorage(Storage):
         :param expire_time_ms: List[Optional[int]].
         """
         keys = [base64.b16encode(key).decode() for key in keys]
-        updates = []
+        replaces = []
         for key, value, expire_time_ms in zip(keys, values, expire_time_mss):
-            updates.append(UpdateOne({'key': key}, {'$set': {
+            replaces.append(ReplaceOne({'key': key}, {
                 'key': key,
                 'value': value,
                 'expire_time_ms': expire_time_ms,
-            }}, upsert=True))
-        self.c_collection.bulk_write(updates)
+            }, upsert=True))
+        self.c_collection.bulk_write(replaces, ordered=False)
 
     def _get(self, key: bytes, can_be_prefix=False, must_be_fresh=False) -> Optional[bytes]:
         """
