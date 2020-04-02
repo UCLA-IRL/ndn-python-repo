@@ -1,6 +1,5 @@
 import os
 import sqlite3
-import time
 from typing import List, Optional
 from .storage_base import Storage
 

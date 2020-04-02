@@ -2,7 +2,7 @@ import os
 import pickle
 import plyvel
 from .storage_base import Storage
-import time
+from typing import List, Optional
 
 
 class LevelDBStorage(Storage):
@@ -24,6 +24,17 @@ class LevelDBStorage(Storage):
         """
         self.db.put(key, pickle.dumps((value, expire_time_ms)))
 
+    def _put_batch(self, keys: List[bytes], values: List[bytes], expire_time_mss:List[Optional[int]]):
+        """
+        Batch insert.
+        :param key: List[bytes].
+        :param value: List[bytes].
+        :param expire_time_ms: List[Optional[int]].
+        """
+        with self.db.write_batch() as b:
+            for key, value, expire_time_ms in zip(keys, values, expire_time_mss):
+                b.put(key, pickle.dumps((value, expire_time_ms)))
+
     def _get(self, key: bytes, can_be_prefix=False, must_be_fresh=False) -> bytes:
         """
         Get value from levelDB.
@@ -44,7 +55,7 @@ class LevelDBStorage(Storage):
         else:
             for _, v_e in self.db.iterator(prefix=key):
                 value, expire_time_ms = pickle.loads(v_e)
-                if not must_be_fresh or expire_time_ms != None and expire_time_ms > int(time.time() * 1000):
+                if not must_be_fresh or expire_time_ms != None and expire_time_ms > self.time_ms():
                     return value
             return None
 

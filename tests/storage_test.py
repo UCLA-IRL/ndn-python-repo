@@ -25,6 +25,13 @@ class StorageTestFixture(object):
     @staticmethod
     def _test_put():
         StorageTestFixture.storage._put(b'test_key_1', bytes([0x00, 0x01, 0x02, 0x03, 0x04]))
+    
+    @staticmethod
+    def _test_duplicate_put():
+        StorageTestFixture.storage._put(b'test_key_1', bytes([0x00, 0x01, 0x02, 0x03, 0x04]))
+        StorageTestFixture.storage._put(b'test_key_1', bytes([0x05, 0x06, 0x07, 0x08, 0x09]))
+        b_out = StorageTestFixture.storage._get(b'test_key_1')
+        assert b_out == bytes([0x05, 0x06, 0x07, 0x08, 0x09])
 
     @staticmethod
     def _test_get():
@@ -78,6 +85,7 @@ class StorageTestFixture(object):
             b'\x06\x91\x07\x11\x08\x0ftest_put_batch1\x14\x07\x18\x01\x00\x19\x02\'\x10\x15\rHello, world!\x16\x1c\x1b\x01\x03\x1c\x17\x07\x15\x08\x04test\x08\x03KEY\x08\x08\xa0\x04\xf7\xe7\xdd\x0f\x17\xbd\x17F0D\x02 2xY\xdb\xa5[\t\x1cxS\xdb$<N"e\x08\xd5\x1f<\x95\xe6\xd0\x01\xa8vaW^\x8c$,\x02 \x0bg\x0b\xfeW\x91\xe1\xa62\x0b$\xe9\x85\xdaW\x06\xeaI\xb1+\xc5A\xb8\xa1\xaf\xded6\x17N27',
             b'\x06\x93\x07\x11\x08\x0ftest_put_batch2\x14\x07\x18\x01\x00\x19\x02\'\x10\x15\rHello, world!\x16\x1c\x1b\x01\x03\x1c\x17\x07\x15\x08\x04test\x08\x03KEY\x08\x08\xa0\x04\xf7\xe7\xdd\x0f\x17\xbd\x17H0F\x02!\x00\x91\xab\xe8\x12\xb9\nD\x02\xaaJ\xe2B~tz\xc5\x86\x91\xc8:\xb6\xe4[b\x14\xfc\x9d}\xe5Qg\xb4\x02!\x00\x86\xc1\\\x8e\xd6\x9e\xf5\xa9\xe8t\xe4\x1f\xcb\xb6\xe6v\xc8,9\x1b\xdfO;\x0cl\xc4"]\x91\x10\xca\xdc'
         ]
+        StorageTestFixture.storage._put(keys[0], b'should be overwritten')
         StorageTestFixture.storage._put_batch(keys, values, [None] * len(keys))
         assert StorageTestFixture.storage._get(keys[0]) == values[0]
         assert StorageTestFixture.storage._get(keys[1]) == values[1]
