@@ -48,7 +48,6 @@ class MongoDBStorage(Storage):
         :param value: List[bytes].
         :param expire_time_ms: List[Optional[int]].
         """
-        # overwrite by first deleting existing documents
         keys = [base64.b16encode(key).decode() for key in keys]
         updates = []
         for key, value, expire_time_ms in zip(keys, values, expire_time_mss):
