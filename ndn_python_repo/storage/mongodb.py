@@ -1,9 +1,8 @@
 import base64
 import pymongo
-from pymongo import MongoClient
+from pymongo import MongoClient, UpdateOne
 from .storage_base import Storage
 from typing import List, Optional
-from pymongo.errors import BulkWriteError
 
 
 class MongoDBStorage(Storage):
@@ -35,7 +34,7 @@ class MongoDBStorage(Storage):
         :param expire_time_ms: Optional[int]. Value is not fresh if expire_time_ms is not specified.
         """
         key = base64.b16encode(key).decode()
-        update = {"$set": {
+        update = {'$set' : {
             'key': key,
             'value': value,
             'expire_time_ms': expire_time_ms,
@@ -51,15 +50,14 @@ class MongoDBStorage(Storage):
         """
         # overwrite by first deleting existing documents
         keys = [base64.b16encode(key).decode() for key in keys]
-        self.c_collection.delete_many({'key': {'$in': keys}})
-        documents = []
+        updates = []
         for key, value, expire_time_ms in zip(keys, values, expire_time_mss):
-            documents.append({
+            updates.append(UpdateOne({'key': key}, {'$set': {
                 'key': key,
                 'value': value,
                 'expire_time_ms': expire_time_ms,
-            })
-        self.c_collection.insert_many(documents).inserted_ids
+            }}, upsert=True))
+        self.c_collection.bulk_write(updates)
 
     def _get(self, key: bytes, can_be_prefix=False, must_be_fresh=False) -> Optional[bytes]:
         """
