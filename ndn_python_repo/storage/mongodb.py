@@ -2,8 +2,8 @@ import base64
 import pymongo
 from pymongo import MongoClient
 from .storage_base import Storage
-import time
 from typing import List, Optional
+from pymongo.errors import BulkWriteError
 
 
 class MongoDBStorage(Storage):
@@ -35,16 +35,31 @@ class MongoDBStorage(Storage):
         :param expire_time_ms: Optional[int]. Value is not fresh if expire_time_ms is not specified.
         """
         key = base64.b16encode(key).decode()
-        document = {
+        update = {"$set": {
             'key': key,
             'value': value,
-            'expire_time_ms': expire_time_ms
-        }
-        try:
-            self.c_collection.insert_one(document).inserted_id
-        except pymongo.errors.DuplicateKeyError:
-            self.c_collection.update_one({'key': key}, 
-                {'$set': {'value': value, 'expire_time_ms': expire_time_ms}})
+            'expire_time_ms': expire_time_ms,
+        }}
+        self.c_collection.update_one({'key': key}, update, upsert=True)
+    
+    def _put_batch(self, keys: List[bytes], values: List[bytes], expire_time_mss:List[Optional[int]]):
+        """
+        Batch insert.
+        :param key: List[bytes].
+        :param value: List[bytes].
+        :param expire_time_ms: List[Optional[int]].
+        """
+        # overwrite by first deleting existing documents
+        keys = [base64.b16encode(key).decode() for key in keys]
+        self.c_collection.delete_many({'key': {'$in': keys}})
+        documents = []
+        for key, value, expire_time_ms in zip(keys, values, expire_time_mss):
+            documents.append({
+                'key': key,
+                'value': value,
+                'expire_time_ms': expire_time_ms,
+            })
+        self.c_collection.insert_many(documents).inserted_ids
 
     def _get(self, key: bytes, can_be_prefix=False, must_be_fresh=False) -> Optional[bytes]:
         """
@@ -61,7 +76,7 @@ class MongoDBStorage(Storage):
         else:
             query.update({'key': {'$regex': '^' + key}})
         if must_be_fresh:
-            query.update({'expire_time_ms': {'$gt': int(time.time() * 1000)}})
+            query.update({'expire_time_ms': {'$gt': self.time_ms()}})
         ret = self.c_collection.find_one(query)
         if ret:
             return ret['value']
