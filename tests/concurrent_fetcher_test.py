@@ -30,7 +30,8 @@ class ConcurrentFetcherTestSuite(object):
 
 class TestConcurrentFetcherBasic(ConcurrentFetcherTestSuite):
     async def face_proc(self, face: DummyFace):
-        await face.consume_output(b'\x05\x11\x07\t\x08\x04test\x08\x010\x12\x00\x0c\x02\x03\xe8')
+        await face.consume_output(b'\x05\x11\x07\t\x08\x04test\x08\x010\x12\x00\x0c\x02\x03\xe8',
+                                  timeout=1)
         await face.input_packet(b'\x06?\x07\t\x08\x04test\x08\x010\x14\x03\x18\x01\x00\x15\x06foobar'
                                 b'\x16\x03\x1b\x01\x00\x17 \x94?\\\xae\x99\xd5\xd6\xa5\x18\xac\x00'
                                 b'\xe3\xcaX\x82\x972,\xf1\xebUQ\xa5I%\xb3\xd5\xac\xcc\xc6\x80Q')
