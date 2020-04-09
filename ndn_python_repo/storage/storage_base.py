@@ -52,7 +52,7 @@ class Storage:
         keys = []
         values = []
         expire_time_mss = []
-        for name, (data, expire_time_ms) in self.cache.items(prefix=[], shallow=True):
+        for name, (data, expire_time_ms) in self.cache.iteritems(prefix=[], shallow=True):
             keys.append(self._get_name_bytes_wo_tl(name))
             values.append(data)
             expire_time_mss.append(expire_time_ms)

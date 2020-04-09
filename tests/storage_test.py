@@ -21,6 +21,7 @@ class StorageTestFixture(object):
         StorageTestFixture._test_freshness_period()
         StorageTestFixture._test_get_prefix()
         StorageTestFixture._test_put_batch()
+        StorageTestFixture._test_write_back()
 
     @staticmethod
     def _test_put():
@@ -48,7 +49,7 @@ class StorageTestFixture(object):
     
     @staticmethod
     def _test_get_data_packet():
-        # /test/0, freshnessPeriod = 10000ms
+        # /test_get_data_packet/0, freshnessPeriod = 10000ms
         data_bytes_in = b'\x06\xa2\x07#\x08\x14test_get_data_packet\x08\x010$\x08\x00\x00\x01q\x04\xa3%x\x14\x06\x18\x01\x00\x19\x01\x00\x15\rHello, world!\x16\x1c\x1b\x01\x03\x1c\x17\x07\x15\x08\x04test\x08\x03KEY\x08\x08\xa0\x04\xf7\xe7\xdd\x0f\x17\xbd\x17F0D\x02 P\xcc\r)\xa0\x9c\xc8\xf4E\xe9\xed\x83u\xb2\xfe\\ \xb1\x93\xbb\xbeq5\x18\x91\xd8yl\x96p\xc7\xa5\x02 Q\x07\xad!\xd3\xd5\xff\x07\xbewW~`*\xe9oI\xeb\x01\x12\xe7\xd0\xaf\xf3r\x95\x94q\xb5\xee\xdc\xc9'
         StorageTestFixture.storage.put_data_packet(Name.from_str('/test_get_data_packet/0'), data_bytes_in)
         data_bytes_out = StorageTestFixture.storage.get_data_packet(Name.from_str('/test_get_data_packet/0'))
@@ -56,7 +57,7 @@ class StorageTestFixture(object):
     
     @staticmethod
     def _test_freshness_period():
-        # /test/0, freshnessPeriod = 0ms
+        # /test_freshness_period/0, freshnessPeriod = 0ms
         data_bytes_in = b'\x06\xa5\x07$\x08\x15test_freshness_period\x08\x010$\x08\x00\x00\x01q\x04\xa1\xd3\x1b\x14\x06\x18\x01\x00\x19\x01\x00\x15\rHello, world!\x16\x1c\x1b\x01\x03\x1c\x17\x07\x15\x08\x04test\x08\x03KEY\x08\x08\xa0\x04\xf7\xe7\xdd\x0f\x17\xbd\x17H0F\x02!\x00\xc2K\xb7\xa3z\xd5\xd6z\xe0RuX\xa8\x967\xca.\x81!\xb1)\x9a\xf1\xd8\xd8\xcd\x95\x16\xd6\xa9\xb7p\x02!\x00\xe1mb/|$\xc3\xbf\xd3\xb1\x8a\x97\xef\x84\xfe\xebI\x1b5e\xf4\x9f/\xd9\x0e\x9ae\xed7b\xdc/'
         StorageTestFixture.storage.put_data_packet(Name.from_str('/test_freshness_period/1'), data_bytes_in)
         data_bytes_out = StorageTestFixture.storage.get_data_packet(Name.from_str('/test_freshness_period/1'), 
@@ -65,7 +66,7 @@ class StorageTestFixture(object):
     
     @staticmethod
     def _test_get_prefix():
-        # /test/0, freshnessPeriod = 10000ms
+        # /test_get_prefix/0, freshnessPeriod = 10000ms
         data_bytes_in = b'\x06\x9d\x07\x1e\x08\x0ftest_get_prefix\x08\x010$\x08\x00\x00\x01q\x04\xa3u0\x14\x06\x18\x01\x00\x19\x01\x00\x15\rHello, world!\x16\x1c\x1b\x01\x03\x1c\x17\x07\x15\x08\x04test\x08\x03KEY\x08\x08\xa0\x04\xf7\xe7\xdd\x0f\x17\xbd\x17F0D\x02 L\x16\xe1\xb3v\x11r7"\xcaq<tY\xb0!\x1e\xac\xc0\xff?=l\x92w\xb6\x1b\xb7\xcdc\x11\x94\x02 \x01\x06p\xf3\x8cDg\xc5\x12^Y\xc0\xd2<\x0b\xbc\xbd\x05\xd0\xd0\xe5*%F\xbc\xd7y\x9bR\xc7f\x1a'
         StorageTestFixture.storage.put_data_packet(Name.from_str('/test_get_prefix/0'), data_bytes_in)
         data_bytes_out1 = StorageTestFixture.storage.get_data_packet(Name.from_str('/test_get_prefix'))
@@ -90,6 +91,15 @@ class StorageTestFixture(object):
         assert StorageTestFixture.storage._get(keys[0]) == values[0]
         assert StorageTestFixture.storage._get(keys[1]) == values[1]
         assert StorageTestFixture.storage._get(keys[2]) == values[2]
+    
+    @staticmethod
+    def _test_write_back():
+        # /test_write_back/0
+        data_bytes_in = b'\x06\x94\x07\x14\x08\x0ftest_write_back\x08\x010\x14\x07\x18\x01\x00\x19\x02\'\x10\x15\rHello, world!\x16\x1c\x1b\x01\x03\x1c\x17\x07\x15\x08\x04test\x08\x03KEY\x08\x08\xa0\x04\xf7\xe7\xdd\x0f\x17\xbd\x17F0D\x02 Qbu1~\xf7f\xe8\xa0\x19\xa8F\xa5*\xbe\xef"\xb0p\xd5\x1ei%J\xaf\xe8s\x8bcH\x85`\x02 <\xb3:7\x1e0\xfc\x15\x96r:\xacWAHZ\x939\x9f^\x12\x1a\x8cl\xcc\x01C\xfe\xbf\x87\x0b\x1a'
+        StorageTestFixture.storage.put_data_packet(Name.from_str('/test_write_back/0'), data_bytes_in)
+        StorageTestFixture.storage._write_back()
+        data_bytes_out = StorageTestFixture.storage.get_data_packet(Name.from_str('/test_write_back/0'))
+        assert data_bytes_in == data_bytes_out
 
 
 # Default DB is SQLite
