@@ -52,7 +52,6 @@ class Storage:
         keys = []
         values = []
         expire_time_mss = []
-        logging.info('Attempting cache write back')
         for name, (data, expire_time_ms) in self.cache.items(prefix=[], shallow=True):
             keys.append(self._get_name_bytes_wo_tl(name))
             values.append(data)
