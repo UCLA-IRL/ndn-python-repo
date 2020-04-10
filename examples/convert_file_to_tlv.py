@@ -23,52 +23,56 @@ from ndn.encoding import Name, Component
 import multiprocessing
 import argparse
 
-#CPU_COUNT = multiprocessing.cpu_count() #they aren't used, just for testing
-#CPU_COUNT=1
-SEGMENT_SIZE = 8000 #this should be decided at runtime
-
 app = NDNApp()
 def _create_packets(name, data, freshness_period, final_block_id):
     packet = app.prepare_data(name, data, freshness_period=freshness_period, final_block_id=final_block_id)
     return packet
 
-
 def main():
+    """Convert a file into tlv packets. Store them in the output file one 
+    after the other that can be dumped into an NDN repo using netcat"""
     
+    cpu_count = multiprocessing.cpu_count()
     parser = argparse.ArgumentParser()
     parser.add_argument('-n', '--name', type=str, required=True)
-    parser.add_argument('-i', '--input-file',type=str, required=True)
-    parser.add_argument('-o', '--output-file',type=str, required=True)
+    parser.add_argument('-i', '--input_file', type=str, required=True)
+    parser.add_argument('-o', '--output_file', type=str, required=True)
+    parser.add_argument('-s', '--segment_size', type=int, default=8000, required=False)
+    parser.add_argument('-f', '--freshness_period', type=int, default=0, required=False) #always stale
+    parser.add_argument('-c', '--cpu_count', type=int, default=cpu_count, required=False)
 
     args = parser.parse_args()
-    ndn_name = args.name
-    input_file = args.input_file
-    output_file = args.output_file
 
     logging.basicConfig(format='[{asctime}]{levelname}:{message}',
                         datefmt='%Y-%m-%d %H:%M:%S',
                         level=logging.INFO,
                         style='{')
 
-    name = Name.normalize(ndn_name)
+    segment_size = args.segment_size
+    name = Name.normalize(args.name)
     name.append(Component.from_version(timestamp()))
 
-    with open(input_file, 'rb') as f, open(output_file, 'wb') as w:
-        data = f.read()
-        seg_cnt = (len(data) + SEGMENT_SIZE - 1) // SEGMENT_SIZE
-        freshness_period = 0 #long lived data, this should really be in a config file
+    print("Converting {} into tlv packets and storing in {} \nSegment size = {}, Freshness Period = {}, CPU_Count = {}"
+            .format(args.input_file, args.output_file, args.segment_size, args.freshness_period, args.cpu_count))
+
+
+    with open(args.input_file, 'rb') as infile, open(args.output_file, 'wb') as outfile:
+        data = infile.read()
+        seg_cnt = (len(data) + segment_size - 1) // segment_size
+        freshness_period = args.freshness_period
         final_block_id = Component.from_segment(seg_cnt-1)
-        packets = [[name + [Component.from_segment(i)], data[i*SEGMENT_SIZE:(i+1)*SEGMENT_SIZE], freshness_period, final_block_id] for i in range(seg_cnt)]
-        with multiprocessing.Pool(processes=None) as p: #you can also pass CPU_COUNT, None = system CPU count
+        packets = [[name + [Component.from_segment(i)], data[i*segment_size:(i+1)*segment_size], 
+            freshness_period, final_block_id] 
+            for i in range(seg_cnt)]
+        with multiprocessing.Pool(processes=args.cpu_count) as p:
             res = p.starmap(_create_packets, packets)
             packet_list = res
         num_packets = len(packet_list)
-        print('Created {} chunks under name {}'.format(num_packets, ndn_name))
-        for i in packet_list:
-            w.write(i)
-        print("written {} packets to file {}".format(num_packets,output_file))
-        print("You can use  \"nc localhost 7376 < filename\" to load data into the repo")
-    
+        print('Created {} chunks under name {}'.format(num_packets, args.name))
+        for encoded_packet in packet_list:
+            outfile.write(encoded_packet)
+        print("written {} packets to file {}".format(num_packets, args.output_file))
+        print("You can use  \"nc localhost 7376 < {}\" to load data into the repo".format(args.output_file))
 
 if __name__ == '__main__':
     main()
