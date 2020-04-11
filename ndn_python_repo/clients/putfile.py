@@ -2,6 +2,7 @@
     NDN Repo putfile client.
 
     @Author jonnykong@cs.ucla.edu
+            susmit@cs.colostate.edu
     @Date   2019-10-18
 """
 
@@ -11,15 +12,28 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import asyncio as aio
 import logging
+import multiprocessing
 from ndn.app import NDNApp
 from ndn.encoding import Name, Component, DecodeError
 from ndn.types import InterestNack, InterestTimeout
 from .command_checker import CommandChecker
 from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse
 from ndn.security import KeychainDigest
+import platform
+from typing import List
 
 
-MAX_BYTES_IN_DATA_PACKET = 2000
+app_create_packets = NDNApp()   # used for _create_packets only
+def _create_packets(name, content, freshness_period, final_block_id):
+    """
+    Worker for parallelize prepare_data().
+    This function has to be defined at the top level, so that it can be pickled and used
+    by multiprocessing.
+    """
+    packet = app_create_packets.prepare_data(name, content,
+                                             freshness_period=freshness_period,
+                                             final_block_id=final_block_id)
+    return bytes(packet)
 
 
 class PutfileClient(object):
@@ -31,14 +45,19 @@ class PutfileClient(object):
         """
         self.app = app
         self.repo_name = repo_name
-        self.name_str_to_data = dict()
+        self.encoded_packets = []
 
-    def _prepare_data(self, file_path: str, name_at_repo) -> int:
+        # https://bugs.python.org/issue35219
+        if platform.system() == 'Darwin':
+            os.environ['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'YES'
+
+    def _prepare_data(self, file_path: str, name_at_repo, segment_size: int, freshness_period: int,
+                      cpu_count: int):
         """
         Shard file into data packets.
         :param file_path: Local FS path to file to insert
         :param name_at_repo: Name used to store file at repo
-        :return: Number of packets required to send this file
+        :return: List of encoded packets
         """
         if not os.path.exists(file_path):
             logging.error(f'file {file_path} does not exist')
@@ -48,38 +67,45 @@ class PutfileClient(object):
         if len(b_array) == 0:
             logging.warning("File is empty")
             return 0
-
-        num_packets = int((len(b_array) - 1) / MAX_BYTES_IN_DATA_PACKET + 1)
-        logging.info(f'There are {num_packets} packets in total')
-        seq = 0
-        for i in range(0, len(b_array), MAX_BYTES_IN_DATA_PACKET):
-            content = b_array[i : min(i + MAX_BYTES_IN_DATA_PACKET, len(b_array))]
-            name = name_at_repo[:]
-            name.append(str(seq))
-            packet = self.app.prepare_data(name, content, 
-                final_block_id=Component.from_sequence_num(num_packets - 1),
-                freshness_period=1000000)
-            self.name_str_to_data[Name.to_str(name)] = packet
-            seq += 1
-        return num_packets
+        
+        # use multiple threads to speed up creating TLV
+        seg_cnt = (len(b_array) + segment_size - 1) // segment_size
+        final_block_id = Component.from_segment(seg_cnt - 1)
+        packet_params = [[
+            name_at_repo + [Component.from_segment(seq)],
+            b_array[seq * segment_size : (seq + 1) * segment_size],
+            freshness_period,
+            final_block_id,
+        ] for seq in range(seg_cnt)]
+        
+        with multiprocessing.Pool(processes=cpu_count) as p:
+            self.encoded_packets = p.starmap(_create_packets, packet_params)
 
     def _on_interest(self, int_name, _int_param, _app_param):
+        # use segment number to index into the encoded packets array
         logging.info(f'On interest: {Name.to_str(int_name)}')
-        if Name.to_str(int_name) in self.name_str_to_data:
-            self.app.put_raw_packet(self.name_str_to_data[Name.to_str(int_name)])
+        seq = Component.to_number(int_name[-1])
+        if seq >= 0 and seq < len(self.encoded_packets):
+            self.app.put_raw_packet(self.encoded_packets[seq])
             logging.info(f'Serve data: {Name.to_str(int_name)}')
         else:
             logging.info(f'Data does not exist: {Name.to_str(int_name)}')
 
-    async def insert_file(self, file_path: str, name_at_repo):
+    async def insert_file(self, file_path: str, name_at_repo, segment_size: int,
+                          freshness_period: int, cpu_count: int):
         """
         Insert a file to remote repo.
         :param file_path: Local FS path to file to insert
         :param name_at_repo: Name used to store file at repo
+        :param segment_size: Max size of data packets.
+        :param freshness_period: Freshnes of data packets.
+        :param cpu_count: Cores used for converting file to TLV format.
         """
-        num_packets = self._prepare_data(file_path, name_at_repo)
+        self._prepare_data(file_path, name_at_repo, segment_size, freshness_period, cpu_count)
+        num_packets = len(self.encoded_packets)
         if num_packets == 0:
             return
+
         # Register prefix for responding interests from repo
         await self.app.register(name_at_repo, self._on_interest)
 

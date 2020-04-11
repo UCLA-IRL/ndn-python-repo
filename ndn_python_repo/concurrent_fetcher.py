@@ -36,8 +36,7 @@ async def concurrent_fetcher(app: NDNApp, name, start_block_id: int, end_block_i
         :param seq: block_id of data
         """
         nonlocal app, name, semaphore, is_failed, received_or_fail, final_id
-        int_name = name[:]
-        int_name.append(str(seq))
+        int_name = name + [Component.from_segment(seq)]
 
         trial_times = 0
         while True:
@@ -50,7 +49,7 @@ async def concurrent_fetcher(app: NDNApp, name, start_block_id: int, end_block_i
             try:
                 logging.info('Express Interest: {}'.format(Name.to_str(int_name)))
                 data_name, meta_info, content, data_bytes = await app.express_interest(
-                    int_name, need_raw_packet=True, must_be_fresh=True, can_be_prefix=False, 
+                    int_name, need_raw_packet=True, must_be_fresh=False, can_be_prefix=False, 
                     lifetime=1000, **kwargs)
 
                 # Save data and update final_id

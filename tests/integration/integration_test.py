@@ -1,5 +1,7 @@
 import asyncio as aio
 import filecmp
+import logging
+import multiprocessing
 from ndn.app import NDNApp
 from ndn.encoding import Name, Component
 from ndn.security import KeychainDigest
@@ -82,7 +84,8 @@ class TestBasic(RepoTestSuite):
         
         # put
         pc = PutfileClient(self.app, Name.from_str(repo_name))
-        await pc.insert_file(filepath1, Name.from_str(filepath2))
+        await pc.insert_file(filepath1, Name.from_str(filepath2), segment_size=8000,
+                             freshness_period=0, cpu_count=multiprocessing.cpu_count())
         # get
         gc = GetfileClient(self.app, Name.from_str(repo_name))
         await gc.fetch_file(Name.from_str(filepath2))
@@ -104,7 +107,8 @@ class TestLargeFile(RepoTestSuite):
         
         # put file
         pc = PutfileClient(self.app, Name.from_str(repo_name))
-        await pc.insert_file(filepath1, Name.from_str(filepath2))
+        await pc.insert_file(filepath1, Name.from_str(filepath2), segment_size=8000,
+                             freshness_period=0, cpu_count=multiprocessing.cpu_count())
         # get file
         gc = GetfileClient(self.app, Name.from_str(repo_name))
         await gc.fetch_file(Name.from_str(filepath2))
@@ -219,7 +223,6 @@ class TestTcpBulkInsert(RepoTestSuite):
             assert f'Nacked with reason={e.reason}'
         except InterestTimeout:
             assert False, 'Timeout'
-        
         self.app.shutdown()
 
 
