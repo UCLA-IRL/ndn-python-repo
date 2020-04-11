@@ -167,4 +167,4 @@ class PutfileClient(object):
                 break
             else:
                 # Shouldn't get here
-                assert False
+                assert False, f'Received unrecognized status code {response.status_code}'
