@@ -45,15 +45,15 @@ class CommandChecker(object):
         name.append(Component.from_bytes(cmd_param_bytes))
 
         try:
-            print(f'Expressing interest: {Name.to_str(name)}')
+            logging.info(f'Expressing interest: {Name.to_str(name)}')
             data_name, meta_info, content = await self.app.express_interest(
                 name, must_be_fresh=True, can_be_prefix=False, lifetime=1000)
-            print(f'Received data name: {Name.to_str(data_name)}')
+            logging.info(f'Received data name: {Name.to_str(data_name)}')
         except InterestNack as e:
-            print(f'Nacked with reason={e.reason}')
+            logging.info(f'Nacked with reason={e.reason}')
             return None
         except InterestTimeout:
-            print(f'Timeout: {Name.to_str(name)}')
+            logging.info(f'Timeout: {Name.to_str(name)}')
             return None
 
         try:
@@ -62,5 +62,5 @@ class CommandChecker(object):
             logging.warning('Response blob decoding failed')
             return None
         except Exception as e:
-            print(e)
+            logging.warning(e)
         return cmd_response
