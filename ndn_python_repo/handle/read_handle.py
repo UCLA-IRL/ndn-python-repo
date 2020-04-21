@@ -13,9 +13,11 @@ class ReadHandle(object):
         """
         :param app: NDNApp.
         :param storage: Storage.
+        TODO: determine which prefix to listen on.
         """
         self.app = app
         self.storage = storage
+        self.listen(Name.from_str('/'))
 
     def listen(self, prefix):
         """

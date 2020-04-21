@@ -24,20 +24,8 @@ class Repo(object):
         self.running = True
     
     def listen(self):
-        self.recover_previous_prefixes()
         self.write_handle.listen(self.prefix)
         self.delete_handle.listen(self.prefix)
-
-    def recover_previous_prefixes(self):
-        """
-        Read from the database and get the a list of prefixes for the existing Data in the storage
-        """
-        ret = self.storage._get(b'prefixes')
-        if ret:
-            prefixes_msg = PrefixesInStorage.parse(ret)
-            for prefix in prefixes_msg.prefixes:
-                logging.info(f'Existing Prefix Found: {Name.to_str(prefix)}')
-                self.read_handle.listen(prefix)
 
     @staticmethod
     def on_register_failed(prefix):

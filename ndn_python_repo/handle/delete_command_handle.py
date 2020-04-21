@@ -71,11 +71,6 @@ class DeleteCommandHandle(CommandHandle):
         self.m_processes[process_id].delete_num = 0
         self.reply_with_response(int_name, self.m_processes[process_id])
 
-        # Un-register prefix
-        existing = CommandHandle.remove_prefixes_in_storage(self.storage, name)
-        if existing:
-            self.m_read_handle.unlisten(name)
-
         # Perform delete
         self.m_processes[process_id].status_code = 300
         delete_num = await self._perform_storage_delete(name, start_block_id, end_block_id)

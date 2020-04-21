@@ -111,11 +111,6 @@ class WriteCommandHandle(CommandHandle):
             logging.info('Insertion failure, {} items inserted'.format(insert_num))
         self.m_processes[process_id].insert_num = insert_num
 
-        # Let read handle listen for this prefix
-        existing = CommandHandle.add_prefixes_in_storage(self.storage, name)
-        if not existing:
-            self.m_read_handle.listen(name)
-
         # Delete process state after some time
         await self.schedule_delete_process(process_id)
     

@@ -50,10 +50,6 @@ class TcpBulkInsertHandle(object):
                 data_name, _, _, _ = parse_data(data_bytes, with_tl=True)
                 self.storage.put_data_packet(data_name, data_bytes)
                 logging.info(f'Inserted data: {Name.to_str(data_name)}')
-                # Register prefix for this data
-                existing = CommandHandle.add_prefixes_in_storage(self.storage, data_name)
-                if not existing:
-                    self.read_handle.listen(data_name)
                 await aio.sleep(0)
 
     def __init__(self, storage: Storage, read_handle: ReadHandle,
