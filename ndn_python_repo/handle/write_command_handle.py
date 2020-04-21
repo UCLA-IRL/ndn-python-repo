@@ -158,7 +158,6 @@ class WriteCommandHandle(CommandHandle):
         block_id = start_block_id
         async for (data_name, _, _, data_bytes) in concurrent_fetcher(self.app, name, start_block_id, end_block_id, semaphore):
             self.storage.put_data_packet(data_name, data_bytes)
-            assert block_id <= end_block_id
             block_id += 1
         insert_num = block_id - start_block_id
         return insert_num

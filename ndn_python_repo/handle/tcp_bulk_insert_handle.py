@@ -35,7 +35,11 @@ class TcpBulkInsertHandle(object):
                 try:
                     bio = io.BytesIO()
                     ret = await read_tl_num_from_stream(self.reader, bio)
-                    assert ret == TypeNumber.DATA
+                    # only accept data packets
+                    if ret != TypeNumber.DATA:
+                        logging.fatal('TCP handle received non-data type, closing connection ...')
+                        self.writer.close()
+                        return
                     siz = await read_tl_num_from_stream(self.reader, bio)
                     bio.write(await self.reader.readexactly(siz))
                     data_bytes = bio.getvalue()
