@@ -34,8 +34,13 @@ class ReadHandle(object):
         aio.ensure_future(self.app.unregister(prefix))
         logging.info(f'Read handle: stop listening to {Name.to_str(prefix)}')
 
-    def _on_interest(self, int_name, _int_param, _app_param):
-        data_bytes = self.storage.get_data_packet(int_name)
+    def _on_interest(self, int_name, int_param, _app_param):
+        """
+        Repo should not respond to any interest with MustBeFresh flag set.
+        """
+        if int_param.must_be_fresh:
+            return
+        data_bytes = self.storage.get_data_packet(int_name, int_param.can_be_prefix)
         if data_bytes == None:
             return
         self.app.put_raw_packet(data_bytes)

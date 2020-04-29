@@ -203,6 +203,36 @@ class TestSingleDataInsert(RepoTestSuite):
         self.app.shutdown()
 
 
+class TestFlags(RepoTestSuite):
+    async def fetch(self, int_name, must_be_fresh, can_be_prefix):
+        try:
+            data_name, meta_info, content = await self.app.express_interest(
+                int_name, must_be_fresh=must_be_fresh, can_be_prefix=can_be_prefix, lifetime=1000)
+        except InterestNack as e:
+            logging.warning(f'Nacked with reason: {e.reason}')
+            return
+        except InterestTimeout:
+            logging.warning(f'Timeout')
+            return
+        return content
+
+    async def run(self):
+        filepath = self.create_tmp_file() 
+        filename = '/TestFlags/file'
+        pc = PutfileClient(self.app, Name.from_str(repo_name))
+        await pc.insert_file(filepath, Name.from_str(filename), segment_size=8000,
+                             freshness_period=0, cpu_count=multiprocessing.cpu_count())
+        
+        ret = await self.fetch(Name.from_str('/TestFlags'), must_be_fresh=False, can_be_prefix=False)
+        assert ret == None
+        ret = await self.fetch(Name.from_str('/TestFlags'), must_be_fresh=False, can_be_prefix=True)
+        assert ret != None
+        ret = await self.fetch(Name.from_str('/TestFlags'), must_be_fresh=True, can_be_prefix=True)
+        assert ret == None
+        
+        self.app.shutdown()
+
+
 class TestTcpBulkInsert(RepoTestSuite):
     async def run(self):
         await aio.sleep(1)  # wait for repo to startup
@@ -227,8 +257,9 @@ class TestTcpBulkInsert(RepoTestSuite):
 
 
 if __name__ == '__main__':
-    # TestBasic().test_main()
-    # TestLargeFile().test_main()
-    # TestInvalidParam().test_main()
-    # TestSingleDataInsert().test_main()
+    TestBasic().test_main()
+    TestLargeFile().test_main()
+    TestInvalidParam().test_main()
+    TestSingleDataInsert().test_main()
+    TestFlags().test_main()
     TestTcpBulkInsert().test_main()
