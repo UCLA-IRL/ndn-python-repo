@@ -4,7 +4,7 @@ from ndn.app import NDNApp
 from ndn.encoding import Name, ndn_format_0_3
 from ndn.transport.dummy_face import DummyFace
 from ndn.security import KeychainDigest
-from ndn_python_repo.concurrent_fetcher import concurrent_fetcher
+from ndn_python_repo.utils.concurrent_fetcher import concurrent_fetcher
 import pytest
 
 

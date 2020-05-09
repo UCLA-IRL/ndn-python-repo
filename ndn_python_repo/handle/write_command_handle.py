@@ -7,7 +7,7 @@ from ndn.types import InterestNack, InterestTimeout
 
 from . import ReadHandle, CommandHandle
 from ..command.repo_commands import RepoCommandResponse
-from ..concurrent_fetcher import concurrent_fetcher
+from ..utils.concurrent_fetcher import concurrent_fetcher
 from ..storage import Storage
 from typing import Optional
 
