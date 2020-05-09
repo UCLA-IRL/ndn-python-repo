@@ -217,6 +217,8 @@ class TestFlags(RepoTestSuite):
         return content
 
     async def run(self):
+        await aio.sleep(1)  # wait for repo to startup
+
         filepath = self.create_tmp_file() 
         filename = '/TestFlags/file'
         pc = PutfileClient(self.app, Name.from_str(repo_name))
