@@ -23,9 +23,9 @@ class Repo(object):
         self.tcp_bulk_insert_handle = tcp_bulk_insert_handle
         self.running = True
     
-    def listen(self):
-        self.write_handle.listen(self.prefix)
-        self.delete_handle.listen(self.prefix)
+    async def listen(self):
+        await self.write_handle.listen(self.prefix)
+        await self.delete_handle.listen(self.prefix)
 
     @staticmethod
     def on_register_failed(prefix):

@@ -30,7 +30,7 @@ class WriteCommandHandle(CommandHandle):
         self.m_read_handle = read_handle
         self.prefix = None
 
-    def listen(self, prefix):
+    async def listen(self, prefix):
         """
         Register routes for command interests.
         This function needs to be called explicitly after initialization.
@@ -45,7 +45,7 @@ class WriteCommandHandle(CommandHandle):
 
         prefix_to_reg = prefix[:]
         prefix_to_reg.append('insert check')
-        self.app.route(prefix_to_reg)(self.on_check_interest)
+        self.app.route(prefix_to_reg)(self._on_check_interest)
 
     def _on_insert_interest(self, int_name, _int_param, _app_param):
         aio.get_event_loop().create_task(self._process_insert(int_name, _int_param, _app_param))

@@ -1,4 +1,5 @@
 import argparse
+import asyncio as aio
 import logging
 import pkg_resources
 import sys
@@ -67,7 +68,7 @@ def main() -> int:
 
     repo = Repo(Name.from_str(config['repo_config']['repo_name']),
                 app, storage, read_handle, write_handle, delete_handle, tcp_bulk_insert_handle)
-    repo.listen()
+    aio.ensure_future(repo.listen())
 
     try:
         app.run_forever()

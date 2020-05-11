@@ -17,10 +17,10 @@ class CommandHandle(object):
         self.storage = storage
         self.m_processes = dict()
 
-    def listen(self, prefix: Name):
+    async def listen(self, prefix: Name):
         raise NotImplementedError
 
-    def on_check_interest(self, int_name, _int_param, _app_param):
+    def _on_check_interest(self, int_name, _int_param, _app_param):
         logging.info('on_check_interest(): {}'.format(Name.to_str(int_name)))
 
         response = None

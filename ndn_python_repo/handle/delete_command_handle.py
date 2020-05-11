@@ -25,7 +25,7 @@ class DeleteCommandHandle(CommandHandle):
         super(DeleteCommandHandle, self).__init__(app, storage)
         self.m_read_handle = read_handle
 
-    def listen(self, prefix: Name):
+    async def listen(self, prefix: Name):
         """
         Register routes for command interests.
         This function needs to be called explicitly after initialization.
@@ -37,7 +37,7 @@ class DeleteCommandHandle(CommandHandle):
 
         prefix_to_reg = prefix[:]
         prefix_to_reg.append('delete check')
-        self.app.route(prefix_to_reg)(self.on_check_interest)
+        self.app.route(prefix_to_reg)(self._on_check_interest)
 
     def _on_delete_interest(self, int_name, _int_param, _app_param):
         aio.get_event_loop().create_task(self._process_delete(int_name, _int_param, _app_param))
