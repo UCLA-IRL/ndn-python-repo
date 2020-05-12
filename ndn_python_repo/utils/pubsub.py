@@ -35,10 +35,15 @@ class PubSub(object):
         nonce = UintField(128)
         publisher_fwd_hint = NameField()
 
-    def __init__(self, app: NDNApp, prefix: NonStrictName, forwarding_hint: NonStrictName=None):
+    def __init__(self, app: NDNApp, prefix: NonStrictName=None, forwarding_hint: NonStrictName=None):
         """
+        Initialize a `PubSub` instance with identity `prefix` and can be reached at
+        `forwarding_hint`.
+
         :param app: NDNApp.
-        :param prefix: NonStrictName.
+        :param prefix: NonStrictName. The identity of this `PubSub` instance. Note that you cannot
+        initialize two `PubSub` instances on the same node, which will cause double registration
+        error.
         :param forwarding_hint: NonStrictName. When working as publisher, if `prefix` is not
         reachable, the subscriber can use `forwarding_hint` to reach the publisher.
         """
@@ -47,12 +52,24 @@ class PubSub(object):
         self.forwarding_hint = forwarding_hint
         self.nonce_to_msg= dict()
         self.topic_to_cb = NameTrie()
+    
+    def set_prefix(self, prefix: NonStrictName):
+        """
+        Set the identify of this `PubSub` instance after initialization.
+
+        :param perfix: NonStrictName. The identity of this `PubSub` instance.
+        """
+        self.prefix = prefix
 
     async def wait_for_ready(self):
         """
         Need to be called to wait for pub-sub to be ready.
         """
-        self.app.route(self.prefix + ['msg'])(self._on_msg_interest)
+        try:
+            self.app.route(self.prefix + ['msg'])(self._on_msg_interest)
+        except ValueError as esc:
+            # duplicate registration
+            pass
 
     def publish(self, topic: NonStrictName, msg: bytes):
         """
@@ -150,17 +167,21 @@ class PubSub(object):
         if publisher_fwd_hint:
             int_param.forwarding_hint = publisher_fwd_hint
 
-        # send msg interest
+        # send msg interest, retransmit 3 times
         msg_int_name = publisher_prefix + ['msg', str(nonce)]
-        try:
-            logging.debug(f'sending msg interest: {Name.to_str(msg_int_name)}')
-            data_name, meta_info, msg = await self.app.express_interest(
-                msg_int_name, int_param=int_param)
-        except InterestNack as e:
-            logging.debug(f'Nacked with reason: {e.reason}')
-            return
-        except InterestTimeout:
-            logging.debug(f'Timeout')
+        n_retries = 3
+        while n_retries > 0:
+            try:
+                logging.debug(f'sending msg interest: {Name.to_str(msg_int_name)}')
+                data_name, meta_info, msg = await self.app.express_interest(
+                    msg_int_name, int_param=int_param)
+                break
+            except InterestNack as e:
+                logging.debug(f'Nacked with reason: {e.reason}')
+                await aio.sleep(1)
+            except InterestTimeout:
+                logging.debug(f'Timeout')
+        if msg == None:
             return
 
         # pass msg to application
