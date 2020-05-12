@@ -7,7 +7,7 @@ from ndn.encoding import Name, Component
 from ndn.security import KeychainDigest
 from ndn.types import InterestNack, InterestTimeout
 from ndn.utils import gen_nonce
-from ndn_python_repo.clients import GetfileClient, PutfileClient, CommandChecker
+from ndn_python_repo.clients import GetfileClient, PutfileClient, DeleteClient, CommandChecker
 from ndn_python_repo.command.repo_commands import RepoCommandParameter, RepoCommandResponse
 from ndn_python_repo.utils import PubSub
 import os
@@ -81,20 +81,22 @@ class RepoTestSuite(object):
 class TestBasic(RepoTestSuite):
     async def run(self):
         await aio.sleep(1)  # wait for repo to startup
-        filepath1 = self.create_tmp_file()
+        filepath1 = self.create_tmp_file(size_bytes=10 * 1024)
         filepath2 = uuid.uuid4().hex.upper()[0:6]
 
         # put
         pc = PutfileClient(self.app, Name.from_str('/putfile_client'), Name.from_str(repo_name))
-        await pc.insert_file(filepath1, Name.from_str(filepath2), segment_size=8000,
-                             freshness_period=0, cpu_count=multiprocessing.cpu_count())
+        insert_num = await pc.insert_file(filepath1, Name.from_str(filepath2), segment_size=8000,
+            freshness_period=0, cpu_count=multiprocessing.cpu_count())
         # get
         gc = GetfileClient(self.app, Name.from_str(repo_name))
         await gc.fetch_file(Name.from_str(filepath2))
         # diff
-        ret = filecmp.cmp(filepath1, filepath2)
-        print("Is same: ", ret)
-        assert ret
+        assert filecmp.cmp(filepath1, filepath2)
+        # delete
+        dc = DeleteClient(self.app, Name.from_str('/delete_client'), Name.from_str(repo_name))
+        delete_num = await dc.delete_file(Name.from_str(filepath2))
+        assert insert_num == delete_num
         # cleanup
         self.files_to_cleanup.append(filepath1)
         self.files_to_cleanup.append(filepath2)
