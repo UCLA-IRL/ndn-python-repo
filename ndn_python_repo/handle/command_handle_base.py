@@ -44,11 +44,6 @@ class CommandHandle(object):
         else:
             self.reply_with_response(int_name, response)
 
-    def reply_with_status(self, int_name: Name, status_code: int):
-        ret = RepoCommandResponse()
-        ret.status_code = status_code
-        self.reply_with_response(int_name, ret)
-
     def reply_with_response(self, int_name, response: RepoCommandResponse):
         logging.info('Reply to command: {}'.format(Name.to_str(int_name)))
         response_bytes = response.encode()

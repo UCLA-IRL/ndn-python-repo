@@ -52,7 +52,7 @@ class PubSub(object):
         """
         Need to be called to wait for pub-sub to be ready.
         """
-        await self.app.register(self.prefix + ['msg'], self._on_msg_interest)
+        self.app.route(self.prefix + ['msg'])(self._on_msg_interest)
 
     def publish(self, topic: NonStrictName, msg: bytes):
         """
@@ -129,7 +129,7 @@ class PubSub(object):
         logging.info(f'subscribing to topic: {Name.to_str(topic)}')
         topic = Name.normalize(topic)
         self.topic_to_cb[topic] = cb
-        await self.app.register(topic + ['notify'], self._on_notify_interest)
+        self.app.route(topic + ['notify'])(self._on_notify_interest)
 
     def _on_notify_interest(self, int_name, int_param, app_param):
         aio.ensure_future(self._process_notify_interest(int_name, int_param, app_param))

@@ -11,14 +11,16 @@ import sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import asyncio as aio
+from .command_checker import CommandChecker
+from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse
+from ..utils import PubSub
 import logging
 import multiprocessing
 from ndn.app import NDNApp
-from ndn.encoding import Name, Component, DecodeError
+from ndn.encoding import Name, NonStrictName, Component, DecodeError
 from ndn.types import InterestNack, InterestTimeout
-from .command_checker import CommandChecker
-from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse
 from ndn.security import KeychainDigest
+from ndn.utils import gen_nonce
 import platform
 from typing import List
 
@@ -37,15 +39,19 @@ def _create_packets(name, content, freshness_period, final_block_id):
 
 
 class PutfileClient(object):
-    
-    def __init__(self, app: NDNApp, repo_name):
+
+    def __init__(self, app: NDNApp, prefix: NonStrictName, repo_name: NonStrictName):
         """
         :param app: NDNApp
+        :param prefix: NonStrictName. The name of this client
         :param repo_name: NonStrictName. Routable name to remote repo.
         """
         self.app = app
+        self.prefix = prefix
         self.repo_name = repo_name
         self.encoded_packets = []
+
+        self.pb = PubSub(self.app, self.prefix)
 
         # https://bugs.python.org/issue35219
         if platform.system() == 'Darwin':
@@ -55,6 +61,7 @@ class PutfileClient(object):
                       cpu_count: int):
         """
         Shard file into data packets.
+
         :param file_path: Local FS path to file to insert
         :param name_at_repo: Name used to store file at repo
         :return: List of encoded packets
@@ -67,7 +74,7 @@ class PutfileClient(object):
         if len(b_array) == 0:
             logging.warning("File is empty")
             return 0
-        
+
         # use multiple threads to speed up creating TLV
         seg_cnt = (len(b_array) + segment_size - 1) // segment_size
         final_block_id = Component.from_segment(seg_cnt - 1)
@@ -77,7 +84,7 @@ class PutfileClient(object):
             freshness_period,
             final_block_id,
         ] for seq in range(seg_cnt)]
-        
+
         with multiprocessing.Pool(processes=cpu_count) as p:
             self.encoded_packets = p.starmap(_create_packets, packet_params)
 
@@ -95,6 +102,7 @@ class PutfileClient(object):
                           freshness_period: int, cpu_count: int):
         """
         Insert a file to remote repo.
+
         :param file_path: Local FS path to file to insert
         :param name_at_repo: Name used to store file at repo
         :param segment_size: Max size of data packets.
@@ -109,52 +117,37 @@ class PutfileClient(object):
         # Register prefix for responding interests from repo
         await self.app.register(name_at_repo, self._on_interest)
 
+        # construct insert cmd msg
         cmd_param = RepoCommandParameter()
         cmd_param.name = name_at_repo
         cmd_param.start_block_id = 0
         cmd_param.end_block_id = num_packets - 1
+        process_id = gen_nonce()
+        cmd_param.process_id = process_id
         cmd_param_bytes = cmd_param.encode()
 
-        # Send cmd interest to repo
-        name = self.repo_name[:]
-        name.append('insert')
-        name.append(Component.from_bytes(cmd_param_bytes))
+        # publish msg to repo's insert topic
+        await self.pb.wait_for_ready()
+        self.pb.publish(self.repo_name + ['insert'], cmd_param_bytes)
+        logging.info('published an insert msg')
 
-        try:
-            logging.info(f'Expressing interest: {Name.to_str(name)}')
-            data_name, meta_info, content = await self.app.express_interest(
-                name, must_be_fresh=True, can_be_prefix=False, lifetime=1000)
-            logging.info(f'Received data name: {Name.to_str(data_name)}')
-        except InterestNack as e:
-            logging.warning(f'Nacked with reason: {e.reason}')
-            return
-        except InterestTimeout:
-            logging.warning(f'Timeout')
-            return
+        # wait until finish so that repo can finish fetching the data
+        await self.wait_for_finish(process_id)
 
-        # Parse response from repo
-        try:
-            cmd_response = RepoCommandResponse.parse(content)
-        except DecodeError as exc:
-            logging.warning('Response blob decoding failed')
-            return
-        process_id = cmd_response.process_id
-        status_code = cmd_response.status_code
-        
-        if status_code == 401:
-            logging.info('This insertion command or insertion check command is invalidated')
-            return
-        if status_code == 403:
-            logging.warning('Malformed command')
-            return
-        logging.info(f'cmd_response process {process_id} accepted: status code {status_code}')
-
-        # Send insert check interest to wait until insert process completes
+    async def wait_for_finish(self, process_id):
+        """
+        Wait until process `process_id` completes by sending check interests.
+        """
         checker = CommandChecker(self.app)
-        while True:
+        n_retries = 3
+        while n_retries > 0:
             response = await checker.check_insert(self.repo_name, process_id)
             if response is None:
                 logging.info(f'Response code is None')
+                await aio.sleep(1)
+            # might receive 404 if repo has not yet processed insert command msg
+            elif response.status_code == 404:
+                n_retries -= 1
                 await aio.sleep(1)
             elif response.status_code == 300:
                 logging.info(f'Response code is {response.status_code}')

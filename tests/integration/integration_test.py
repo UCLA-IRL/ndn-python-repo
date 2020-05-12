@@ -6,8 +6,10 @@ from ndn.app import NDNApp
 from ndn.encoding import Name, Component
 from ndn.security import KeychainDigest
 from ndn.types import InterestNack, InterestTimeout
+from ndn.utils import gen_nonce
 from ndn_python_repo.clients import GetfileClient, PutfileClient, CommandChecker
 from ndn_python_repo.command.repo_commands import RepoCommandParameter, RepoCommandResponse
+from ndn_python_repo.utils import PubSub
 import os
 import platform
 import pytest
@@ -49,7 +51,7 @@ class RepoTestSuite(object):
         self.files_to_cleanup.append(tmp_cfg_path)
         self.files_to_cleanup.append(sqlite3_path)
         self.repo_proc = subprocess.Popen(['ndn-python-repo', '-c', tmp_cfg_path])
-        
+
         self.app = NDNApp(face=None, keychain=KeychainDigest())
         self.app.run_forever(after_start=self.run())
 
@@ -59,13 +61,13 @@ class RepoTestSuite(object):
             if os.path.exists(file):
                 print('Cleaning up tmp file:', file)
                 os.remove(file)
-    
+
     def create_tmp_file(self, size_bytes=4096):
         tmp_file_path = os.path.join(tempfile.mkdtemp(), 'tempfile')
         with open(tmp_file_path, 'wb') as f:
             f.write(os.urandom(size_bytes))
         return tmp_file_path
-    
+
     def create_tmp_cfg(self):
         tmp_cfg_path = os.path.join(tempfile.mkdtemp(), 'ndn-python-repo.cfg')
         with open(tmp_cfg_path, 'w') as f:
@@ -81,9 +83,9 @@ class TestBasic(RepoTestSuite):
         await aio.sleep(1)  # wait for repo to startup
         filepath1 = self.create_tmp_file()
         filepath2 = uuid.uuid4().hex.upper()[0:6]
-        
+
         # put
-        pc = PutfileClient(self.app, Name.from_str(repo_name))
+        pc = PutfileClient(self.app, Name.from_str('/putfile_client'), Name.from_str(repo_name))
         await pc.insert_file(filepath1, Name.from_str(filepath2), segment_size=8000,
                              freshness_period=0, cpu_count=multiprocessing.cpu_count())
         # get
@@ -104,9 +106,9 @@ class TestLargeFile(RepoTestSuite):
         await aio.sleep(1)  # wait for repo to startup
         filepath1 = self.create_tmp_file(size_bytes=40*1024*1024)
         filepath2 = uuid.uuid4().hex.upper()[0:6]
-        
+
         # put file
-        pc = PutfileClient(self.app, Name.from_str(repo_name))
+        pc = PutfileClient(self.app, Name.from_str('/putfile_client'), Name.from_str(repo_name))
         await pc.insert_file(filepath1, Name.from_str(filepath2), segment_size=8000,
                              freshness_period=0, cpu_count=multiprocessing.cpu_count())
         # get file
@@ -122,80 +124,36 @@ class TestLargeFile(RepoTestSuite):
         self.app.shutdown()
 
 
-class TestInvalidParam(RepoTestSuite):
-    async def run(self):
-        await aio.sleep(1)  # wait for repo to startup
-
-        # build an invalid param
-        cmd_param = RepoCommandParameter()
-        cmd_param.name = 'test_name'
-        cmd_param.start_block_id = None
-        cmd_param.end_block_id = 10
-        cmd_param_bytes = cmd_param.encode()
-        name = Name.from_str(repo_name)
-        name.append('insert')
-        name.append(Component.from_bytes(cmd_param_bytes))
-
-        # should return status code 403
-        try:
-            data_name, meta_info, content = await self.app.express_interest(
-                name, must_be_fresh=True, can_be_prefix=False, lifetime=1000)
-        except InterestNack as e:
-            logging.warning(f'Nacked with reason: {e.reason}')
-            return
-        except InterestTimeout:
-            logging.warning(f'Timeout')
-            return
-        try:
-            cmd_response = RepoCommandResponse.parse(content)
-        except DecodeError as exc:
-            logging.warning('Response blob decoding failed')
-            return
-        assert cmd_response.status_code == 403
-        self.app.shutdown()
-
-
 class TestSingleDataInsert(RepoTestSuite):
     async def run(self):
         await aio.sleep(1)  # wait for repo to startup
-        
+
+        # respond to interest from repo
+        def on_int(int_name, _int_param, _app_param):
+            self.app.put_data(int_name, b'foobar', freshness_period=1000)
+        await self.app.register('test_name', on_int)
+
+        # construct insert parameter
         cmd_param = RepoCommandParameter()
         cmd_param.name = 'test_name'
         cmd_param.start_block_id = None
         cmd_param.end_block_id = None
+        process_id = gen_nonce()
+        cmd_param.process_id = process_id
         cmd_param_bytes = cmd_param.encode()
-        name = Name.from_str(repo_name)
-        name.append('insert')
-        name.append(Component.from_bytes(cmd_param_bytes))
 
-        # respond to interest from repo
-        def on_int(int_name, _int_param, _app_param):
-            print('Test program receive interest')
-            self.app.put_data(int_name, b'foobar', freshness_period=1000)
-        await self.app.register('test_name', on_int)
+        pb = PubSub(self.app, Name.from_str('/putfile_client'))
+        await pb.wait_for_ready()
+        pb.publish(Name.from_str(repo_name) + ['insert'], cmd_param_bytes)
 
-        # should return status code 200, insert_num 1
-        try:
-            data_name, meta_info, content = await self.app.express_interest(
-                name, must_be_fresh=True, can_be_prefix=False, lifetime=1000)
-        except InterestNack as e:
-            logging.warning(f'Nacked with reason: {e.reason}')
-            return
-        except InterestTimeout:
-            logging.warning(f'Timeout')
-            return
-        try:
-            cmd_response = RepoCommandResponse.parse(content)
-        except DecodeError as exc:
-            logging.warning('Response blob decoding failed')
-            return
-        process_id = cmd_response.process_id
-        
         # insert_num should be 1
         checker = CommandChecker(self.app)
-        while True:
+        n_retries = 3
+        while n_retries > 0:
             response = await checker.check_insert(Name.from_str(repo_name), process_id)
-            if response.status_code != 300:
+            if response.status_code == 404:
+                n_retries -= 1
+            elif response.status_code != 300:
                 assert response.status_code == 200
                 assert response.insert_num == 1
                 break
@@ -219,19 +177,19 @@ class TestFlags(RepoTestSuite):
     async def run(self):
         await aio.sleep(1)  # wait for repo to startup
 
-        filepath = self.create_tmp_file() 
+        filepath = self.create_tmp_file()
         filename = '/TestFlags/file'
-        pc = PutfileClient(self.app, Name.from_str(repo_name))
+        pc = PutfileClient(self.app, Name.from_str('/putfile_client'), Name.from_str(repo_name))
         await pc.insert_file(filepath, Name.from_str(filename), segment_size=8000,
                              freshness_period=0, cpu_count=multiprocessing.cpu_count())
-        
+
         ret = await self.fetch(Name.from_str('/TestFlags'), must_be_fresh=False, can_be_prefix=False)
         assert ret == None
         ret = await self.fetch(Name.from_str('/TestFlags'), must_be_fresh=False, can_be_prefix=True)
         assert ret != None
         ret = await self.fetch(Name.from_str('/TestFlags'), must_be_fresh=True, can_be_prefix=True)
         assert ret == None
-        
+
         self.app.shutdown()
 
 
@@ -261,7 +219,6 @@ class TestTcpBulkInsert(RepoTestSuite):
 if __name__ == '__main__':
     TestBasic().test_main()
     TestLargeFile().test_main()
-    TestInvalidParam().test_main()
     TestSingleDataInsert().test_main()
     TestFlags().test_main()
     TestTcpBulkInsert().test_main()
