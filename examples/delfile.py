@@ -19,7 +19,7 @@ async def run_delete_client(app: NDNApp, **kwargs):
     Async helper function to run the DeleteClient.
     This function is necessary because it's responsible for calling app.shutdown().
     """
-    client = DeleteClient(app, kwargs['repo_name'])
+    client = DeleteClient(app, kwargs['client_prefix'], kwargs['repo_name'])
     await client.delete_file(kwargs['name_at_repo'],
                              kwargs['start_block_id'],
                              kwargs['end_block_id'])
@@ -36,6 +36,9 @@ def main():
                         required=False, help='Start Block ID')
     parser.add_argument('-e', '--end_block_id',
                         required=False, help='End Block ID')
+    parser.add_argument('--client_prefix',
+                        required=False, default='/delfile_client',
+                        help='prefix of this client')
     args = parser.parse_args()
 
     logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
@@ -53,7 +56,8 @@ def main():
                                           repo_name=Name.from_str(args.repo_name),
                                           name_at_repo=Name.from_str(args.name_at_repo),
                                           start_block_id=start_block_id,
-                                          end_block_id=end_block_id))
+                                          end_block_id=end_block_id,
+                                          client_prefix=Name.from_str(args.client_prefix)))
     except FileNotFoundError:
         print('Error: could not connect to NFD.')
 

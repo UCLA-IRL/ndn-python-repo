@@ -24,6 +24,11 @@ class Repo(object):
         self.running = True
     
     async def listen(self):
+        # configure pubsub to listen on prefix. The handles share the same pb, so only need to be
+        # done once 
+        self.write_handle.pb.set_prefix(self.prefix)
+        await self.write_handle.pb.wait_for_ready()
+
         await self.write_handle.listen(self.prefix)
         await self.delete_handle.listen(self.prefix)
 

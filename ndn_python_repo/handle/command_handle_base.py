@@ -4,17 +4,19 @@ from ndn.app import NDNApp
 from ndn.encoding import Name, Component
 from ndn.encoding.tlv_model import DecodeError
 
-from ..storage import Storage
 from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse, PrefixesInStorage
+from ..storage import Storage
+from ..utils import PubSub
 
 
 class CommandHandle(object):
     """
     Interface for command interest handles
     """
-    def __init__(self, app: NDNApp, storage: Storage):
+    def __init__(self, app: NDNApp, storage: Storage, pb: PubSub):
         self.app = app
         self.storage = storage
+        self.pb = pb
         self.m_processes = dict()
 
     async def listen(self, prefix: Name):

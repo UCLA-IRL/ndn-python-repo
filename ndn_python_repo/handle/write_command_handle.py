@@ -1,9 +1,8 @@
 import asyncio as aio
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name, DecodeError
+from ndn.encoding import Name, NonStrictName, DecodeError
 from ndn.types import InterestNack, InterestTimeout
-
 from . import ReadHandle, CommandHandle
 from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse
 from ..utils import concurrent_fetcher, PubSub
@@ -17,7 +16,7 @@ class WriteCommandHandle(CommandHandle):
     store them into the database.
     TODO: Add validator
     """
-    def __init__(self, app: NDNApp, storage: Storage, read_handle: ReadHandle):
+    def __init__(self, app: NDNApp, storage: Storage, pb: PubSub, read_handle: ReadHandle):
         """
         Write handle need to keep a reference to write handle to register new prefixes.
 
@@ -26,11 +25,11 @@ class WriteCommandHandle(CommandHandle):
         :param read_handle: ReadHandle. This param is necessary, because WriteCommandHandle need to
             call ReadHandle.listen() to register new prefixes.
         """
-        super(WriteCommandHandle, self).__init__(app, storage)
+        super(WriteCommandHandle, self).__init__(app, storage, pb)
         self.m_read_handle = read_handle
         self.prefix = None
 
-    async def listen(self, prefix):
+    async def listen(self, prefix: NonStrictName):
         """
         Register routes for command interests.
         This function needs to be called explicitly after initialization.
@@ -40,8 +39,6 @@ class WriteCommandHandle(CommandHandle):
         self.prefix = prefix
 
         # subscribe to insert messages
-        self.pb = PubSub(self.app, self.prefix)
-        await self.pb.wait_for_ready()
         self.pb.subscribe(self.prefix + ['insert'], self._on_insert_msg)
 
         # listen on insert check interests
@@ -67,7 +64,7 @@ class WriteCommandHandle(CommandHandle):
         end_block_id = cmd_param.end_block_id
         process_id = cmd_param.process_id
 
-        logging.info(f'Write handle processing insert command: {name}, {start_block_id}, {end_block_id}')
+        logging.info(f'Write handle processing insert command: {Name.to_str(name)}, {start_block_id}, {end_block_id}')
 
         # rejects any data that overlaps with repo's own namespace
         if Name.is_prefix(self.prefix, name) or Name.is_prefix(name, self.prefix):
@@ -79,7 +76,6 @@ class WriteCommandHandle(CommandHandle):
 
         # Reply to client with status code 100
         self.m_processes[process_id] = RepoCommandResponse()
-        self.m_processes[process_id].status_code = 100
         self.m_processes[process_id].process_id = process_id
         self.m_processes[process_id].insert_num = 0
 

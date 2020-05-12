@@ -3,10 +3,11 @@ import logging
 import random
 import sys
 from ndn.app import NDNApp
-from ndn.encoding import Name, DecodeError
+from ndn.encoding import Name, NonStrictName, Component, DecodeError
 from . import ReadHandle, CommandHandle
+from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse
 from ..storage import Storage
-from ..command.repo_commands import RepoCommandResponse
+from ..utils import PubSub
 
 
 class DeleteCommandHandle(CommandHandle):
@@ -15,61 +16,60 @@ class DeleteCommandHandle(CommandHandle):
     in the database.
     TODO: Add validator
     """
-    def __init__(self, app: NDNApp, storage: Storage, read_handle: ReadHandle):
+    def __init__(self, app: NDNApp, storage: Storage, pb: PubSub, read_handle: ReadHandle):
         """
+        Read handle need to keep a reference to write handle to register new prefixes.
+
         :param app: NDNApp.
         :param storage: Storage.
         :param read_handle: ReadHandle. This param is necessary because DeleteCommandHandle need to
             unregister prefixes.
         """
-        super(DeleteCommandHandle, self).__init__(app, storage)
+        super(DeleteCommandHandle, self).__init__(app, storage, pb)
         self.m_read_handle = read_handle
+        self.prefix = None
 
-    async def listen(self, prefix: Name):
+    async def listen(self, prefix: NonStrictName):
         """
         Register routes for command interests.
         This function needs to be called explicitly after initialization.
+
         :param name: NonStrictName. The name prefix to listen on.
         """
-        prefix_to_reg = prefix[:]
-        prefix_to_reg.append('delete')
-        self.app.route(prefix_to_reg)(self._on_delete_interest)
+        self.prefix = prefix
 
-        prefix_to_reg = prefix[:]
-        prefix_to_reg.append('delete check')
-        self.app.route(prefix_to_reg)(self._on_check_interest)
+        # subscribe to delete messages
+        self.pb.subscribe(self.prefix + ['delete'], self._on_delete_msg)
 
-    def _on_delete_interest(self, int_name, _int_param, _app_param):
-        aio.get_event_loop().create_task(self._process_delete(int_name, _int_param, _app_param))
-    
-    async def _process_delete(self, int_name, _int_param, _app_param):
-        """
-        Process delete command.
-        Return to client with status code 100 immediately, and then start data fetching process.
-        # TODO: un-register prefix
-        """
+        # listen on delete check interests
+        self.app.route(self.prefix + ['delete check'])(self._on_check_interest)
+
+    def _on_delete_msg(self, msg):
         try:
-            cmd_param = self.decode_cmd_param_bytes(int_name)
+            cmd_param = RepoCommandParameter.parse(msg)
             if cmd_param.name == None:
                 raise DecodeError()
         except (DecodeError, IndexError) as exc:
             logging.warning('Parameter interest decoding failed')
-            self.reply_with_status(int_name, 403)
             return
-        
+        aio.ensure_future(self._process_delete(cmd_param))
+
+    async def _process_delete(self, cmd_param: RepoCommandParameter):
+        """
+        Process delete command.
+        Return to client with status code 100 immediately, and then start data fetching process.
+        """
         name = cmd_param.name
         start_block_id = cmd_param.start_block_id if cmd_param.start_block_id else 0
         end_block_id = cmd_param.end_block_id if cmd_param.end_block_id else sys.maxsize
+        process_id = cmd_param.process_id
 
-        logging.info(f'Delete handle processing delete command: {name}, {start_block_id}, {end_block_id}')
+        logging.info(f'Delete handle processing delete command: {Name.to_str(name)}, {start_block_id}, {end_block_id}')
 
         # Reply to client with status code 100
-        process_id = random.randint(0, 0x7fffffff)
         self.m_processes[process_id] = RepoCommandResponse()
-        self.m_processes[process_id].status_code = 100
         self.m_processes[process_id].process_id = process_id
         self.m_processes[process_id].delete_num = 0
-        self.reply_with_response(int_name, self.m_processes[process_id])
 
         # Perform delete
         self.m_processes[process_id].status_code = 300
@@ -93,9 +93,8 @@ class DeleteCommandHandle(CommandHandle):
         """
         delete_num = 0
         for idx in range(start_block_id, end_block_id + 1):
-            key = prefix[:]
-            key.append(str(idx))
-            if self.storage.get_data_packet(key) == None:
+            key = prefix + [Component.from_segment(idx)]
+            if self.storage.get_data_packet(key) != None:
                 self.storage.remove_data_packet(key)
                 delete_num += 1
             else:

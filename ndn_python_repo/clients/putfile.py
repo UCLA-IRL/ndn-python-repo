@@ -50,7 +50,6 @@ class PutfileClient(object):
         self.prefix = prefix
         self.repo_name = repo_name
         self.encoded_packets = []
-
         self.pb = PubSub(self.app, self.prefix)
 
         # https://bugs.python.org/issue35219
@@ -108,6 +107,7 @@ class PutfileClient(object):
         :param segment_size: Max size of data packets.
         :param freshness_period: Freshnes of data packets.
         :param cpu_count: Cores used for converting file to TLV format.
+        :return: number of packets inserted.
         """
         self._prepare_data(file_path, name_at_repo, segment_size, freshness_period, cpu_count)
         num_packets = len(self.encoded_packets)
@@ -132,11 +132,14 @@ class PutfileClient(object):
         logging.info('published an insert msg')
 
         # wait until finish so that repo can finish fetching the data
-        await self.wait_for_finish(process_id)
+        return await self.wait_for_finish(process_id)
 
-    async def wait_for_finish(self, process_id):
+    async def wait_for_finish(self, process_id: int):
         """
         Wait until process `process_id` completes by sending check interests.
+
+        :param process_id: int. The process id to check.
+        :return: number of inserted packets.
         """
         checker = CommandChecker(self.app)
         n_retries = 3
@@ -157,7 +160,7 @@ class PutfileClient(object):
                              .format(process_id,
                                      response.status_code,
                                      response.insert_num))
-                break
+                return response.insert_num
             else:
                 # Shouldn't get here
                 assert False, f'Received unrecognized status code {response.status_code}'
