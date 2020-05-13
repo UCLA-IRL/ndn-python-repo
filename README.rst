@@ -3,8 +3,11 @@ ndn-python-repo
 
 |Test Badge|
 |Release Badge|
+|Docs Badge|
 
 A Named Data Networking (NDN) Repo implementation using python-ndn_.
+
+Please see our documentation_ if you have any issues.
 
 .. |Test Badge| image:: https://travis-ci.org/JonnyKong/ndn-python-repo.svg?branch=master
     :alt: Test Status
@@ -12,4 +15,9 @@ A Named Data Networking (NDN) Repo implementation using python-ndn_.
 .. |Release Badge| image:: https://badge.fury.io/py/ndn-python-repo.svg
     :alt: Release Status
 
+.. |Docs Badge| image:: https://readthedocs.org/projects/ndn-python-repo/badge/?version=latest
+    :alt: Docs Status
+
 .. _python-ndn: https://github.com/zjkmxy/python-ndn
+
+.. _documentation: https://ndn-python-repo.readthedocs.io/en/latest
