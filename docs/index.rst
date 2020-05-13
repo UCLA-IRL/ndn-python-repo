@@ -11,6 +11,11 @@ Welcome to ndn-python-repo's documentation!
    :caption: Contents:
 
    src/readme.rst
+   src/install.rst
+   src/configuration.rst
+   src/examples.rst
+   src/authors.rst
+   src/future.rst
 
 
 
