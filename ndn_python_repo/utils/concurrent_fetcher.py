@@ -1,26 +1,31 @@
-"""
-    Concurrent segment fetcher.
-
-    @Author jonnykong@cs.ucla.edu
-    @Date   2019-10-15
-"""
+# -----------------------------------------------------------------------------
+# Concurrent segment fetcher.
+#
+# @Author jonnykong@cs.ucla.edu
+# @Date   2019-10-15
+# -----------------------------------------------------------------------------
 
 import asyncio as aio
 from datetime import datetime
 import logging
 from ndn.app import NDNApp
 from ndn.types import InterestNack, InterestTimeout
-from ndn.encoding import Name, Component
+from ndn.encoding import Name, NonStrictName, Component
 from typing import Optional
 
 
-async def concurrent_fetcher(app: NDNApp, name, start_block_id: int, end_block_id: Optional[int], 
-                             semaphore: aio.Semaphore, **kwargs):
+async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_block_id: int,
+                             end_block_id: Optional[int], semaphore: aio.Semaphore, **kwargs):
     """
-    An async-generator to fetch segmented object. Interests are issued concurrently.
+    An async-generator to fetch data packets between "`name`/`start_block_id`" and "`name`/`end_block_id`"\
+        concurrently.
+
     :param app: NDNApp.
     :param name: NonStrictName. Name prefix of Data.
-    :return: Yield (Name, MetaInfo, Content, RawPacket) tuples in order.
+    :param start_block_id: int. The start segment number.
+    :param end_block_id: Optional[int]. The end segment number. If not specified, continue fetching\
+        until an interest receives timeout or nack or 3 times.
+    :return: Yield ``(FormalName, MetaInfo, Content, RawPacket)`` tuples in order.
     """
     cur_id = start_block_id
     final_id = end_block_id if end_block_id is not None else 0x7fffffff

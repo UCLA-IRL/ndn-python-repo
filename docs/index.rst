@@ -13,6 +13,8 @@ Welcome to ndn-python-repo's documentation!
    src/readme.rst
    src/install.rst
    src/configuration.rst
+   src/specification/specification.rst
+   src/misc_pkgs/misc_pkgs.rst
    src/examples.rst
    src/authors.rst
    src/future.rst

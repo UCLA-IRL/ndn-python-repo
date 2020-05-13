@@ -8,12 +8,12 @@ from typing import List, Optional
 
 
 class Storage:
-    """
-    Interface for storage functionalities
-    """
     cache = NameTrie()
 
     def __init__(self):
+        """
+        Interface for a unified key-value storage API.
+        """
         aio.get_event_loop().create_task(self._periodic_write_back())
 
     def _put(self, key: bytes, data: bytes, expire_time_ms: int=None):
@@ -45,7 +45,7 @@ class Storage:
         return name[offset:]
     
     @staticmethod
-    def time_ms():
+    def _time_ms():
         return int(time.time() * 1000)
 
     def _write_back(self):
@@ -62,9 +62,16 @@ class Storage:
         self.cache = NameTrie()
 
     def put_data_packet(self, name: NonStrictName, data: bytes):
-        # compute expire_time_ms by adding freshnessPeriod to current time
+        """
+        Insert a data packet named ``name`` with value ``data``.
+        This method will parse ``data`` to get its freshnessPeriod, and compute its expiration time\
+            by adding the freshnessPeriod to the current time.
+        
+        :param name: NonStrictName. The name of the data packet.
+        :param data: bytes. The value of the data packet.
+        """
         _, meta_info, _, _ = parse_data(data)
-        expire_time_ms = self.time_ms()
+        expire_time_ms = self._time_ms()
         if meta_info.freshness_period:
             expire_time_ms += meta_info.freshness_period
 
@@ -73,20 +80,29 @@ class Storage:
         self.cache[name] = (data, expire_time_ms)
         logging.info(f'Cache save: {Name.to_str(name)}')
 
-    def get_data_packet(self, name: NonStrictName, can_be_prefix=False, must_be_fresh=False):
+    def get_data_packet(self, name: NonStrictName, can_be_prefix=False,
+                        must_be_fresh=False) -> Optional[bytes]:
+        """
+        Get a data packet named ``name``.
+
+        :param name: NonStrictName. The name of the data packet. 
+        :param can_be_perfix: bool. If true, use prefix match instead of exact match.
+        :param must_be_fresh: bool. If true, ignore expired data.
+        :return: The value of the data packet.
+        """
         name = Name.normalize(name)
         # cache lookup
         try:
             if not can_be_prefix:
                 data, expire_time_ms = self.cache[name]
-                if not must_be_fresh or expire_time_ms > self.time_ms():
+                if not must_be_fresh or expire_time_ms > self._time_ms():
                     logging.info('get from cache')
                     return data
             else:
                 it = self.cache.itervalues(prefix=name, shallow=True)
                 while True:
                     data, expire_time_ms = next(it)
-                    if not must_be_fresh or expire_time_ms > self.time_ms():
+                    if not must_be_fresh or expire_time_ms > self._time_ms():
                         logging.info('get from cache')
                         return data
         # not in cache, lookup in storage
@@ -94,7 +110,13 @@ class Storage:
             key = self._get_name_bytes_wo_tl(name)
             return self._get(key, can_be_prefix, must_be_fresh)
 
-    def remove_data_packet(self, name: NonStrictName):
+    def remove_data_packet(self, name: NonStrictName) -> bool:
+        """
+        Remove a data packet named ``name``.
+
+        :param name: NonStrictName. The name of the data packet. 
+        :return: True if a data packet is being removed.
+        """
         removed = False
         name = Name.normalize(name)
         try:

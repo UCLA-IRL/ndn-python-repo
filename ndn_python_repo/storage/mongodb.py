@@ -9,7 +9,10 @@ class MongoDBStorage(Storage):
 
     def __init__(self, db: str, collection: str):
         """
-        Init DB with unique index on key.
+        Init a MongoDB storage with unique index on key.
+
+        :param db: str. Database name.
+        :param collection: str. Collection name.
         """
         self._db = db
         self._collection = collection
@@ -26,12 +29,14 @@ class MongoDBStorage(Storage):
 
     def _put(self, key: bytes, value: bytes, expire_time_ms: int=None):
         """
-        Insert document into MongoDB, overwrite if already exists. MongoDB supports prefix search 
-        only on strings, so keys are stored in base16 format.
-        Base32 and base64 dont't work here, because they don't preserve prefix search semantics.
+        Insert document into MongoDB, overwrite if already exists. MongoDB supports prefix search\
+            only on strings, so keys are stored in base16 format.
+        Base32 and base64 don't work here, because they don't preserve prefix search semantics.
+
         :param key: bytes.
         :param value: bytes.
-        :param expire_time_ms: Optional[int]. Value is not fresh if expire_time_ms is not specified.
+        :param expire_time_ms: Optional[int]. This data is marked unfresh after ``expire_time_ms``\
+            milliseconds.
         """
         key = base64.b16encode(key).decode()
         replace = {
@@ -40,13 +45,14 @@ class MongoDBStorage(Storage):
             'expire_time_ms': expire_time_ms,
         }
         self.c_collection.replace_one({'key': key}, replace, upsert=True)
-    
+
     def _put_batch(self, keys: List[bytes], values: List[bytes], expire_time_mss:List[Optional[int]]):
         """
         Batch insert.
+
         :param key: List[bytes].
         :param value: List[bytes].
-        :param expire_time_ms: List[Optional[int]].
+        :param expire_time_ms: List[Optional[int]]. The expiration time for each data in ``value``.
         """
         keys = [base64.b16encode(key).decode() for key in keys]
         replaces = []
@@ -61,10 +67,11 @@ class MongoDBStorage(Storage):
     def _get(self, key: bytes, can_be_prefix=False, must_be_fresh=False) -> Optional[bytes]:
         """
         Get document from MongoDB.
+
         :param key: bytes.
-        :param can_be_prefix: bool. 
-        :param must_be_fresh: bool.
-        :return: bytes.
+        :param can_be_prefix: bool. If true, use prefix match instead of exact match.
+        :param must_be_fresh: bool. If true, ignore expired data.
+        :return: The value of the data packet.
         """
         key = base64.b16encode(key).decode()
         query = dict()
@@ -83,8 +90,9 @@ class MongoDBStorage(Storage):
     def _remove(self, key: bytes) -> bool:
         """
         Remove value from MongoDB, return whether removal is successful.
+
         :param key: bytes.
-        :return: bool.
+        :return: True if a data packet is being removed.
         """
         key = base64.b16encode(key).decode()
         return self.c_collection.delete_one({"key": key}).deleted_count > 0

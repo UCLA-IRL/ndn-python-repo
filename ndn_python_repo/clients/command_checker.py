@@ -1,9 +1,9 @@
-"""
-    NDN Repo insert check tester.
-
-    @Author jonnykong@cs.ucla.edu
-    @Date   2019-09-23
-"""
+# -----------------------------------------------------------------------------
+# NDN Repo insert check tester.
+#
+# @Author jonnykong@cs.ucla.edu
+# @Date   2019-09-23
+# -----------------------------------------------------------------------------
 
 import os
 import sys
@@ -12,28 +12,48 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 import argparse
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name, Component, TlvModel, DecodeError
+from ndn.encoding import Name, NonStrictName, Component, TlvModel, DecodeError
 from ndn.types import InterestNack, InterestTimeout
 from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse
 
 
 class CommandChecker(object):
-    """
-    Client for sending insert check interests.
-    Users can create an CommandChecker instance to check for the status code.
-    """
     def __init__(self, app: NDNApp):
+        """
+        This client sends check interests to the repo.
+
+        :param app: NDNApp.
+        """
         self.app = app
     
-    async def check_insert(self, repo_name, process_id: int) -> RepoCommandResponse:
+    async def check_insert(self, repo_name: NonStrictName, process_id: int) -> RepoCommandResponse:
+        """
+        Check the status of an insert process.
+
+        :param repo_name: NonStrictName. The name of the remote repo.
+        :param process_id: int. The process id of the process to check.
+        :return: The response from the repo.
+        """
         return await self._check('insert', repo_name, process_id)
     
     async def check_delete(self, repo_name, process_id: int) -> RepoCommandResponse:
+        """
+        Check the status of a delete process.
+
+        :param repo_name: NonStrictName. The name of the remote repo.
+        :param process_id: int. The process id of the process to check.
+        :return: The response from the repo.
+        """
         return await self._check('delete', repo_name, process_id)
 
-    async def _check(self, method: str, repo_name, process_id: int) -> RepoCommandResponse:
+    async def _check(self, method: str, repo_name: NonStrictName,
+                     process_id: int) -> RepoCommandResponse:
         """
         Return parsed insert check response message.
+
+        :param method: str. One of `insert` or `delete`.
+        :param repo_name: NonStrictName. The name of the remote repo.
+        :param process_id: int. The process id of the process to check.
         # TODO: Use command interests instead of regular interests
         """
         cmd_param = RepoCommandParameter()

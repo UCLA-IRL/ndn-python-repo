@@ -1,10 +1,10 @@
-"""
-    NDN Repo putfile client.
-
-    @Author jonnykong@cs.ucla.edu
-            susmit@cs.colostate.edu
-    @Date   2019-10-18
-"""
+# -----------------------------------------------------------------------------
+# NDN Repo putfile client.
+#
+# @Author jonnykong@cs.ucla.edu
+#         susmit@cs.colostate.edu
+# @Date   2019-10-18
+# -----------------------------------------------------------------------------
 
 import os
 import sys
@@ -42,7 +42,9 @@ class PutfileClient(object):
 
     def __init__(self, app: NDNApp, prefix: NonStrictName, repo_name: NonStrictName):
         """
-        :param app: NDNApp
+        A client to insert files into the repo.
+
+        :param app: NDNApp.
         :param prefix: NonStrictName. The name of this client
         :param repo_name: NonStrictName. Routable name to remote repo.
         """
@@ -63,7 +65,6 @@ class PutfileClient(object):
 
         :param file_path: Local FS path to file to insert
         :param name_at_repo: Name used to store file at repo
-        :return: List of encoded packets
         """
         if not os.path.exists(file_path):
             logging.error(f'file {file_path} does not exist')
@@ -97,17 +98,17 @@ class PutfileClient(object):
         else:
             logging.info(f'Data does not exist: {Name.to_str(int_name)}')
 
-    async def insert_file(self, file_path: str, name_at_repo, segment_size: int,
-                          freshness_period: int, cpu_count: int):
+    async def insert_file(self, file_path: str, name_at_repo: NonStrictName, segment_size: int,
+                          freshness_period: int, cpu_count: int) -> int:
         """
         Insert a file to remote repo.
 
-        :param file_path: Local FS path to file to insert
-        :param name_at_repo: Name used to store file at repo
+        :param file_path: Local FS path to file to insert.
+        :param name_at_repo: NonStrictName. Name used to store file at repo.
         :param segment_size: Max size of data packets.
-        :param freshness_period: Freshnes of data packets.
+        :param freshness_period: Freshness of data packets.
         :param cpu_count: Cores used for converting file to TLV format.
-        :return: number of packets inserted.
+        :return: Number of packets inserted.
         """
         self._prepare_data(file_path, name_at_repo, segment_size, freshness_period, cpu_count)
         num_packets = len(self.encoded_packets)
@@ -132,9 +133,9 @@ class PutfileClient(object):
         logging.info('published an insert msg')
 
         # wait until finish so that repo can finish fetching the data
-        return await self.wait_for_finish(process_id)
+        return await self._wait_for_finish(process_id)
 
-    async def wait_for_finish(self, process_id: int):
+    async def _wait_for_finish(self, process_id: int) -> int:
         """
         Wait until process `process_id` completes by sending check interests.
 

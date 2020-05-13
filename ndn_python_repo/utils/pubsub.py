@@ -1,15 +1,16 @@
-"""
-    Pub-sub API.
+# -----------------------------------------------------------------------------
+# Pub-sub API.
+#
+# This pub-sub library provides best-effort, at-most-once delivery guarantee.
+# If there are no subscribers reachable when a message is published, this
+# message will not be re-transmitted.
+# If there are multiple subscribers reachable, the nearest subscriber will be
+# notified of the published message in an any-cast style.
+#
+# @Author jonnykong@cs.ucla.edu
+# @Date   2020-05-08
+# -----------------------------------------------------------------------------
 
-    This pub-sub library provides best-effort, at-most-once delivery guarantee.
-    if there are no subscribers reachable when a message is published, this message will not be
-    re-transmitted.
-    If there are multiple subscribers reachable, the nearest subscriber will be notified of the
-    published message in an any-cast style.
-
-    @Author jonnykong@cs.ucla.edu
-    @Date   2020-05-08
-"""
 
 import asyncio as aio
 import logging
@@ -22,10 +23,6 @@ from ndn.utils import gen_nonce
 
 
 class PubSub(object):
-    """
-    Best-effort, at-most-once publish-subscribe.
-    TODO: support msg larger than MTU
-    """
 
     class NotifyAppParam(TlvModel):
         """
@@ -37,27 +34,28 @@ class PubSub(object):
 
     def __init__(self, app: NDNApp, prefix: NonStrictName=None, forwarding_hint: NonStrictName=None):
         """
-        Initialize a `PubSub` instance with identity `prefix` and can be reached at
-        `forwarding_hint`.
+        Initialize a ``PubSub`` instance with identity ``prefix`` and can be reached at \
+            ``forwarding_hint``.
+        TODO: support msg larger than MTU
 
         :param app: NDNApp.
-        :param prefix: NonStrictName. The identity of this `PubSub` instance. Note that you cannot
-        initialize two `PubSub` instances on the same node, which will cause double registration
-        error.
-        :param forwarding_hint: NonStrictName. When working as publisher, if `prefix` is not
-        reachable, the subscriber can use `forwarding_hint` to reach the publisher.
+        :param prefix: NonStrictName. The identity of this ``PubSub`` instance. Note that you cannot\
+            initialize two ``PubSub`` instances on the same node, which will cause double\
+            registration error.
+        :param forwarding_hint: NonStrictName. When working as publisher, if ``prefix`` is not\
+            reachable, the subscriber can use ``forwarding_hint`` to reach the publisher.
         """
         self.app = app
         self.prefix = prefix
         self.forwarding_hint = forwarding_hint
         self.nonce_to_msg= dict()
         self.topic_to_cb = NameTrie()
-    
+
     def set_prefix(self, prefix: NonStrictName):
         """
-        Set the identify of this `PubSub` instance after initialization.
+        Set the identify of this ``PubSub`` instance after initialization.
 
-        :param perfix: NonStrictName. The identity of this `PubSub` instance.
+        :param perfix: NonStrictName. The identity of this ``PubSub`` instance.
         """
         self.prefix = prefix
 
@@ -73,27 +71,27 @@ class PubSub(object):
 
     def publish(self, topic: NonStrictName, msg: bytes):
         """
-        Publish `msg` to `topic`.
+        Publish ``msg`` to ``topic``.
 
-        :param topic: NonStrictName. The topic to publish `msg` to.
-        :param msg: bytes. The message to publish. The pub-sub API does not make any assumptions on
-        the format of this message.
+        :param topic: NonStrictName. The topic to publish ``msg`` to.
+        :param msg: bytes. The message to publish. The pub-sub API does not make any assumptions on\
+            the format of this message.
         """
         aio.ensure_future(self._publish_helper(topic, msg))
 
     def subscribe(self, topic: NonStrictName, cb: callable):
         """
-        Subscribe to `topic` with `cb`.
+        Subscribe to ``topic`` with ``cb``.
 
         :param topic: NonStrictName. The topic to subscribe to.
-        :param cb: callable. A callback that will be called when a message under `topic` is
-        received. This function takes one `bytes` argument.
+        :param cb: callable. A callback that will be called when a message under ``topic`` is\
+            received. This function takes one ``bytes`` argument.
         """
         aio.ensure_future(self._subscribe_helper(topic, cb))
 
     def unsubscribe(self, topic: NonStrictName):
         """
-        Unsubscribe from `topic`.
+        Unsubscribe from ``topic``.
 
         :param topic: NonStrictName. The topic to unsubscribe from.
         """
@@ -105,7 +103,7 @@ class PubSub(object):
 
     async def _publish_helper(self, topic: NonStrictName, msg: bytes):
         """
-        Async helper for `subscribe()`.
+        Async helper for `subscribe()``.
         """
         logging.info(f'publishing a message to topic: {Name.to_str(topic)}')
         # generate a nonce for each message
@@ -113,7 +111,6 @@ class PubSub(object):
         self.nonce_to_msg[nonce] = msg
 
         # prepare notify interest
-        # int_name = topic + [Component.from_str('notify')]
         int_name = topic + ['notify']
         app_param = PubSub.NotifyAppParam()
         app_param.publisher_prefix = self.prefix
@@ -141,7 +138,7 @@ class PubSub(object):
 
     async def _subscribe_helper(self, topic: NonStrictName, cb: callable):
         """
-        Async helper for `subscribe()`.
+        Async helper for ``subscribe()``.
         """
         logging.info(f'subscribing to topic: {Name.to_str(topic)}')
         topic = Name.normalize(topic)
@@ -153,7 +150,7 @@ class PubSub(object):
 
     async def _process_notify_interest(self, int_name, int_param, app_param):
         """
-        Async helper for `_on_notify_interest()`.
+        Async helper for ``_on_notify_interest()``.
         """
         logging.debug(f'received notify interest: {Name.to_str(int_name)}')
         topic = int_name[:-2]   # remove digest and `notify`
@@ -197,7 +194,7 @@ class PubSub(object):
 
     async def _process_msg_interest(self, int_name, int_param, app_param):
         """
-        Async helper for `_on_msg_interest()`.
+        Async helper for ``_on_msg_interest()``.
         """
         logging.debug(f'received msg interest: {Name.to_str(int_name)}')
         nonce = int(Component.to_str(int_name[-1]))
@@ -211,7 +208,7 @@ class PubSub(object):
 
     async def _erase_state_after(self, nonce: int, timeout: int):
         """
-        Erase state assoicated with `nonce` after `timeout`.
+        Erase state assoicated with ``nonce`` after ``timeout``.
         """
         await aio.sleep(timeout)
         if nonce in self.nonce_to_msg:

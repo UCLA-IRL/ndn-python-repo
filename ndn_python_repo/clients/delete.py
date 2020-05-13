@@ -1,9 +1,9 @@
-"""
-    NDN Repo delete client.
-
-    @Author jonnykong@cs.ucla.edu
-    @Date   2019-09-26
-"""
+# -----------------------------------------------------------------------------
+# NDN Repo delete client.
+#
+# @Author jonnykong@cs.ucla.edu
+# @Date   2019-09-26
+# -----------------------------------------------------------------------------
 
 import os
 import sys
@@ -22,11 +22,10 @@ from ndn.utils import gen_nonce
 
 
 class DeleteClient(object):
-    """
-    This client deletes specified data packets stored at a remote repo.
-    """
     def __init__(self, app: NDNApp, prefix: NonStrictName, repo_name: NonStrictName):
         """
+        This client deletes data packets from the remote repo.
+
         :param app: NDNApp.
         :param repo_name: NonStrictName. Routable name to remote repo.
         """
@@ -35,17 +34,19 @@ class DeleteClient(object):
         self.repo_name = repo_name
         self.pb = PubSub(self.app, self.prefix)
 
-    async def delete_file(self, prefix, start_block_id: int=None, end_block_id: int=None):
+    async def delete_file(self, prefix: NonStrictName, start_block_id: int=None,
+                          end_block_id: int=None) -> int:
         """
-        Delete data packets between [<name_at_repo>/<start_block_id>, <name_at_repo>/<end_block_id>]
-        from the remote repo.
+        Delete from repo packets between "<name_at_repo>/<start_block_id>" and\
+            "<name_at_repo>/<end_block_id>" inclusively.
 
-        :param prefix: NonStrictName. The name with which this file is stored in the repo.
-        :param start_block_id: int.
-        :param end_block_id: int.
-        :return: number of deleted packets.
+        :param prefix: NonStrictName. The name of the file stored in the remote repo.
+        :param start_block_id: int. Default value is 0.
+        :param end_block_id: int. If not specified, repo will attempt to delete all data packets\
+            with segment number starting from `start_block_id` continously.
+        :return: Number of deleted packets.
         """
-        # Send command interest
+        # send command interest
         cmd_param = RepoCommandParameter()
         cmd_param.name = prefix
         cmd_param.start_block_id = start_block_id
@@ -59,14 +60,14 @@ class DeleteClient(object):
         self.pb.publish(self.repo_name + ['delete'], cmd_param_bytes)
 
         # wait until repo delete all data
-        return await self.wait_for_finish(process_id)
+        return await self._wait_for_finish(process_id)
 
-    async def wait_for_finish(self, process_id: int):
+    async def _wait_for_finish(self, process_id: int):
         """
-        Send delete check interest wait until delete process completes
+        Send delete check interest to wait until delete process completes
 
         :param process_id: int. The process id to check for delete process
-        :return: number of deleted packets.
+        :return: Number of deleted packets.
         """
         checker = CommandChecker(self.app)
         n_retries = 3

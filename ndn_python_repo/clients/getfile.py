@@ -1,9 +1,9 @@
-"""
-    NDN Repo getfile client.
-
-    @Author jonnykong@cs.ucla.edu
-    @Date   2019-10-24
-"""
+# -----------------------------------------------------------------------------
+# NDN Repo getfile client.
+#
+# @Author jonnykong@cs.ucla.edu
+# @Date   2019-10-24
+# -----------------------------------------------------------------------------
 
 import os
 import sys
@@ -12,7 +12,7 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 import asyncio as aio
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name
+from ndn.encoding import Name, NonStrictName
 from ..utils.concurrent_fetcher import concurrent_fetcher
 
 
@@ -22,15 +22,18 @@ class GetfileClient(object):
     """
     def __init__(self, app: NDNApp, repo_name):
         """
+        A client to retrieve files from the remote repo.
+
         :param app: NDNApp.
-        :param repo_name: NonStrictName. Routable name to remote table.
+        :param repo_name: NonStrictName. Routable name to remote repo.
         """
         self.app = app
         self.repo_name = repo_name
 
-    async def fetch_file(self, name_at_repo):
+    async def fetch_file(self, name_at_repo: NonStrictName):
         """
-        Fetch a file from remote repo, and write to disk.
+        Fetch a file from remote repo, and write to the current working directory.
+
         :param name_at_repo: NonStrictName. The name with which this file is stored in the repo.
         """
         semaphore = aio.Semaphore(10)

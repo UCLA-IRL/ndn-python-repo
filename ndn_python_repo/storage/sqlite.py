@@ -5,10 +5,12 @@ from .storage_base import Storage
 
 
 class SqliteStorage(Storage):
+
     def __init__(self, db_path):
         """
-        Init table "data" with the attribute "key" being the primary key
-        :param db_path: str. Path to database file
+        Init table "data" with the attribute ``key`` being the primary key.
+
+        :param db_path: str. Path to database file.
         """
         super().__init__()
         db_path = os.path.expanduser(db_path)
@@ -32,21 +34,24 @@ class SqliteStorage(Storage):
     def _put(self, key: bytes, value: bytes, expire_time_ms=None):
         """
         Insert value and its expiration time into sqlite3, overwrite if already exists.
+
         :param key: bytes.
         :param value: bytes.
-        :param expire_time_ms: Optional[int]. Value is not fresh if expire_time_ms is not specified.
+        :param expire_time_ms: Optional[int]. This data is marked unfresh after ``expire_time_ms``\
+            milliseconds.
         """
         c = self.conn.cursor()
         c.execute('INSERT OR REPLACE INTO data (key, value, expire_time_ms) VALUES (?, ?, ?)',
             (key, value, expire_time_ms))
         self.conn.commit()
-    
+
     def _put_batch(self, keys: List[bytes], values: List[bytes], expire_time_mss:List[Optional[int]]):
         """
         Batch insert.
+
         :param key: List[bytes].
         :param value: List[bytes].
-        :param expire_time_ms: List[Optional[int]].
+        :param expire_time_ms: List[Optional[int]]. The expiration time for each data in ``value``.
         """
         c = self.conn.cursor()
         c.executemany('INSERT OR REPLACE INTO data (key, value, expire_time_ms) VALUES (?, ?, ?)',
@@ -56,10 +61,11 @@ class SqliteStorage(Storage):
     def _get(self, key: bytes, can_be_prefix=False, must_be_fresh=False) -> Optional[bytes]:
         """
         Get value from sqlite3.
+
         :param key: bytes.
-        :param can_be_prefix: bool. 
-        :param must_be_fresh: bool.
-        :return: bytes.
+        :param can_be_prefix: bool. If true, use prefix match instead of exact match.
+        :param must_be_fresh: bool. If true, ignore expired data.
+        :return: The value of the data packet.
         """
         c = self.conn.cursor()
         query = 'SELECT value FROM data WHERE '
@@ -77,8 +83,9 @@ class SqliteStorage(Storage):
     def _remove(self, key: bytes) -> bool:
         """
         Remove value from sqlite. Return whether removal is successful.
+
         :param key: bytes.
-        :return: bool.
+        :return: True if a data packet is being removed.
         """
         c = self.conn.cursor()
         n_removed = c.execute('DELETE FROM data WHERE key = ?', (key, )).rowcount
