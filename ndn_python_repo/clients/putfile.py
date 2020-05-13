@@ -21,21 +21,23 @@ from ndn.encoding import Name, NonStrictName, Component, DecodeError
 from ndn.types import InterestNack, InterestTimeout
 from ndn.security import KeychainDigest
 from ndn.utils import gen_nonce
+import os
 import platform
 from typing import List
 
 
-app_create_packets = NDNApp()   # used for _create_packets only
-def _create_packets(name, content, freshness_period, final_block_id):
-    """
-    Worker for parallelize prepare_data().
-    This function has to be defined at the top level, so that it can be pickled and used
-    by multiprocessing.
-    """
-    packet = app_create_packets.prepare_data(name, content,
-                                             freshness_period=freshness_period,
-                                             final_block_id=final_block_id)
-    return bytes(packet)
+if not os.environ.get('READTHEDOCS'):
+    app_create_packets = NDNApp()   # used for _create_packets only
+    def _create_packets(name, content, freshness_period, final_block_id):
+        """
+        Worker for parallelize prepare_data().
+        This function has to be defined at the top level, so that it can be pickled and used
+        by multiprocessing.
+        """
+        packet = app_create_packets.prepare_data(name, content,
+                                                 freshness_period=freshness_period,
+                                                 final_block_id=final_block_id)
+        return bytes(packet)
 
 
 class PutfileClient(object):
