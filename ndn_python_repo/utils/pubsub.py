@@ -39,9 +39,10 @@ class PubSub(object):
         TODO: support msg larger than MTU
 
         :param app: NDNApp.
-        :param prefix: NonStrictName. The identity of this ``PubSub`` instance. Note that you cannot\
-            initialize two ``PubSub`` instances on the same node, which will cause double\
-            registration error.
+        :param prefix: NonStrictName. The identity of this ``PubSub`` instance. ``PubSub`` sends\
+            Data packets under the hood to make pub-sub work, so it needs an identify under which\
+            can publish data. Note that you cannot initialize two ``PubSub`` instances on the same\
+            node, which will cause double registration error.
         :param forwarding_hint: NonStrictName. When working as publisher, if ``prefix`` is not\
             reachable, the subscriber can use ``forwarding_hint`` to reach the publisher.
         """
