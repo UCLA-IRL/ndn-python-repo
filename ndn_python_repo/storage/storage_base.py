@@ -22,7 +22,7 @@ class Storage:
     def _put_batch(self, keys: List[bytes], values: List[bytes], expire_time_mss:List[Optional[int]]):
         raise NotImplementedError
 
-    def _get(self, key: bytes, can_be_prefix=False, must_be_fresh=False) -> bytes:
+    def _get(self, key: bytes, can_be_prefix: bool=False, must_be_fresh: bool=False) -> bytes:
         raise NotImplementedError
 
     def _remove(self, key: bytes) -> bool:
@@ -80,8 +80,8 @@ class Storage:
         self.cache[name] = (data, expire_time_ms)
         logging.info(f'Cache save: {Name.to_str(name)}')
 
-    def get_data_packet(self, name: NonStrictName, can_be_prefix=False,
-                        must_be_fresh=False) -> Optional[bytes]:
+    def get_data_packet(self, name: NonStrictName, can_be_prefix: bool=False,
+                        must_be_fresh: bool=False) -> Optional[bytes]:
         """
         Get a data packet named ``name``.
 

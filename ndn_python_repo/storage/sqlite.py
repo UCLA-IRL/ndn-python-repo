@@ -6,7 +6,7 @@ from .storage_base import Storage
 
 class SqliteStorage(Storage):
 
-    def __init__(self, db_path):
+    def __init__(self, db_path: str):
         """
         Init table "data" with the attribute ``key`` being the primary key.
 

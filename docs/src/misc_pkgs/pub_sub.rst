@@ -21,11 +21,11 @@ Process
 
 Under the hood the ``PubSub`` module transmits a series of Interest and Data packets:
 
-1. When the subscriber calls ``subscribe(topic, cb)``. This makes the subcriber listen on
+1. The subscriber calls ``subscribe(topic, cb)``. This makes the subcriber listen on
 ``"/<topic>/notify"``.
 
-2. When the publisher invokes ``publish(topic, msg)``. This method sends an Interest with name
-``“/<topic>/notify”``, which will be routed to a subscriber. The interest carries:
+2. The publisher invokes ``publish(topic, msg)``. This method sends an Interest with name
+``"/<topic>/notify"``, which will be routed to a subscriber. The interest carries:
 
     * Publisher prefix: used by the subscriber to reach the publisher in the next step
     * Nonce: used by the publisher to de-multiplex among different publications
