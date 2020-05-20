@@ -65,8 +65,7 @@ def main() -> int:
     delete_handle = DeleteCommandHandle(app, storage, pb, read_handle, config)
     tcp_bulk_insert_handle = TcpBulkInsertHandle(storage, read_handle, config)
 
-    repo = Repo(Name.from_str(config['repo_config']['repo_name']),
-                app, storage, read_handle, write_handle, delete_handle, tcp_bulk_insert_handle)
+    repo = Repo(app, storage, read_handle, write_handle, delete_handle, tcp_bulk_insert_handle, config)
     aio.ensure_future(repo.listen())
 
     try:

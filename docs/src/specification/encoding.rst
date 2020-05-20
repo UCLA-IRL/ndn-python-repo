@@ -11,6 +11,7 @@ The repo commands and responses contains ``RepoCommandParameter`` and
         [start_block_id]
         [end_block_id]
         [process_id]
+        [register_prefix]
     
     RepoCommandResponse = DATA-TYPE TLV-LENGTH
         [name]

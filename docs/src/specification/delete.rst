@@ -1,3 +1,5 @@
+.. _specification-delete-label:
+
 Delete
 ======
 
@@ -16,6 +18,8 @@ are relevant:
 * ``end_block_id``: The end segment number of the data to delete.
 
 * ``process_id``: A random id generated on the client side to identify this deletion process.
+
+* ``register_prefix`` (Optional). If repo doesn't register the root prefix, client can tell repo to unregister this prefix.
 
 3. The repo deletes the data with the following behavior:
 

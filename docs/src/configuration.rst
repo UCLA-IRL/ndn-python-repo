@@ -28,6 +28,20 @@ This overrides the repo name in the config file::
     $ ndn-python-repo -r "/name_foo"
 
 
+Repo prefix registration
+------------------------
+By default, the repo registers the root prefix ``/``.
+
+Alternatively, you can configure repo such that it doesn't register the root prefix::
+
+    repo_config:
+      register_root: False
+    
+If ``register_root`` is set to ``False``, the client is responsible of telling the
+repo which prefix to register or unregister every time in ``RepoCommandParameter``.
+See :ref:`specification-insert-label` and :ref:`specification-delete-label` for details.
+
+
 Choose the backend database
 ---------------------------
 

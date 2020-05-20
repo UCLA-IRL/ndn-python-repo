@@ -8,13 +8,13 @@ from .command.repo_commands import PrefixesInStorage
 
 
 class Repo(object):
-    def __init__(self, prefix, app: NDNApp, storage: Storage, read_handle: ReadHandle,
+    def __init__(self, app: NDNApp, storage: Storage, read_handle: ReadHandle,
                  write_handle: WriteCommandHandle, delete_handle: DeleteCommandHandle,
-                 tcp_bulk_insert_handle: TcpBulkInsertHandle):
+                 tcp_bulk_insert_handle: TcpBulkInsertHandle, config: dict):
         """
         An NDN repo instance.
         """
-        self.prefix = prefix
+        self.prefix = Name.from_str(config['repo_config']['repo_name'])
         self.app = app
         self.storage = storage
         self.write_handle = write_handle
