@@ -2,6 +2,9 @@
 repo_config:
   # the repo's routable prefix
   repo_name: 'testrepo'
+  # if true, the repo registers the root prefix. If false, client needs to tell repo
+  # which prefix to register/unregister
+  register_root: True 
 
 
 db_config:

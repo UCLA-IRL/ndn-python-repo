@@ -56,8 +56,7 @@ class TcpBulkInsertHandle(object):
                 logging.info(f'Inserted data: {Name.to_str(data_name)}')
                 await aio.sleep(0)
 
-    def __init__(self, storage: Storage, read_handle: ReadHandle,
-                 server_addr: str, server_port: str):
+    def __init__(self, storage: Storage, read_handle: ReadHandle, config: dict):
         """
         TCP bulk insertion handle need to keep a reference to ReadHandle to register new prefixes.
         """
@@ -70,6 +69,8 @@ class TcpBulkInsertHandle(object):
 
         self.storage = storage
         self.read_handle = read_handle
+        server_addr = config['tcp_bulk_insert']['addr']
+        server_port = config['tcp_bulk_insert']['port']
         event_loop = aio.get_event_loop()
         
         if sys.version_info.minor >= 7:

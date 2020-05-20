@@ -60,12 +60,10 @@ def main() -> int:
     app = NDNApp()
 
     pb = PubSub(app)
-    read_handle = ReadHandle(app, storage)
-    write_handle = WriteCommandHandle(app, storage, pb, read_handle)
-    delete_handle = DeleteCommandHandle(app, storage, pb, read_handle)
-    tcp_bulk_insert_handle = TcpBulkInsertHandle(storage, read_handle,
-                                                    config['tcp_bulk_insert']['addr'],
-                                                    config['tcp_bulk_insert']['port'])
+    read_handle = ReadHandle(app, storage, config)
+    write_handle = WriteCommandHandle(app, storage, pb, read_handle, config)
+    delete_handle = DeleteCommandHandle(app, storage, pb, read_handle, config)
+    tcp_bulk_insert_handle = TcpBulkInsertHandle(storage, read_handle, config)
 
     repo = Repo(Name.from_str(config['repo_config']['repo_name']),
                 app, storage, read_handle, write_handle, delete_handle, tcp_bulk_insert_handle)

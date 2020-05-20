@@ -13,7 +13,7 @@ class CommandHandle(object):
     """
     Interface for command interest handles
     """
-    def __init__(self, app: NDNApp, storage: Storage, pb: PubSub):
+    def __init__(self, app: NDNApp, storage: Storage, pb: PubSub, config: dict):
         self.app = app
         self.storage = storage
         self.pb = pb
@@ -70,3 +70,49 @@ class CommandHandle(object):
         await asyncio.sleep(60)
         if process_id in self.m_processes:
             del self.m_processes[process_id]
+
+    @staticmethod
+    def add_prefixes_in_storage(storage: Storage, prefix) -> bool:
+        """
+        :param storage: Storage
+        :param prefix: NonStrictName
+        Add a new prefix into database.
+        Return whether the prefix has been registered before.
+        """
+        prefixes_msg = PrefixesInStorage()
+        ret = storage._get(b'prefixes')
+        if ret:
+            prefixes_msg = PrefixesInStorage.parse(ret)
+
+        prefix = Name.normalize(prefix)
+        if prefix in prefixes_msg.prefixes:
+            return True
+        else:
+            prefixes_msg.prefixes.append(prefix)
+            prefixes_msg_bytes = prefixes_msg.encode()
+            storage._put(b'prefixes', bytes(prefixes_msg_bytes))
+            logging.info(f'Added new prefix into the database: {Name.to_str(prefix)}')
+            return False
+    
+    @staticmethod
+    def remove_prefixes_in_storage(storage: Storage, prefix):
+        """
+        :param storage: Storage
+        :param prefix: NonStrictName
+        Remove a new prefix into database.
+        Return whether the prefix is successfully removed.
+        """
+        prefixes_msg = PrefixesInStorage()
+        ret = storage._get(b'prefixes')
+        if ret:
+            prefixes_msg = PrefixesInStorage.parse(ret)
+        
+        prefix = Name.normalize(prefix)
+        if prefix in prefixes_msg.prefixes:
+            prefixes_msg.prefixes.remove(Name.normalize(prefix))
+            prefixes_msg_bytes = prefixes_msg.encode()
+            storage._put(b'prefixes', bytes(prefixes_msg_bytes))
+            logging.info(f'Removed existing prefix from the database: {Name.to_str(prefix)}')
+            return True
+        else:
+            return False

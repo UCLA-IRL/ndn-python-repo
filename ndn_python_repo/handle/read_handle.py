@@ -9,7 +9,7 @@ class ReadHandle(object):
     """
     ReadCommandHandle processes ordinary interests, and return corresponding data if exists.
     """
-    def __init__(self, app: NDNApp, storage: Storage):
+    def __init__(self, app: NDNApp, storage: Storage, config: dict):
         """
         :param app: NDNApp.
         :param storage: Storage.
@@ -17,7 +17,9 @@ class ReadHandle(object):
         """
         self.app = app
         self.storage = storage
-        self.listen(Name.from_str('/'))
+        self.register_root = config['repo_config']['register_root']
+        if self.register_root:
+            self.listen(Name.from_str('/'))
 
     def listen(self, prefix):
         """

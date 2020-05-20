@@ -51,6 +51,7 @@ class DeleteClient(object):
         cmd_param.name = prefix
         cmd_param.start_block_id = start_block_id
         cmd_param.end_block_id = end_block_id
+        cmd_param.register_prefix = prefix
         process_id = gen_nonce()
         cmd_param.process_id = process_id
         cmd_param_bytes = cmd_param.encode()

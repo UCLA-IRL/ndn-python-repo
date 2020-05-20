@@ -125,6 +125,7 @@ class PutfileClient(object):
         cmd_param.name = name_at_repo
         cmd_param.start_block_id = 0
         cmd_param.end_block_id = num_packets - 1
+        cmd_param.register_prefix = name_at_repo 
         process_id = gen_nonce()
         cmd_param.process_id = process_id
         cmd_param_bytes = cmd_param.encode()

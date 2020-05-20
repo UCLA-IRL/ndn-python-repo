@@ -16,7 +16,8 @@ class DeleteCommandHandle(CommandHandle):
     in the database.
     TODO: Add validator
     """
-    def __init__(self, app: NDNApp, storage: Storage, pb: PubSub, read_handle: ReadHandle):
+    def __init__(self, app: NDNApp, storage: Storage, pb: PubSub, read_handle: ReadHandle,
+                 config: dict):
         """
         Read handle need to keep a reference to write handle to register new prefixes.
 
@@ -25,9 +26,10 @@ class DeleteCommandHandle(CommandHandle):
         :param read_handle: ReadHandle. This param is necessary because DeleteCommandHandle need to
             unregister prefixes.
         """
-        super(DeleteCommandHandle, self).__init__(app, storage, pb)
+        super(DeleteCommandHandle, self).__init__(app, storage, pb, config)
         self.m_read_handle = read_handle
         self.prefix = None
+        self.register_root = config['repo_config']['register_root']
 
     async def listen(self, prefix: NonStrictName):
         """
@@ -63,6 +65,7 @@ class DeleteCommandHandle(CommandHandle):
         start_block_id = cmd_param.start_block_id if cmd_param.start_block_id else 0
         end_block_id = cmd_param.end_block_id if cmd_param.end_block_id else sys.maxsize
         process_id = cmd_param.process_id
+        register_prefix = cmd_param.register_prefix
 
         logging.info(f'Delete handle processing delete command: {Name.to_str(name)}, {start_block_id}, {end_block_id}')
 
@@ -71,9 +74,15 @@ class DeleteCommandHandle(CommandHandle):
         self.m_processes[process_id].process_id = process_id
         self.m_processes[process_id].delete_num = 0
 
+        # If repo does not register root prefix, the client tells repo what to unregister
+        if not self.register_root:
+            if CommandHandle.remove_prefixes_in_storage(self.storage, register_prefix):
+                self.m_read_handle.unlisten(register_prefix)
+
         # Perform delete
         self.m_processes[process_id].status_code = 300
         delete_num = await self._perform_storage_delete(name, start_block_id, end_block_id)
+        logging.info('Deletion success, {} items deleted'.format(delete_num))
 
         # Delete complete, update process state
         self.m_processes[process_id].status_code = 200

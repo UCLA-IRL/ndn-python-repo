@@ -16,7 +16,8 @@ class WriteCommandHandle(CommandHandle):
     store them into the database.
     TODO: Add validator
     """
-    def __init__(self, app: NDNApp, storage: Storage, pb: PubSub, read_handle: ReadHandle):
+    def __init__(self, app: NDNApp, storage: Storage, pb: PubSub, read_handle: ReadHandle,
+                 config: dict):
         """
         Write handle need to keep a reference to write handle to register new prefixes.
 
@@ -25,9 +26,10 @@ class WriteCommandHandle(CommandHandle):
         :param read_handle: ReadHandle. This param is necessary, because WriteCommandHandle need to
             call ReadHandle.listen() to register new prefixes.
         """
-        super(WriteCommandHandle, self).__init__(app, storage, pb)
+        super(WriteCommandHandle, self).__init__(app, storage, pb, config)
         self.m_read_handle = read_handle
         self.prefix = None
+        self.register_root = config['repo_config']['register_root']
 
     async def listen(self, prefix: NonStrictName):
         """
@@ -63,6 +65,7 @@ class WriteCommandHandle(CommandHandle):
         start_block_id = cmd_param.start_block_id
         end_block_id = cmd_param.end_block_id
         process_id = cmd_param.process_id
+        register_prefix = cmd_param.register_prefix
 
         logging.info(f'Write handle processing insert command: {Name.to_str(name)}, {start_block_id}, {end_block_id}')
 
@@ -78,6 +81,11 @@ class WriteCommandHandle(CommandHandle):
         self.m_processes[process_id] = RepoCommandResponse()
         self.m_processes[process_id].process_id = process_id
         self.m_processes[process_id].insert_num = 0
+
+        # If repo does not register root prefix, the client tells repo what to register
+        if not self.register_root:
+            if not CommandHandle.add_prefixes_in_storage(self.storage, register_prefix):
+                self.m_read_handle.listen(register_prefix)
 
         # Start data fetching process
         self.m_processes[process_id].status_code = 300

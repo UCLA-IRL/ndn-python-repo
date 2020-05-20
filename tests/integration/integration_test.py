@@ -20,11 +20,13 @@ import uuid
 
 sqlite3_path = os.path.join(tempfile.mkdtemp(), 'sqlite3_test.db')
 repo_name = 'testrepo'
+register_root = False 
 port = 7377
 inline_cfg = f"""
 ---
 repo_config:
   repo_name: '{repo_name}'
+  register_root: '{register_root}'
 db_config:
   db_type: 'sqlite3'
   sqlite3:
