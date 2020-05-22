@@ -72,12 +72,25 @@ To use non-default databases, perform the following steps:
 
 TCP bulk insert
 ---------------
+
 By default, the repo listens on ``0.0.0.0:7376`` for TCP bulk insert.
 You can configure in the config file which address the repo listens on. For example::
 
     tcp_bulk_insert:
       'addr': '127.0.0.1'
       'port': '7377'
+
+
+Logging
+-------
+
+Repo uses the python logging module, and by default logs all messages of and above
+level ``INFO`` to ``stdout``.
+You can override the default options in the config file. For example::
+
+    logging_config:
+      'level': 'WARNING'
+      'file': '/var/log/ndn/ndn-python-repo/repo.log'
 
 
 systemd
