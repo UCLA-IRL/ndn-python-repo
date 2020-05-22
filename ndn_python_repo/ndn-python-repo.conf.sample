@@ -24,3 +24,10 @@ db_config:
 tcp_bulk_insert:
   'addr': '0.0.0.0'
   'port': '7376'
+
+
+logging_config:
+  # one of 'CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG'
+  'level': 'INFO'
+  # absolute path to log file. If not given, logs to stdout
+  # 'file': 'repo.log'

@@ -34,6 +34,8 @@ db_config:
 tcp_bulk_insert:
   'addr': '0.0.0.0'
   'port': '{port}'
+logging_config:
+  'level': 'INFO' 
 """
 
 

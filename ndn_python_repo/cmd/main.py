@@ -46,14 +46,41 @@ def process_config(cmdline_args):
     return config
 
 
-def main() -> int:
-    logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
-                        datefmt='%Y-%m-%d %H:%M:%S',
-                        level=logging.INFO)
+def config_logging(config: dict):
+    log_levels = {
+        'CRITICAL': logging.CRITICAL,
+        'ERROR': logging.ERROR,
+        'WARNING': logging.WARNING,
+        'INFO': logging.INFO,
+        'DEBUG': logging.DEBUG
+    }
 
+    # default level is INFO
+    if config['level'] not in log_levels:
+        log_level = logging.INFO
+    else:
+        log_level = log_levels[config['level']]
+    
+    # default is stdout
+    log_file = config['file'] if 'file' in config else None
+
+    if not log_file:
+        logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
+                            datefmt='%Y-%m-%d %H:%M:%S',
+                            level=log_level)
+    else:
+        logging.basicConfig(filename=log_file,
+                            format='[%(asctime)s]%(levelname)s:%(message)s',
+                            datefmt='%Y-%m-%d %H:%M:%S',
+                            level=log_level)
+
+
+def main() -> int:
     cmdline_args = process_cmd_opts()
     config = process_config(cmdline_args)
-    logging.info(config)
+    print(config)
+
+    config_logging(config['logging_config'])
 
     storage = create_storage(config['db_config'])
 
