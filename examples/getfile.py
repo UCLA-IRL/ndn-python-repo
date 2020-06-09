@@ -49,7 +49,8 @@ async def run_getfile_client(app: NDNApp, **kwargs):
     except InterestTimeout:
         logging.debug("Interest Timeout")
 
-    # for now the implementation just tries the first repo received needs to be changed to try all repos
+    # for now the implementation just tries the first repo received. can be modified based on data fetching policy.
+    repo_name = repo_names[0]
     print("Trying for repo:", repo_name)
     client = GetfileClient(app, repo_name)
     await client.fetch_file(kwargs['name_at_repo'])
