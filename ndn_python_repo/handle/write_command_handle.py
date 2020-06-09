@@ -1,13 +1,16 @@
 import asyncio as aio
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name, NonStrictName, DecodeError
+from ndn.encoding import Name, NonStrictName, DecodeError, FormalName, InterestParam, BinaryStr
 from ndn.types import InterestNack, InterestTimeout
 from . import ReadHandle, CommandHandle
-from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse
+from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse, CatalogCommandParameter,\
+ CatalogResponseParameter, CatalogDataListParameter, CatalogInsertParameter, CatalogDeleteParameter,\
+ CatalogDataFetchParameter
 from ..utils import concurrent_fetcher, PubSub
 from ..storage import Storage
 from typing import Optional
+from ndn.utils import gen_nonce
 
 
 class WriteCommandHandle(CommandHandle):
@@ -30,6 +33,7 @@ class WriteCommandHandle(CommandHandle):
         self.m_read_handle = read_handle
         self.prefix = None
         self.register_root = config['repo_config']['register_root']
+        self.catalog = config['catalog']
 
     async def listen(self, prefix: NonStrictName):
         """
@@ -45,6 +49,8 @@ class WriteCommandHandle(CommandHandle):
 
         # listen on insert check interests
         self.app.route(self.prefix + ['insert check'])(self._on_check_interest)
+
+        aio.ensure_future(self.fetch_listen())
 
     def _on_insert_msg(self, msg):
         try:
@@ -110,6 +116,8 @@ class WriteCommandHandle(CommandHandle):
             logging.info('Insertion failure, {} items inserted'.format(insert_num))
         self.m_processes[process_id].insert_num = insert_num
 
+        await self.check_insert(name)
+
         # Delete process state after some time
         await self.schedule_delete_process(process_id)
 
@@ -159,3 +167,96 @@ class WriteCommandHandle(CommandHandle):
             block_id += 1
         insert_num = block_id - start_block_id
         return insert_num
+
+    async def fetch_listen(self):
+        """
+        Starts listening for /prefix/fetch_map interests and sends insertion data to
+        the catalog when requests is received.
+        """
+        name = self.prefix + ["fetch_map"]
+        logging.debug("Listening: {}".format(Name.to_str(name)))
+        self.app.route(name)(self._on_interest)
+
+    async def check_insert(self, data_name):
+        """
+        Sends an interest to the catalog and waits for acknowledgement which is basically an
+        empty data packet. Once it gets an acknowledgement it knows that the catalog received the
+        request. The module then does nothing and waits for data request from the catalog. Once
+        the request is received the client responds with a list of insertions and deletions.
+        :param catalog_name: the name of the catalog to which to send the insertion request.
+        """
+        method = 'insert'
+        cmd_param = CatalogCommandParameter()
+        cmd_param.name = self.prefix
+        cmd_param.data_name = data_name
+        cmd_param_bytes = cmd_param.encode()
+
+        name = Name.from_str(self.catalog)
+        name += [method]
+        self.nonce = gen_nonce()
+        name += [str(self.nonce)]
+        logging.info("Name: {}".format(Name.to_str(name)))
+        try:
+            aio.ensure_future(self.send_interest(name, cmd_param_bytes))
+        except InterestNack:
+            logging.debug(">>>NACK")
+            return
+        except InterestTimeout:
+            logging.debug(">>>TIMEOUT")
+            return
+
+    async def send_interest(self, name: FormalName, cmd_param_bytes: bytes):
+        """
+        Sends interest to the catalog.
+        :param name: name to send the interest to
+        :param cmd_param_bytes: app parameters containing client prefix.
+        """
+        _, _, data_bytes = await self.app.express_interest(
+            name, app_param=cmd_param_bytes, must_be_fresh=True, can_be_prefix=False)
+        logging.info("> ACK RECVD: {}".format(bytes(data_bytes)))
+
+    def _on_interest(self, int_name: FormalName, int_param: InterestParam, app_param: Optional[BinaryStr]):
+        """
+        Callback for data request from Catalog.
+        :param int_name: the interest name received.
+        :param int_param: the interest params received.
+        :param app_param: the app params received.
+        """
+        logging.info("FETCH REQUEST {}".format(Name.to_str(int_name)))
+        aio.ensure_future(self._process_interest(int_name, int_param, app_param))
+
+    async def _process_interest(self, int_name: FormalName, int_param: InterestParam, app_param: Optional[BinaryStr]):
+        """
+        Makes a new CatalogDataListParameter object containing all the insertion params and deletion params.
+        Every insert parameter contains the data name, the name to map the data to and the expiry time for
+        insertions. Also, checks the status of insertion request.
+        :param int_name: the interest name received.
+        :param int_param: the interest params received.
+        :param app_param: the app params received.
+        """
+        cmd_param = CatalogDataListParameter()
+
+        recvd_param = CatalogDataFetchParameter.parse(app_param)
+        param = CatalogInsertParameter()
+        param.data_name = recvd_param.data_name
+        param.name = self.prefix
+        param.expire_time_ms = 3600
+
+        cmd_param.insert_data_names = [param]
+        cmd_param.delete_data_names = []
+        cmd_param = cmd_param.encode()
+
+        self.app.put_data(int_name, bytes(cmd_param), freshness_period=500)
+
+        # CHECK STATUS
+        # await aio.sleep(5)
+        # logging.info("Status Check Request Sent...")
+        # name = Name.from_str(self.catalog_name)
+        # name += ['check']
+        # name += [str(self.nonce)]
+        # name += [str(gen_nonce())]
+        # _, _, data_bytes = await self.app.express_interest(
+        #     name, must_be_fresh=True, can_be_prefix=False)
+        # response = CatalogResponseParameter.parse(data_bytes)
+        # logging.info("Status Received: {}".format(response.status))
+        # self.app.shutdown()

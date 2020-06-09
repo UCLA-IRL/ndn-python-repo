@@ -26,6 +26,7 @@ def process_cmd_opts():
         parser.add_argument('-r', '--repo_name',
                             help="""repo's routable prefix. If this option is specified, it 
                                     overrides the prefix in the config file""")
+        parser.add_argument('-t', '--catalog', help='catalog prefix')
         args = parser.parse_args()
         return args
 
@@ -43,6 +44,8 @@ def process_config(cmdline_args):
     config = get_yaml(cmdline_args.config)
     if cmdline_args.repo_name != None:
         config['repo_config']['repo_name'] = cmdline_args.repo_name
+    if cmdline_args.catalog != None:
+        config['catalog'] = cmdline_args.catalog
     return config
 
 

@@ -38,7 +38,7 @@ class GetfileClient(object):
         """
         semaphore = aio.Semaphore(10)
         b_array = bytearray()
-        async for (_, _, content, _) in concurrent_fetcher(self.app, name_at_repo, 0, None, semaphore):
+        async for (_, _, content, _) in concurrent_fetcher(self.app, name_at_repo, 0, None, semaphore, repo_name=self.repo_name):
             b_array.extend(content)
 
         if len(b_array) > 0:

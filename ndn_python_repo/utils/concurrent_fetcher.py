@@ -10,8 +10,10 @@ from datetime import datetime
 import logging
 from ndn.app import NDNApp
 from ndn.types import InterestNack, InterestTimeout
-from ndn.encoding import Name, NonStrictName, Component
+from ndn.encoding import Name, NonStrictName, Component, InterestParam
 from typing import Optional
+import sys
+from ndn.utils import gen_nonce
 
 
 async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_block_id: int,
@@ -53,9 +55,14 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_block_id: i
                 return
             try:
                 logging.info('Express Interest: {}'.format(Name.to_str(int_name)))
-                data_name, meta_info, content, data_bytes = await app.express_interest(
-                    int_name, need_raw_packet=True, must_be_fresh=False, can_be_prefix=False, 
-                    lifetime=1000, **kwargs)
+                if "repo_name" in kwargs:
+                    int_param = InterestParam()
+                    int_param.forwarding_hint= [(0x01, kwargs["repo_name"])]
+                    data_name, meta_info, content, data_bytes = await app.express_interest(
+                        int_name, lifetime=1000, interest_param=int_param, need_raw_packet=True, must_be_fresh=False, can_be_prefix=False, **kwargs)
+                else:
+                    data_name, meta_info, content, data_bytes = await app.express_interest(
+                        int_name, lifetime=1000, need_raw_packet=True, must_be_fresh=False, can_be_prefix=False, **kwargs)
 
                 # Save data and update final_id
                 logging.info('Received data: {}'.format(Name.to_str(data_name)))

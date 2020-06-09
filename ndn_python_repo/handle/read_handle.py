@@ -19,7 +19,7 @@ class ReadHandle(object):
         self.storage = storage
         self.register_root = config['repo_config']['register_root']
         if self.register_root:
-            self.listen(Name.from_str('/'))
+            self.listen(Name.from_str(config['repo_config']['repo_name']))
 
     def listen(self, prefix):
         """
