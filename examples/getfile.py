@@ -14,13 +14,7 @@ from ndn.security import KeychainDigest
 from ndn_python_repo.clients import GetfileClient
 from ndn.utils import gen_nonce
 from ndn.types import InterestNack, InterestTimeout
-
-
-class CatalogRequestParameter(TlvModel):
-    """
-    The data mapping fetch request from a client.
-    """
-    data_name = NameField()
+from ndn_python_repo.command.repo_commands import CatalogRequestParameter
 
 
 async def run_getfile_client(app: NDNApp, **kwargs):
