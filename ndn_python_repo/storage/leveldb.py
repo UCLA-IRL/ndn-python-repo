@@ -13,6 +13,7 @@ class LevelDBStorage(Storage):
 
         :param dir: str. The disk location of the database directory.
         """
+        super().__init__()
         db_dir = os.path.expanduser(dir)
         if not os.path.exists(db_dir):
             try:

@@ -14,6 +14,7 @@ class MongoDBStorage(Storage):
         :param db: str. Database name.
         :param collection: str. Collection name.
         """
+        super().__init__()
         self._db = db
         self._collection = collection
         self._uri = 'mongodb://127.0.0.1:27017/'
