@@ -8,6 +8,7 @@ The repo commands and responses contains ``RepoCommandParameter`` and
 
     RepoCommandParameter = DATA-TYPE TLV-LENGTH
         [name]
+        [forwarding_hint]
         [start_block_id]
         [end_block_id]
         [process_id]
@@ -23,6 +24,8 @@ The repo commands and responses contains ``RepoCommandParameter`` and
         [delete_num]
 
     name = Name
+
+    forwarding_hint = Name
 
     start_block_id = START-BLOCK-ID-TYPE TLV-LENGTH NonNegativeInteger
 

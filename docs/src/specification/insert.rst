@@ -12,6 +12,8 @@ message is in format ``RepoCommandParameter``, and the following parameters
 are relevant:
 
 * ``name``: The prefix of the data to insert.
+
+* ``forwarding_hint`` (Optional). The forwarding hint used when repo fetches the data. This is useful in two scenarios: 1) the producer choose not to announce its name prefix, but only allow the repo to reach it via forwarding hint, or 2) the data is already announced by the repo node(s), while the producer in another node wants to insert to the repo.
     
 * ``start_block_id`` (Optional). The start segment number of the data to insert.
 
