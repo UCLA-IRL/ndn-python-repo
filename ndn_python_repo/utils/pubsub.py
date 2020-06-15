@@ -49,7 +49,7 @@ class PubSub(object):
         self.app = app
         self.prefix = prefix
         self.forwarding_hint = forwarding_hint
-        self.nonce_to_msg= dict()
+        self.published_data = NameTrie()    # name -> packet
         self.topic_to_cb = NameTrie()
 
     def set_prefix(self, prefix: NonStrictName):
@@ -100,8 +100,6 @@ class PubSub(object):
         topic = Name.normalize(topic)
         del self.topic_to_cb[topic]
 
-
-
     async def _publish_helper(self, topic: NonStrictName, msg: bytes):
         """
         Async helper for `subscribe()``.
@@ -109,7 +107,9 @@ class PubSub(object):
         logging.info(f'publishing a message to topic: {Name.to_str(topic)}')
         # generate a nonce for each message
         nonce = gen_nonce()
-        self.nonce_to_msg[nonce] = msg
+        # wrap msg in a data packet named /<publisher_prefix>/msg/<topic>/nonce
+        data_name = Name.normalize(self.prefix + ['msg'] + topic + [str(nonce)])
+        self.published_data[data_name] = self.app.prepare_data(data_name, msg)
 
         # prepare notify interest
         int_name = topic + ['notify']
@@ -119,7 +119,7 @@ class PubSub(object):
         if self.forwarding_hint:
             app_param.forwarding_hint = self.forwarding_hint
 
-        aio.ensure_future(self._erase_state_after(nonce, 5))
+        aio.ensure_future(self._erase_state_after(data_name, 5))
 
         # express notify interest
         try:
@@ -135,7 +135,7 @@ class PubSub(object):
 
         # if receiving notify response, the subscriber has finished fetching msg
         logging.debug(f'received notify response: {data_name}')
-        await self._erase_state_after(nonce, 0)
+        await self._erase_state_after(data_name, 0)
 
     async def _subscribe_helper(self, topic: NonStrictName, cb: callable):
         """
@@ -166,7 +166,7 @@ class PubSub(object):
             int_param.forwarding_hint = publisher_fwd_hint
 
         # send msg interest, retransmit 3 times
-        msg_int_name = publisher_prefix + ['msg', str(nonce)]
+        msg_int_name = publisher_prefix + ['msg'] + topic + [str(nonce)]
         n_retries = 3
         while n_retries > 0:
             try:
@@ -196,22 +196,20 @@ class PubSub(object):
     async def _process_msg_interest(self, int_name, int_param, app_param):
         """
         Async helper for ``_on_msg_interest()``.
+        The msg interest has the format of ``/<publisher_prefix>/msg/<topic>/<nonce>``.
         """
         logging.debug(f'received msg interest: {Name.to_str(int_name)}')
-        nonce = int(Component.to_str(int_name[-1]))
-
-        # return data if corresponding nonce still exists
-        if nonce in self.nonce_to_msg:
-            self.app.put_data(int_name, self.nonce_to_msg[nonce])
+        if int_name in self.published_data:
+            self.app.put_raw_packet(self.published_data[int_name])
             logging.debug(f'reply msg with name {Name.to_str(int_name)}')
         else:
-            logging.debug(f'no matching data with nonce {nonce} found')
+            logging.debug(f'no matching msg with name {Name.to_str(int_name)}')
 
-    async def _erase_state_after(self, nonce: int, timeout: int):
+    async def _erase_state_after(self, name: NonStrictName, timeout: int):
         """
-        Erase state assoicated with ``nonce`` after ``timeout``.
+        Erase data with name ``name`` after ``timeout`` from application cache.
         """
         await aio.sleep(timeout)
-        if nonce in self.nonce_to_msg:
-            del self.nonce_to_msg[nonce]
-            logging.debug(f'erased state for nonce {nonce}')
+        if name in self.published_data:
+            del self.published_data[name]
+            logging.debug(f'erased state for data {Name.to_str(name)}')

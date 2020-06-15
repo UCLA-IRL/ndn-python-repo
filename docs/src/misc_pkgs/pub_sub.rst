@@ -31,12 +31,12 @@ Under the hood the ``PubSub`` module transmits a series of Interest and Data pac
     * Nonce: used by the publisher to de-multiplex among different publications
     * Forwarding hint (optional): if publisher prefix is not announced in the routing system, publisher can provide a forwarding hint
 
-    Meanwhile, ``msg`` is wrapped into a Data packet named ``"/<pub_prefix>/msg/<nonce>"``.
+    Meanwhile, ``msg`` is wrapped into a Data packet named ``"/<pub_prefix>/msg/<topic>/<nonce>"``. Here, the data name contains ``topic`` to establish a binding between topic and nonce, to prevent man-in-the-middle attacks that changes the topic.
 
 3. The subscriber receives the notification interest, constructs a new Interest
-``"/<pub_prefix>/msg/<nonce>"`` and send it to the publisher.
+``"/<pub_prefix>/msg/<topic>/<nonce>"`` and send it to the publisher.
 
-4. The publisher receives the interest ``"/<pub_prefix>/msg/<nonce>"``, and returns the
+4. The publisher receives the interest ``"/<pub_prefix>/msg/<topic>/<nonce>"``, and returns the
 corresponding data.
 
 5. The subscriber receives the data, and invokes ``cb(data.content)`` to hand the message to the
