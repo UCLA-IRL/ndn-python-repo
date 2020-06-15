@@ -7,60 +7,56 @@ The repo commands and responses contains ``RepoCommandParameter`` and
 .. code-block::
 
     RepoCommandParameter = DATA-TYPE TLV-LENGTH
-        [name]
-        [forwarding_hint]
-        [start_block_id]
-        [end_block_id]
-        [process_id]
-        [register_prefix]
+        [Name]
+        [ForwardingHint]
+        [StartBlockId]
+        [EndBlockId]
+        [ProcessId]
+        [RegisterPrefix]
 
     RepoCommandResponse = DATA-TYPE TLV-LENGTH
-        [name]
-        [start_block_id]
-        [end_block_id]
-        [process_id]
-        [status_code]
-        [insert_num]
-        [delete_num]
+        [Name]
+        [StartBlockId]
+        [EndBlockId]
+        [ProcessId]
+        [StatusCode]
+        [InsertNum]
+        [DeleteNum]
 
-    name = Name
+    ForwardingHint = FORWARDING-HINT-TYPE TLV-LENGTH Name
 
-    forwarding_hint = FORWARDING-HINT-TYPE TLV-LENGTH Name
+    StartBlockId = START-BLOCK-ID-TYPE TLV-LENGTH NonNegativeInteger
 
-    start_block_id = START-BLOCK-ID-TYPE TLV-LENGTH NonNegativeInteger
+    EndBlockId = END-BLOCK-ID-TYPE TLV-LENGTH NonNegativeInteger
 
-    end_block_id = END-BLOCK-ID-TYPE TLV-LENGTH NonNegativeInteger
+    ProcessId = PROCESS-ID-TYPE TLV-LENGTH NonNegativeInteger
 
-    process_id = PROCESS-ID-TYPE TLV-LENGTH NonNegativeInteger
+    RegisterPrefix = REGISTER-PREFIX-TYPE TLV-LENGTH Name
 
-    register_prefix = REGISTER-PREFIX-TYPE TLV-LENGTH Name
+    StatusCode = STATUS-CODE-TYPE TLV-LENGTH NonNegativeInteger
 
-    status_code = STATUS-CODE-TYPE TLV-LENGTH NonNegativeInteger
+    InsertNum = INSERT-NUM-TYPE TLV-LENGTH NonNegativeInteger
 
-    insert_num = INSERT-NUM-TYPE TLV-LENGTH NonNegativeInteger
-
-    delete_num = DELETE-NUM-TYPE TLV-LENGTH NonNegativeInteger
+    DeleteNum = DELETE-NUM-TYPE TLV-LENGTH NonNegativeInteger
 
 The type number assignments are as follows:
 
     +----------------------+----------------------------+--------------------------------+
     | type                 | Assigned number (decimal)  | Assigned number (hexadecimal)  |
     +======================+============================+================================+
-    | name                 | 7 (same as default)        | 0x07                           |
+    | START-BLOCK-ID-TYPE  | 204                        | 0xCC                           |
     +----------------------+----------------------------+--------------------------------+
-    | start_block_id       | 204                        | 0xCC                           |
+    | END-BLOCK-ID-TYPE    | 205                        | 0xCD                           |
     +----------------------+----------------------------+--------------------------------+
-    | end_block_id         | 205                        | 0xCD                           |
+    | PROCESS-ID-TYPE      | 206                        | 0xCE                           |
     +----------------------+----------------------------+--------------------------------+
-    | process_id           | 206                        | 0xCE                           |
+    | STATUS-CODE-TYPE     | 208                        | 0xD0                           |
     +----------------------+----------------------------+--------------------------------+
-    | status_code          | 208                        | 0xD0                           |
+    | INSERT-NUM-TYPE      | 209                        | 0xD1                           |
     +----------------------+----------------------------+--------------------------------+
-    | insert_num           | 209                        | 0xD1                           |
+    | DELETE-NUM-TYPE      | 210                        | 0xD2                           |
     +----------------------+----------------------------+--------------------------------+
-    | delete_num           | 210                        | 0xD2                           |
+    | FORWARDING-HINT-TYPE | 211                        | 0xD3                           |
     +----------------------+----------------------------+--------------------------------+
-    | forwarding_hint      | 211                        | 0xD3                           |
-    +----------------------+----------------------------+--------------------------------+
-    | register_prefix      | 212                        | 0xD4                           |
+    | REGISTER-PREFIX-TYPE | 212                        | 0xD4                           |
     +----------------------+----------------------------+--------------------------------+
