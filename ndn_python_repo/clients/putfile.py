@@ -12,7 +12,7 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import asyncio as aio
 from .command_checker import CommandChecker
-from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse
+from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse, ForwardingHint, RegisterPrefix
 from ..utils import PubSub
 import logging
 import multiprocessing
@@ -125,10 +125,12 @@ class PutfileClient(object):
         # construct insert cmd msg
         cmd_param = RepoCommandParameter()
         cmd_param.name = name_at_repo
-        cmd_param.forwarding_hint = forwarding_hint
+        cmd_param.forwarding_hint = ForwardingHint()
+        cmd_param.forwarding_hint.name = forwarding_hint
         cmd_param.start_block_id = 0
         cmd_param.end_block_id = num_packets - 1
-        cmd_param.register_prefix = name_at_repo 
+        cmd_param.register_prefix = RegisterPrefix()
+        cmd_param.register_prefix.name = name_at_repo 
         process_id = gen_nonce()
         cmd_param.process_id = process_id
         cmd_param_bytes = cmd_param.encode()

@@ -11,7 +11,7 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import argparse
 import asyncio as aio
-from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse
+from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse, RegisterPrefix
 from .command_checker import CommandChecker
 from ..utils import PubSub
 import logging
@@ -51,7 +51,8 @@ class DeleteClient(object):
         cmd_param.name = prefix
         cmd_param.start_block_id = start_block_id
         cmd_param.end_block_id = end_block_id
-        cmd_param.register_prefix = prefix
+        cmd_param.register_prefix = RegisterPrefix()
+        cmd_param.register_prefix.name = prefix
         process_id = gen_nonce()
         cmd_param.process_id = process_id
         cmd_param_bytes = cmd_param.encode()

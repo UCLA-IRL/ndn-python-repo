@@ -5,7 +5,7 @@
     @Date   2019-11-01
 """
 
-from ndn.encoding import TlvModel, NameField, UintField, RepeatedField
+from ndn.encoding import TlvModel, ModelField, NameField, UintField, RepeatedField
 
 
 class RepoTypeNumber:
@@ -15,16 +15,22 @@ class RepoTypeNumber:
     STATUS_CODE = 208
     INSERT_NUM = 209
     DELETE_NUM = 210
+    FORWARDING_HINT = 211
+    REGISTER_PREFIX = 212
 
+class ForwardingHint(TlvModel):
+    name = NameField()
+
+class RegisterPrefix(TlvModel):
+    name = NameField()
 
 class RepoCommandParameter(TlvModel):
     name = NameField()
-    forwarding_hint = NameField()
+    forwarding_hint = ModelField(RepoTypeNumber.FORWARDING_HINT, ForwardingHint)
     start_block_id = UintField(RepoTypeNumber.START_BLOCK_ID)
     end_block_id = UintField(RepoTypeNumber.END_BLOCK_ID)
     process_id = UintField(RepoTypeNumber.PROCESS_ID)
-    register_prefix = NameField()
-
+    register_prefix = ModelField(RepoTypeNumber.REGISTER_PREFIX, RegisterPrefix)
 
 class RepoCommandResponse(TlvModel):
     name = NameField()

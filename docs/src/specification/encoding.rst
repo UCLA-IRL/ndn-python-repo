@@ -25,7 +25,7 @@ The repo commands and responses contains ``RepoCommandParameter`` and
 
     name = Name
 
-    forwarding_hint = Name
+    forwarding_hint = FORWARDING-HINT-TYPE TLV-LENGTH Name
 
     start_block_id = START-BLOCK-ID-TYPE TLV-LENGTH NonNegativeInteger
 
@@ -33,7 +33,7 @@ The repo commands and responses contains ``RepoCommandParameter`` and
 
     process_id = PROCESS-ID-TYPE TLV-LENGTH NonNegativeInteger
 
-    register_prefix = Name
+    register_prefix = REGISTER-PREFIX-TYPE TLV-LENGTH Name
 
     status_code = STATUS-CODE-TYPE TLV-LENGTH NonNegativeInteger
 
@@ -59,4 +59,8 @@ The type number assignments are as follows:
     | insert_num           | 209                        | 0xD1                           |
     +----------------------+----------------------------+--------------------------------+
     | delete_num           | 210                        | 0xD2                           |
+    +----------------------+----------------------------+--------------------------------+
+    | forwarding_hint      | 211                        | 0xD3                           |
+    +----------------------+----------------------------+--------------------------------+
+    | register_prefix      | 212                        | 0xD4                           |
     +----------------------+----------------------------+--------------------------------+
