@@ -15,7 +15,7 @@
 import asyncio as aio
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import TlvModel, NameField, UintField
+from ndn.encoding import TlvModel, ModelField, NameField, UintField
 from ndn.encoding import Name, NonStrictName, Component, InterestParam
 from ndn.name_tree import NameTrie
 from ndn.types import InterestNack, InterestTimeout
@@ -23,15 +23,6 @@ from ndn.utils import gen_nonce
 
 
 class PubSub(object):
-
-    class NotifyAppParam(TlvModel):
-        """
-        Used to serialize application parameters for PubSub notify interest.
-        """
-        publisher_prefix = NameField()
-        nonce = UintField(128)
-        publisher_fwd_hint = NameField()
-
     def __init__(self, app: NDNApp, prefix: NonStrictName=None, forwarding_hint: NonStrictName=None):
         """
         Initialize a ``PubSub`` instance with identity ``prefix`` and can be reached at \
@@ -113,11 +104,12 @@ class PubSub(object):
 
         # prepare notify interest
         int_name = topic + ['notify']
-        app_param = PubSub.NotifyAppParam()
+        app_param = NotifyAppParam()
         app_param.publisher_prefix = self.prefix
         app_param.nonce = nonce
         if self.forwarding_hint:
-            app_param.forwarding_hint = self.forwarding_hint
+            app_param.publisher_fwd_hint = ForwardingHint()
+            app_param.publisher_fwd_hint.name = self.forwarding_hint
 
         aio.ensure_future(self._erase_state_after(data_name, 5))
 
@@ -157,13 +149,14 @@ class PubSub(object):
         topic = int_name[:-2]   # remove digest and `notify`
 
         # parse notify interest
-        app_param = PubSub.NotifyAppParam.parse(app_param)
+        app_param = NotifyAppParam.parse(app_param)
         publisher_prefix = app_param.publisher_prefix
         nonce = app_param.nonce
         publisher_fwd_hint = app_param.publisher_fwd_hint
         int_param = InterestParam()
         if publisher_fwd_hint:
-            int_param.forwarding_hint = publisher_fwd_hint
+            # support only 1 forwarding hint now
+            int_param.forwarding_hint = [(0x0, publisher_fwd_hint.name)]
 
         # send msg interest, retransmit 3 times
         msg_int_name = publisher_prefix + ['msg'] + topic + [str(nonce)]
@@ -213,3 +206,15 @@ class PubSub(object):
         if name in self.published_data:
             del self.published_data[name]
             logging.debug(f'erased state for data {Name.to_str(name)}')
+
+
+class ForwardingHint(TlvModel):
+    name = NameField()
+
+class NotifyAppParam(TlvModel):
+    """
+    Used to serialize application parameters for PubSub notify interest.
+    """
+    publisher_prefix = NameField()
+    nonce = UintField(128)
+    publisher_fwd_hint = ModelField(211, ForwardingHint)
