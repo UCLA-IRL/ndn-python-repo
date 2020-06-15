@@ -1,7 +1,7 @@
 import asyncio as aio
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name, NonStrictName, DecodeError
+from ndn.encoding import Name, InterestParam, NonStrictName, DecodeError
 from ndn.types import InterestNack, InterestTimeout
 from . import ReadHandle, CommandHandle
 from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse
@@ -66,6 +66,11 @@ class WriteCommandHandle(CommandHandle):
         end_block_id = cmd_param.end_block_id
         process_id = cmd_param.process_id
         register_prefix = cmd_param.register_prefix
+        # support only 1 forwarding hint now
+        if cmd_param.forwarding_hint:
+            forwarding_hint = [(0x0, cmd_param.forwarding_hint)]
+        else:
+            forwarding_hint = None
 
         logging.info(f'Write handle processing insert command: {Name.to_str(name)}, {start_block_id}, {end_block_id}')
 
@@ -93,12 +98,12 @@ class WriteCommandHandle(CommandHandle):
         is_success = False
         if start_block_id != None:
             # Fetch data packets with block ids appended to the end
-            insert_num = await self.fetch_segmented_data(name, start_block_id, end_block_id)
+            insert_num = await self.fetch_segmented_data(name, start_block_id, end_block_id, forwarding_hint)
             if end_block_id is None or start_block_id + insert_num - 1 == end_block_id:
                 is_success = True
         else:
             # Both start_block_id and end_block_id are None, fetch a single data packet
-            insert_num = await self.fetch_single_data(name)
+            insert_num = await self.fetch_single_data(name, forwarding_hint)
             if insert_num == 1:
                 is_success = True
 
@@ -128,7 +133,7 @@ class WriteCommandHandle(CommandHandle):
             if start_block_id > end_block_id:
                 return False
 
-    async def fetch_single_data(self, name):
+    async def fetch_single_data(self, name: NonStrictName, forwarding_hint: Optional[NonStrictName]):
         """
         Fetch one Data packet.
         :param name: NonStrictName.
@@ -136,7 +141,8 @@ class WriteCommandHandle(CommandHandle):
         """
         try:
             data_name, _, _, data_bytes = await self.app.express_interest(
-                name, need_raw_packet=True, must_be_fresh=True, can_be_prefix=False, lifetime=1000)
+                name, need_raw_packet=True, must_be_fresh=True, can_be_prefix=False, lifetime=1000,
+                forwarding_hint=forwarding_hint)
         except InterestNack as e:
             logging.info(f'Nacked with reason={e.reason}')
             return 0
@@ -146,7 +152,8 @@ class WriteCommandHandle(CommandHandle):
         self.storage.put_data_packet(data_name, data_bytes)
         return 1
 
-    async def fetch_segmented_data(self, name, start_block_id: int, end_block_id: Optional[int]):
+    async def fetch_segmented_data(self, name, start_block_id: int, end_block_id: Optional[int],
+                                   forwarding_hint: Optional[NonStrictName]):
         """
         Fetch segmented Data packets.
         :param name: NonStrictName.
@@ -154,7 +161,7 @@ class WriteCommandHandle(CommandHandle):
         """
         semaphore = aio.Semaphore(10)
         block_id = start_block_id
-        async for (data_name, _, _, data_bytes) in concurrent_fetcher(self.app, name, start_block_id, end_block_id, semaphore):
+        async for (data_name, _, _, data_bytes) in concurrent_fetcher(self.app, name, start_block_id, end_block_id, semaphore, forwarding_hint=forwarding_hint):
             self.storage.put_data_packet(data_name, data_bytes)
             block_id += 1
         insert_num = block_id - start_block_id

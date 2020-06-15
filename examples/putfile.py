@@ -13,6 +13,7 @@ from ndn.app import NDNApp
 from ndn.encoding import Name
 from ndn.security import KeychainDigest
 from ndn_python_repo.clients import PutfileClient
+import uuid
 
 
 async def run_putfile_client(app: NDNApp, **kwargs):
@@ -22,7 +23,7 @@ async def run_putfile_client(app: NDNApp, **kwargs):
     """
     client = PutfileClient(app, kwargs['client_prefix'], kwargs['repo_name'])
     await client.insert_file(kwargs['file_path'], kwargs['name_at_repo'], kwargs['segment_size'],
-                           kwargs['freshness_period'], kwargs['cpu_count'])
+                           kwargs['freshness_period'], kwargs['cpu_count'], kwargs['forwarding_hint'])
     app.shutdown()
 
 
@@ -35,7 +36,7 @@ def main():
     parser.add_argument('-n', '--name_at_repo',
                         required=True, help='Prefix used to store file at Repo')
     parser.add_argument('--client_prefix',
-                        required=False, default='/putfile_client',
+                        required=False, default='/putfile_client' + uuid.uuid4().hex.upper()[0:6],
                         help='prefix of this client')
     parser.add_argument('--segment_size', type=int,
                         required=False, default=8000,
@@ -46,6 +47,8 @@ def main():
     parser.add_argument('--cpu_count', type=int,
                         required=False, default=multiprocessing.cpu_count(),
                         help='Number of cores to use')
+    parser.add_argument('--forwarding_hint', default=None,
+                        help='Forwarding hint used by the repo when fetching data')
     args = parser.parse_args()
 
     logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
@@ -62,7 +65,8 @@ def main():
                                            client_prefix=Name.from_str(args.client_prefix),
                                            segment_size=args.segment_size,
                                            freshness_period=args.freshness_period,
-                                           cpu_count=args.cpu_count))
+                                           cpu_count=args.cpu_count,
+                                           forwarding_hint=args.forwarding_hint))
     except FileNotFoundError:
         print('Error: could not connect to NFD.')
 

@@ -23,7 +23,7 @@ from ndn.security import KeychainDigest
 from ndn.utils import gen_nonce
 import os
 import platform
-from typing import List
+from typing import List, Optional
 
 
 if not os.environ.get('READTHEDOCS'):
@@ -101,7 +101,8 @@ class PutfileClient(object):
             logging.info(f'Data does not exist: {Name.to_str(int_name)}')
 
     async def insert_file(self, file_path: str, name_at_repo: NonStrictName, segment_size: int,
-                          freshness_period: int, cpu_count: int) -> int:
+                          freshness_period: int, cpu_count: int,
+                          forwarding_hint: Optional[NonStrictName]=None) -> int:
         """
         Insert a file to remote repo.
 
@@ -110,6 +111,7 @@ class PutfileClient(object):
         :param segment_size: Max size of data packets.
         :param freshness_period: Freshness of data packets.
         :param cpu_count: Cores used for converting file to TLV format.
+        :param forwarding_hint: NonStrictName. The forwarding hint the repo uses when fetching data.
         :return: Number of packets inserted.
         """
         self._prepare_data(file_path, name_at_repo, segment_size, freshness_period, cpu_count)
@@ -123,6 +125,7 @@ class PutfileClient(object):
         # construct insert cmd msg
         cmd_param = RepoCommandParameter()
         cmd_param.name = name_at_repo
+        cmd_param.forwarding_hint = forwarding_hint
         cmd_param.start_block_id = 0
         cmd_param.end_block_id = num_packets - 1
         cmd_param.register_prefix = name_at_repo 

@@ -19,6 +19,7 @@ class RepoTypeNumber:
 
 class RepoCommandParameter(TlvModel):
     name = NameField()
+    forwarding_hint = NameField()
     start_block_id = UintField(RepoTypeNumber.START_BLOCK_ID)
     end_block_id = UintField(RepoTypeNumber.END_BLOCK_ID)
     process_id = UintField(RepoTypeNumber.PROCESS_ID)
