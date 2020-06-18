@@ -65,9 +65,12 @@ class WriteCommandHandle(CommandHandle):
         start_block_id = cmd_param.start_block_id
         end_block_id = cmd_param.end_block_id
         process_id = cmd_param.process_id
-        register_prefix = cmd_param.register_prefix.name
+        if cmd_param.register_prefix:
+            register_prefix = cmd_param.register_prefix.name
+        else:
+            register_prefix = None
         # support only 1 forwarding hint now
-        if cmd_param.forwarding_hint.name:
+        if cmd_param.forwarding_hint and cmd_param.forwarding_hint.name:
             forwarding_hint = [(0x0, cmd_param.forwarding_hint.name)]
         else:
             forwarding_hint = None
