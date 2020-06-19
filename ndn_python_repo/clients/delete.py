@@ -19,6 +19,7 @@ from ndn.app import NDNApp
 from ndn.encoding import Name, Component, DecodeError, NonStrictName
 from ndn.types import InterestNack, InterestTimeout
 from ndn.utils import gen_nonce
+from typing import Optional
 
 
 class DeleteClient(object):
@@ -35,7 +36,8 @@ class DeleteClient(object):
         self.pb = PubSub(self.app, self.prefix)
 
     async def delete_file(self, prefix: NonStrictName, start_block_id: int=None,
-                          end_block_id: int=None) -> int:
+                          end_block_id: int=None,
+                          register_prefix: Optional[NonStrictName]=None) -> int:
         """
         Delete from repo packets between "<name_at_repo>/<start_block_id>" and\
             "<name_at_repo>/<end_block_id>" inclusively.
@@ -44,6 +46,8 @@ class DeleteClient(object):
         :param start_block_id: int. Default value is 0.
         :param end_block_id: int. If not specified, repo will attempt to delete all data packets\
             with segment number starting from `start_block_id` continously.
+        :param register_prefix: If repo is configured with ``register_root=False``, it unregisters\
+            ``register_prefix`` after receiving the deletion command.
         :return: Number of deleted packets.
         """
         # send command interest
@@ -52,7 +56,7 @@ class DeleteClient(object):
         cmd_param.start_block_id = start_block_id
         cmd_param.end_block_id = end_block_id
         cmd_param.register_prefix = RegisterPrefix()
-        cmd_param.register_prefix.name = prefix
+        cmd_param.register_prefix.name = register_prefix
         process_id = gen_nonce()
         cmd_param.process_id = process_id
         cmd_param_bytes = cmd_param.encode()

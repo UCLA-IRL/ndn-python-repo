@@ -113,6 +113,8 @@ class PutfileClient(object):
         :param freshness_period: Freshness of data packets.
         :param cpu_count: Cores used for converting file to TLV format.
         :param forwarding_hint: NonStrictName. The forwarding hint the repo uses when fetching data.
+        :param register_prefix: NonStrictName. If repo is configured with ``register_root=False``,\
+            it registers ``register_prefix`` after receiving the insertion command.
         :return: Number of packets inserted.
         """
         self._prepare_data(file_path, name_at_repo, segment_size, freshness_period, cpu_count)

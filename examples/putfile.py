@@ -67,6 +67,7 @@ def main():
     # ``register_prefix`` is by default identical to ``name_at_repo``
     if args.register_prefix == None:
         args.register_prefix = args.name_at_repo
+    args.register_prefix = Name.from_str(args.register_prefix)
 
     app = NDNApp(face=None, keychain=KeychainDigest())
     try:

@@ -19,10 +19,13 @@ async def run_delete_client(app: NDNApp, **kwargs):
     Async helper function to run the DeleteClient.
     This function is necessary because it's responsible for calling app.shutdown().
     """
-    client = DeleteClient(app, kwargs['client_prefix'], kwargs['repo_name'])
-    await client.delete_file(kwargs['name_at_repo'],
-                             kwargs['start_block_id'],
-                             kwargs['end_block_id'])
+    client = DeleteClient(app=app,
+                          prefix=kwargs['client_prefix'],
+                          repo_name=kwargs['repo_name'])
+    await client.delete_file(prefix=kwargs['name_at_repo'],
+                             start_block_id=kwargs['start_block_id'],
+                             end_block_id=kwargs['end_block_id'],
+                             register_prefix=kwargs['register_prefix'])
     app.shutdown()
 
 
@@ -39,14 +42,20 @@ def main():
     parser.add_argument('--client_prefix',
                         required=False, default='/delfile_client',
                         help='prefix of this client')
+    parser.add_argument('--register_prefix', default=None,
+                        help='The prefix repo should register')
     args = parser.parse_args()
 
     logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
                         level=logging.INFO)
 
+    # process default values
     start_block_id = int(args.start_block_id) if args.start_block_id else None
     end_block_id = int(args.end_block_id) if args.end_block_id else None
+    if args.register_prefix == None:
+        args.register_prefix = args.name_at_repo
+    args.register_prefix = Name.from_str(args.register_prefix)
 
     app = NDNApp()
 
@@ -57,7 +66,8 @@ def main():
                                           name_at_repo=Name.from_str(args.name_at_repo),
                                           start_block_id=start_block_id,
                                           end_block_id=end_block_id,
-                                          client_prefix=Name.from_str(args.client_prefix)))
+                                          client_prefix=Name.from_str(args.client_prefix),
+                                          register_prefix=args.register_prefix))
     except FileNotFoundError:
         print('Error: could not connect to NFD.')
 
