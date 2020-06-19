@@ -21,9 +21,16 @@ async def run_putfile_client(app: NDNApp, **kwargs):
     Async helper function to run the PutfileClient.
     This function is necessary because it's responsible for calling app.shutdown().
     """
-    client = PutfileClient(app, kwargs['client_prefix'], kwargs['repo_name'])
-    await client.insert_file(kwargs['file_path'], kwargs['name_at_repo'], kwargs['segment_size'],
-                           kwargs['freshness_period'], kwargs['cpu_count'], kwargs['forwarding_hint'])
+    client = PutfileClient(app=app,
+                           prefix=kwargs['client_prefix'],
+                           repo_name=kwargs['repo_name'])
+    await client.insert_file(file_path=kwargs['file_path'],
+                             name_at_repo=kwargs['name_at_repo'],
+                             segment_size=kwargs['segment_size'],
+                             freshness_period=kwargs['freshness_period'],
+                             cpu_count=kwargs['cpu_count'],
+                             forwarding_hint=kwargs['forwarding_hint'],
+                             register_prefix=kwargs['register_prefix'])
     app.shutdown()
 
 
@@ -49,11 +56,17 @@ def main():
                         help='Number of cores to use')
     parser.add_argument('--forwarding_hint', default=None,
                         help='Forwarding hint used by the repo when fetching data')
+    parser.add_argument('--register_prefix', default=None,
+                        help='The prefix repo should register')
     args = parser.parse_args()
 
     logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
                         level=logging.INFO)
+
+    # ``register_prefix`` is by default identical to ``name_at_repo``
+    if args.register_prefix == None:
+        args.register_prefix = args.name_at_repo
 
     app = NDNApp(face=None, keychain=KeychainDigest())
     try:
@@ -66,7 +79,8 @@ def main():
                                            segment_size=args.segment_size,
                                            freshness_period=args.freshness_period,
                                            cpu_count=args.cpu_count,
-                                           forwarding_hint=args.forwarding_hint))
+                                           forwarding_hint=args.forwarding_hint,
+                                           register_prefix=args.register_prefix))
     except FileNotFoundError:
         print('Error: could not connect to NFD.')
 

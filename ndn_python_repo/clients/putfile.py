@@ -102,7 +102,8 @@ class PutfileClient(object):
 
     async def insert_file(self, file_path: str, name_at_repo: NonStrictName, segment_size: int,
                           freshness_period: int, cpu_count: int,
-                          forwarding_hint: Optional[NonStrictName]=None) -> int:
+                          forwarding_hint: Optional[NonStrictName]=None,
+                          register_prefix: Optional[NonStrictName]=None) -> int:
         """
         Insert a file to remote repo.
 
@@ -130,7 +131,7 @@ class PutfileClient(object):
         cmd_param.start_block_id = 0
         cmd_param.end_block_id = num_packets - 1
         cmd_param.register_prefix = RegisterPrefix()
-        cmd_param.register_prefix.name = name_at_repo 
+        cmd_param.register_prefix.name = register_prefix
         process_id = gen_nonce()
         cmd_param.process_id = process_id
         cmd_param_bytes = cmd_param.encode()
