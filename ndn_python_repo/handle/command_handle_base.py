@@ -1,10 +1,11 @@
 import asyncio
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name, Component
+from ndn.encoding import Name, Component, NonStrictName, FormalName
 from ndn.encoding.tlv_model import DecodeError
+from typing import List
 
-from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse, PrefixesInStorage
+from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse, RepeatedNames
 from ..storage import Storage
 from ..utils import PubSub
 
@@ -72,47 +73,105 @@ class CommandHandle(object):
             del self.m_processes[process_id]
 
     @staticmethod
-    def add_prefixes_in_storage(storage: Storage, prefix) -> bool:
+    def add_name_to_set_in_storage(set_name: str, storage: Storage, name: NonStrictName) -> bool:
         """
+        Add ``name`` to set ``set_name`` in the storage. This function implements a set of Names\
+            over the key-value storage interface. The set name is stored as the key, and the set\
+            elements are serialized and stored as the value.
+        :param set_name: str
         :param storage: Storage
-        :param prefix: NonStrictName
-        Add a new prefix into database.
-        Return whether the prefix has been registered before.
+        :param name: NonStrictName
+        :return: Returns true if ``name`` is already in set ``set_name``. 
         """
-        prefixes_msg = PrefixesInStorage()
-        ret = storage._get(b'prefixes')
+        names_msg = RepeatedNames()
+        ret = storage._get(set_name.encode('utf-8'))
         if ret:
-            prefixes_msg = PrefixesInStorage.parse(ret)
+            names_msg = RepeatedNames.parse(ret)
 
-        prefix = Name.normalize(prefix)
-        if prefix in prefixes_msg.prefixes:
+        name = Name.normalize(name)
+        if name in names_msg.names:
             return True
         else:
-            prefixes_msg.prefixes.append(prefix)
-            prefixes_msg_bytes = prefixes_msg.encode()
-            storage._put(b'prefixes', bytes(prefixes_msg_bytes))
-            logging.info(f'Added new prefix into the database: {Name.to_str(prefix)}')
+            names_msg.names.append(name)
+            names_msg_bytes = names_msg.encode()
+            storage._put(set_name.encode('utf-8'), bytes(names_msg_bytes))
             return False
     
     @staticmethod
-    def remove_prefixes_in_storage(storage: Storage, prefix):
+    def get_name_from_set_in_storage(set_name: str, storage: Storage) -> List[FormalName]:
         """
+        Get all names from set ``set_name`` in the storage.
+        :param set_name: str
         :param storage: Storage
-        :param prefix: NonStrictName
-        Remove a new prefix into database.
-        Return whether the prefix is successfully removed.
+        :return: A list of ``FormalName``
         """
-        prefixes_msg = PrefixesInStorage()
-        ret = storage._get(b'prefixes')
+        names_msg = RepeatedNames()
+        ret = storage._get(set_name.encode('utf-8'))
         if ret:
-            prefixes_msg = PrefixesInStorage.parse(ret)
+            names_msg = RepeatedNames.parse(ret)
+            # TODO
+            return names_msg.names
+        else:
+            return []
+    
+    @staticmethod
+    def remove_name_from_set_in_storage(set_name: str, storage: Storage, name: NonStrictName) -> bool:
+        """
+        Remove ``name`` from set ``set_name`` in the storage.
+        :param set_name: str
+        :param storage: Storage
+        :param name: NonStrictName
+        :return: Returns true if ``name`` exists in set ``set_name`` and is being successfully\
+            removed.
+        """
+        names_msg = RepeatedNames()
+        ret = storage._get(set_name.encode('utf-8'))
+        if ret:
+            names_msg = RepeatedNames.parse(ret)
         
-        prefix = Name.normalize(prefix)
-        if prefix in prefixes_msg.prefixes:
-            prefixes_msg.prefixes.remove(Name.normalize(prefix))
-            prefixes_msg_bytes = prefixes_msg.encode()
-            storage._put(b'prefixes', bytes(prefixes_msg_bytes))
-            logging.info(f'Removed existing prefix from the database: {Name.to_str(prefix)}')
+        name = Name.normalize(name)
+        if name in names_msg.names:
+            names_msg.names.remove(Name.normalize(name))
+            names_msg_bytes = names_msg.encode()
+            storage._put(set_name.encode('utf-8'), bytes(names_msg_bytes))
             return True
         else:
             return False
+
+    # Wrapper for registered prefixes
+    @staticmethod
+    def add_registered_prefix_in_storage(storage: Storage, prefix):
+        ret = CommandHandle.add_name_to_set_in_storage('prefixes', storage, prefix)
+        if ret:
+            logging.info(f'Added new registered prefix to storage: {Name.to_str(prefix)}')
+        return ret
+
+    @staticmethod
+    def get_registered_prefix_in_storage(storage: Storage):
+        return CommandHandle.get_name_from_set_in_storage('prefixes', storage)
+
+    @staticmethod
+    def remove_registered_prefix_in_storage(storage: Storage, prefix):
+        ret = CommandHandle.remove_name_from_set_in_storage('prefixes', storage, prefix)
+        if ret:
+            logging.info(f'Removed existing registered prefix from storage: {Name.to_str(prefix)}')
+        return ret
+
+    # Wrapper for inserted filenames
+    @staticmethod
+    def add_inserted_filename_in_storage(storage: Storage, name):
+        ret = CommandHandle.add_name_to_set_in_storage('inserted_filenames', storage, name)
+        if ret:
+            logging.info(f'Added new inserted filename to storage: {Name.to_str(name)}')
+        return ret
+
+    @staticmethod
+    def get_inserted_filename_in_storage(storage: Storage):
+        return CommandHandle.get_name_from_set_in_storage('inserted_filenames', storage)
+
+    @staticmethod
+    def remove_inserted_filename_in_storage(storage: Storage, name):
+        ret = CommandHandle.remove_name_from_set_in_storage('inserted_filenames', storage, name)
+        if ret:
+            logging.info(f'Removed existing inserted filename from storage: {Name.to_str(name)}')
+        return ret

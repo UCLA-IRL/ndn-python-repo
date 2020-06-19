@@ -65,7 +65,10 @@ class DeleteCommandHandle(CommandHandle):
         start_block_id = cmd_param.start_block_id if cmd_param.start_block_id else 0
         end_block_id = cmd_param.end_block_id if cmd_param.end_block_id else sys.maxsize
         process_id = cmd_param.process_id
-        register_prefix = cmd_param.register_prefix
+        if cmd_param.register_prefix:
+            register_prefix = cmd_param.register_prefix.name
+        else:
+            register_prefix = None
 
         logging.info(f'Delete handle processing delete command: {Name.to_str(name)}, {start_block_id}, {end_block_id}')
 
@@ -75,9 +78,13 @@ class DeleteCommandHandle(CommandHandle):
         self.m_processes[process_id].delete_num = 0
 
         # If repo does not register root prefix, the client tells repo what to unregister
-        if not self.register_root:
-            if CommandHandle.remove_prefixes_in_storage(self.storage, register_prefix):
+        if self.register_root:
+            is_existing = CommandHandle.remove_registered_prefix_in_storage(self.storage, register_prefix)
+            if not self.register_root and is_existing:
                 self.m_read_handle.unlisten(register_prefix)
+
+        # Remember what files are removed
+        CommandHandle.remove_inserted_filename_in_storage(self.storage, name)
 
         # Perform delete
         self.m_processes[process_id].status_code = 300

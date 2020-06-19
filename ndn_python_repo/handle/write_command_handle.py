@@ -89,11 +89,16 @@ class WriteCommandHandle(CommandHandle):
         self.m_processes[process_id] = RepoCommandResponse()
         self.m_processes[process_id].process_id = process_id
         self.m_processes[process_id].insert_num = 0
-
-        # If repo does not register root prefix, the client tells repo what to register
-        if not self.register_root:
-            if not CommandHandle.add_prefixes_in_storage(self.storage, register_prefix):
+        
+        # Remember the prefixes to register
+        if register_prefix:
+            is_existing = CommandHandle.add_registered_prefix_in_storage(self.storage, register_prefix)
+            # If repo does not register root prefix, the client tells repo what to register
+            if not self.register_root and not is_existing:
                 self.m_read_handle.listen(register_prefix)
+
+        # Remember the files inserted, this is useful for enumerating all inserted files
+        CommandHandle.add_inserted_filename_in_storage(self.storage, name)
 
         # Start data fetching process
         self.m_processes[process_id].status_code = 300

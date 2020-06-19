@@ -41,6 +41,5 @@ class RepoCommandResponse(TlvModel):
     insert_num = UintField(RepoTypeNumber.INSERT_NUM)
     delete_num = UintField(RepoTypeNumber.DELETE_NUM)
 
-
-class PrefixesInStorage(TlvModel):
-    prefixes = RepeatedField(NameField())
+class RepeatedNames(TlvModel):
+    names = RepeatedField(NameField())
