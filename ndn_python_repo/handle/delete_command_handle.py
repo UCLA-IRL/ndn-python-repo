@@ -78,7 +78,7 @@ class DeleteCommandHandle(CommandHandle):
         self.m_processes[process_id].delete_num = 0
 
         # If repo does not register root prefix, the client tells repo what to unregister
-        if self.register_root:
+        if register_prefix:
             is_existing = CommandHandle.remove_registered_prefix_in_storage(self.storage, register_prefix)
             if not self.register_root and is_existing:
                 self.m_read_handle.unlisten(register_prefix)
