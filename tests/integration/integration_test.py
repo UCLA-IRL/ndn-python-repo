@@ -153,11 +153,11 @@ class TestSingleDataInsert(RepoTestSuite):
         pb.publish(Name.from_str(repo_name) + ['insert'], cmd_param_bytes)
 
         # insert_num should be 1
-        checker = CommandChecker(self.app)
+        checker = CommandChecker(self.app, pb)
         n_retries = 3
         while n_retries > 0:
-            response = await checker.check_insert(Name.from_str(repo_name), process_id)
-            if response.status_code == 404:
+            response = checker.check(Name.from_str(repo_name), process_id)
+            if response == None or response.status_code == 404:
                 n_retries -= 1
             elif response.status_code != 300:
                 assert response.status_code == 200

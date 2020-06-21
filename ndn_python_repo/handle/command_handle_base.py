@@ -1,4 +1,4 @@
-import asyncio
+import asyncio as aio
 import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name, Component, NonStrictName, FormalName
@@ -23,34 +23,24 @@ class CommandHandle(object):
     async def listen(self, prefix: Name):
         raise NotImplementedError
 
-    def _on_check_interest(self, int_name, _int_param, _app_param):
-        logging.info('on_check_interest(): {}'.format(Name.to_str(int_name)))
+    async def _schedule_announce_process_status(self, period: int):
+        """
+        Periodically call ``_announce_process_status``.
+        :param period: int. The period between two successive announcements.
+        """
+        await aio.sleep(period)
+        self._announce_process_status()
+        aio.ensure_future(self._schedule_announce_process_status(period))
 
-        response = None
-        process_id = None
-        try:
-            parameter = self.decode_cmd_param_bytes(int_name)
-            process_id = parameter.process_id
-            if process_id == None:
-                raise DecodeError()
-        except (DecodeError, IndexError, RuntimeError) as exc:
-            response = RepoCommandResponse()
-            response.status_code = 403
-            logging.warning('Command blob decoding failed')
-        if response is None and process_id not in self.m_processes:
-            response = RepoCommandResponse()
-            response.status_code = 404
-            logging.warning('Process does not exist')
-
-        if response is None:
-            self.reply_with_response(int_name, self.m_processes[process_id])
-        else:
-            self.reply_with_response(int_name, response)
-
-    def reply_with_response(self, int_name, response: RepoCommandResponse):
-        logging.info('Reply to command: {}'.format(Name.to_str(int_name)))
-        response_bytes = response.encode()
-        self.app.put_data(int_name, response_bytes, freshness_period=1000)
+    def _announce_process_status(self):
+        """
+        Announce the status of all active processes over PubSub. Each process status is published\
+            to topic /<repo_prefix>/status/<process_id>.
+        """
+        for process, status in self.m_processes.items():
+            topic = self.prefix + ['check', str(process)]
+            msg = status.encode()
+            self.pb.publish(topic, msg)
 
     @staticmethod
     def decode_cmd_param_bytes(name) -> RepoCommandParameter:
@@ -60,15 +50,14 @@ class CommandHandle(object):
         /<routable_repo_prefix>/insert/<cmd_param_blob>/<timestamp>/<random-value>/<SignatureInfo>/<SignatureValue>
         Throw RuntimeError on decoding failure.
         """
-        param_bytes = Component.get_value(name[-1])   # TODO: accept command interest instead of regular interests
+        param_bytes = Component.get_value(name[-1])
         return RepoCommandParameter.parse(param_bytes)
 
-    async def schedule_delete_process(self, process_id: int):
+    async def _delete_process_state_after(self, process_id: int, delay: int):
         """
-        Remove process state after some delay
-        TODO: Remove hard-coded duration
+        Remove process state after some delay.
         """
-        await asyncio.sleep(60)
+        await aio.sleep(delay)
         if process_id in self.m_processes:
             del self.m_processes[process_id]
 
@@ -109,7 +98,6 @@ class CommandHandle(object):
         ret = storage._get(set_name.encode('utf-8'))
         if ret:
             names_msg = RepeatedNames.parse(ret)
-            # TODO
             return names_msg.names
         else:
             return []

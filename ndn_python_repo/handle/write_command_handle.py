@@ -43,8 +43,8 @@ class WriteCommandHandle(CommandHandle):
         # subscribe to insert messages
         self.pb.subscribe(self.prefix + ['insert'], self._on_insert_msg)
 
-        # listen on insert check interests
-        self.app.route(self.prefix + ['insert check'])(self._on_check_interest)
+        # start to announce process status
+        await self._schedule_announce_process_status(period=3)
 
     def _on_insert_msg(self, msg):
         try:
@@ -124,7 +124,7 @@ class WriteCommandHandle(CommandHandle):
         self.m_processes[process_id].insert_num = insert_num
 
         # Delete process state after some time
-        await self.schedule_delete_process(process_id)
+        await self._delete_process_state_after(process_id, 60)
 
     def is_valid_param(self, cmd_param):
         """

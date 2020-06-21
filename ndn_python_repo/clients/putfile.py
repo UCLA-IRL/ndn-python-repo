@@ -153,10 +153,10 @@ class PutfileClient(object):
         :param process_id: int. The process id to check.
         :return: number of inserted packets.
         """
-        checker = CommandChecker(self.app)
+        checker = CommandChecker(self.app, self.pb)
         n_retries = 3
         while n_retries > 0:
-            response = await checker.check_insert(self.repo_name, process_id)
+            response = checker.check(self.repo_name, process_id)
             if response is None:
                 logging.info(f'Response code is None')
                 await aio.sleep(1)

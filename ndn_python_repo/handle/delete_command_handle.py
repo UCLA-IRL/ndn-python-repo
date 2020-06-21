@@ -42,9 +42,9 @@ class DeleteCommandHandle(CommandHandle):
 
         # subscribe to delete messages
         self.pb.subscribe(self.prefix + ['delete'], self._on_delete_msg)
-
-        # listen on delete check interests
-        self.app.route(self.prefix + ['delete check'])(self._on_check_interest)
+        
+        # start to announce process status
+        await self._schedule_announce_process_status(period=3)
 
     def _on_delete_msg(self, msg):
         try:
@@ -96,7 +96,7 @@ class DeleteCommandHandle(CommandHandle):
         self.m_processes[process_id].delete_num = delete_num
 
         # Remove process state after some time
-        await self.schedule_delete_process(process_id)
+        await self._delete_process_state_after(process_id, 60)
 
     async def _perform_storage_delete(self, prefix, start_block_id: int, end_block_id: int) -> int:
         """
