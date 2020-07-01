@@ -33,7 +33,7 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_block_id: i
     tasks = []
     recv_window = cur_id - 1
     seq_to_data_packet = dict()           # Buffer for out-of-order delivery
-    received_or_fail = aio.Event()  #
+    received_or_fail = aio.Event()
 
     async def _retry(seq: int):
         """
@@ -92,6 +92,7 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_block_id: i
         # Re-assemble bytes in order
         while recv_window + 1 in seq_to_data_packet:
             yield seq_to_data_packet[recv_window + 1]
+            del seq_to_data_packet[recv_window + 1]
             recv_window += 1
         # Return if all data have been fetched, or the fetching process failed
         if recv_window == final_id:
@@ -102,5 +103,6 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_block_id: i
             # New data may return during gather(), need to check again
             while recv_window + 1 in seq_to_data_packet:
                 yield seq_to_data_packet[recv_window + 1]
+                del seq_to_data_packet[recv_window + 1]
                 recv_window += 1
             return
