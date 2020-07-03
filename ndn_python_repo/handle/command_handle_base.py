@@ -18,7 +18,8 @@ class CommandHandle(object):
         self.app = app
         self.storage = storage
         self.pb = pb
-        self.m_processes = dict()
+        self.m_process_id_to_status = dict()
+        self.m_process_id_to_check_prefix = dict()
 
     async def listen(self, prefix: Name):
         raise NotImplementedError
@@ -35,10 +36,11 @@ class CommandHandle(object):
     def _announce_process_status(self):
         """
         Announce the status of all active processes over PubSub. Each process status is published\
-            to topic /<repo_prefix>/status/<process_id>.
+            to topic /<check_prefix>/check/<process_id>.
         """
-        for process, status in self.m_processes.items():
-            topic = self.prefix + ['check', str(process)]
+        for process_id, status in self.m_process_id_to_status.items():
+            check_prefix = self.m_process_id_to_check_prefix[process_id]
+            topic = check_prefix + ['check', str(process_id)]
             msg = status.encode()
             self.pb.publish(topic, msg)
 
@@ -58,8 +60,10 @@ class CommandHandle(object):
         Remove process state after some delay.
         """
         await aio.sleep(delay)
-        if process_id in self.m_processes:
-            del self.m_processes[process_id]
+        if process_id in self.m_process_id_to_status:
+            del self.m_process_id_to_status[process_id]
+        if process_id in self.m_process_id_to_check_prefix:
+            del self.m_process_id_to_check_prefix[process_id]
 
     @staticmethod
     def add_name_to_set_in_storage(set_name: str, storage: Storage, name: NonStrictName) -> bool:

@@ -33,29 +33,31 @@ class CommandChecker(object):
         self.pb = pb
         self.process_id_to_response = dict()
         self.process_id_to_last_check_tp = dict()
-        
+        self.process_id_to_check_prefix = dict()
+
         aio.ensure_future(self._schedule_unsubscribe())
 
-    def check(self, repo_name: NonStrictName, process_id: int) -> Optional[RepoCommandResponse]:
+    def check(self, check_prefix: NonStrictName, process_id: int) -> Optional[RepoCommandResponse]:
         """
-        Check the status of process ``process_id`` against repo ``repo_name``. This function\
+        Check the status of process ``process_id`` published under ``check_prefix``. This function\
             returns the in-memory process status, therefore it returns immediately.
         :return: Optional[RepoCommandResponse]. The last known status of ``process_id``. Therefore,\
                 the first call to a process, it returns None.
         """
         # If process_id is not seen before, subscribe to its status with PubSub
         if process_id not in self.process_id_to_response:
-            topic = repo_name + ['check', str(process_id)]
+            topic = check_prefix + ['check', str(process_id)]
             cb = self.make_on_msg(process_id)
             self.pb.subscribe(topic, cb)
             self.process_id_to_response[process_id] = None
+            self.process_id_to_check_prefix[process_id] = check_prefix
             logging.info('CommandChecker subscribing to {}'.format(Name.to_str(topic)))
 
         # Remember when this process is last checked
         self.process_id_to_last_check_tp[process_id] = int(time.time())
-       
+
         return self.process_id_to_response[process_id]
-        
+
 
     def make_on_msg(self, process_id: int):
         """
@@ -88,8 +90,9 @@ class CommandChecker(object):
     def _unsubscribe_inactive_processes(self):
         for process_id, last_check_tp in self.process_id_to_last_check_tp.items():
             if last_check_tp > int(time.time()) + 10:
-                del self.process_id_to_response[process_id]
-                del self.process_id_to_last_check_tp[process_id]
-                topic = repo_name + ['check', str(process_id)]
+                topic = process_id_to_check_prefix[process_id] + ['check', str(process_id)]
                 self.pb.unsubscribe(topic)
                 logging.info('CommandChecker unsubscribed from {}'.format(Name.to_str(topic)))
+                del self.process_id_to_response[process_id]
+                del self.process_id_to_last_check_tp[process_id]
+                del self.process_id_to_check_prefix[process_id]

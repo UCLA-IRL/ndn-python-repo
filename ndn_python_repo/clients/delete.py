@@ -11,7 +11,8 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import argparse
 import asyncio as aio
-from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse, RegisterPrefix
+from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse, RegisterPrefix,\
+    CheckPrefix
 from .command_checker import CommandChecker
 from ..utils import PubSub
 import logging
@@ -37,7 +38,8 @@ class DeleteClient(object):
 
     async def delete_file(self, prefix: NonStrictName, start_block_id: int=None,
                           end_block_id: int=None,
-                          register_prefix: Optional[NonStrictName]=None) -> int:
+                          register_prefix: Optional[NonStrictName]=None,
+                          check_prefix: Optional[NonStrictName]=None) -> int:
         """
         Delete from repo packets between "<name_at_repo>/<start_block_id>" and\
             "<name_at_repo>/<end_block_id>" inclusively.
@@ -48,6 +50,11 @@ class DeleteClient(object):
             with segment number starting from `start_block_id` continously.
         :param register_prefix: If repo is configured with ``register_root=False``, it unregisters\
             ``register_prefix`` after receiving the deletion command.
+        :param check_prefix: NonStrictName. The repo will publish process check messages under\
+            ``<check_prefix>/check``. It is necessary to specify this value in the param, instead\
+            of using a predefined prefix, to make sure the subscriber can register this prefix\
+            under the NDN prefix registration security model. If not specified, default value is\
+            the client prefix.
         :return: Number of deleted packets.
         """
         # send command interest
@@ -59,6 +66,10 @@ class DeleteClient(object):
         cmd_param.register_prefix.name = register_prefix
         process_id = gen_nonce()
         cmd_param.process_id = process_id
+        if check_prefix == None:
+            check_prefix = self.prefix
+        cmd_param.check_prefix = CheckPrefix()
+        cmd_param.check_prefix.name = check_prefix
         cmd_param_bytes = cmd_param.encode()
 
         # publish msg to repo's delete topic
@@ -66,19 +77,21 @@ class DeleteClient(object):
         self.pb.publish(self.repo_name + ['delete'], cmd_param_bytes)
 
         # wait until repo delete all data
-        return await self._wait_for_finish(process_id)
+        return await self._wait_for_finish(check_prefix, process_id)
 
-    async def _wait_for_finish(self, process_id: int):
+    async def _wait_for_finish(self, check_prefix: NonStrictName, process_id: int):
         """
         Send delete check interest to wait until delete process completes
 
+        :param check_prefix: NonStrictName. The prefix under which the check message will be\
+            published.
         :param process_id: int. The process id to check for delete process
         :return: Number of deleted packets.
         """
         checker = CommandChecker(self.app, self.pb)
         n_retries = 3
         while n_retries > 0:
-            response = checker.check(self.repo_name, process_id)
+            response = checker.check(check_prefix, process_id)
             if response is None:
                 logging.info(f'Response code is None')
                 await aio.sleep(1)

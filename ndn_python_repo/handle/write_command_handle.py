@@ -74,6 +74,7 @@ class WriteCommandHandle(CommandHandle):
             forwarding_hint = [(0x0, cmd_param.forwarding_hint.name)]
         else:
             forwarding_hint = None
+        check_prefix = cmd_param.check_prefix.name
 
         logging.info(f'Write handle processing insert command: {Name.to_str(name)}, {start_block_id}, {end_block_id}')
 
@@ -86,10 +87,11 @@ class WriteCommandHandle(CommandHandle):
             return
 
         # Reply to client with status code 100
-        self.m_processes[process_id] = RepoCommandResponse()
-        self.m_processes[process_id].process_id = process_id
-        self.m_processes[process_id].insert_num = 0
-        
+        self.m_process_id_to_status[process_id] = RepoCommandResponse()
+        self.m_process_id_to_status[process_id].process_id = process_id
+        self.m_process_id_to_status[process_id].insert_num = 0
+        self.m_process_id_to_check_prefix[process_id] = check_prefix
+
         # Remember the prefixes to register
         if register_prefix:
             is_existing = CommandHandle.add_registered_prefix_in_storage(self.storage, register_prefix)
@@ -101,7 +103,7 @@ class WriteCommandHandle(CommandHandle):
         CommandHandle.add_inserted_filename_in_storage(self.storage, name)
 
         # Start data fetching process
-        self.m_processes[process_id].status_code = 300
+        self.m_process_id_to_status[process_id].status_code = 300
         insert_num = 0
         is_success = False
         if start_block_id != None:
@@ -116,12 +118,12 @@ class WriteCommandHandle(CommandHandle):
                 is_success = True
 
         if is_success:
-            self.m_processes[process_id].status_code = 200
+            self.m_process_id_to_status[process_id].status_code = 200
             logging.info('Insertion success, {} items inserted'.format(insert_num))
         else:
-            self.m_processes[process_id].status_code = 400
+            self.m_process_id_to_status[process_id].status_code = 400
             logging.info('Insertion failure, {} items inserted'.format(insert_num))
-        self.m_processes[process_id].insert_num = insert_num
+        self.m_process_id_to_status[process_id].insert_num = insert_num
 
         # Delete process state after some time
         await self._delete_process_state_after(process_id, 60)

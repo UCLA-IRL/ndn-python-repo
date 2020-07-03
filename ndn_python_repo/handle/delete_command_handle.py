@@ -42,7 +42,7 @@ class DeleteCommandHandle(CommandHandle):
 
         # subscribe to delete messages
         self.pb.subscribe(self.prefix + ['delete'], self._on_delete_msg)
-        
+
         # start to announce process status
         await self._schedule_announce_process_status(period=3)
 
@@ -69,13 +69,15 @@ class DeleteCommandHandle(CommandHandle):
             register_prefix = cmd_param.register_prefix.name
         else:
             register_prefix = None
+        check_prefix = cmd_param.check_prefix.name
 
         logging.info(f'Delete handle processing delete command: {Name.to_str(name)}, {start_block_id}, {end_block_id}')
 
         # Reply to client with status code 100
-        self.m_processes[process_id] = RepoCommandResponse()
-        self.m_processes[process_id].process_id = process_id
-        self.m_processes[process_id].delete_num = 0
+        self.m_process_id_to_status[process_id] = RepoCommandResponse()
+        self.m_process_id_to_status[process_id].process_id = process_id
+        self.m_process_id_to_status[process_id].delete_num = 0
+        self.m_process_id_to_check_prefix[process_id] = check_prefix
 
         # If repo does not register root prefix, the client tells repo what to unregister
         if register_prefix:
@@ -87,13 +89,13 @@ class DeleteCommandHandle(CommandHandle):
         CommandHandle.remove_inserted_filename_in_storage(self.storage, name)
 
         # Perform delete
-        self.m_processes[process_id].status_code = 300
+        self.m_process_id_to_status[process_id].status_code = 300
         delete_num = await self._perform_storage_delete(name, start_block_id, end_block_id)
         logging.info('Deletion success, {} items deleted'.format(delete_num))
 
         # Delete complete, update process state
-        self.m_processes[process_id].status_code = 200
-        self.m_processes[process_id].delete_num = delete_num
+        self.m_process_id_to_status[process_id].status_code = 200
+        self.m_process_id_to_status[process_id].delete_num = delete_num
 
         # Remove process state after some time
         await self._delete_process_state_after(process_id, 60)

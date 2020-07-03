@@ -21,6 +21,8 @@ are relevant:
 
 * ``register_prefix`` (Optional). If repo doesn't register the root prefix, client can tell repo to unregister this prefix.
 
+* ``check_prefix``. Repo will publish status check messages under ``<check_prefix>/<process_id>``.
+
 3. The repo deletes the data with the following behavior:
 
 * If neither ``start_block_id`` nor ``end_block_id`` is given, the repo deletes a single data packet named ``/name``. The process is deemed successful if this data packet is deleted.

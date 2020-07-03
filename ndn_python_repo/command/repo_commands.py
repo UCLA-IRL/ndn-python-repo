@@ -17,11 +17,15 @@ class RepoTypeNumber:
     DELETE_NUM = 210
     FORWARDING_HINT = 211
     REGISTER_PREFIX = 212
+    CHECK_PREFIX = 213
 
 class ForwardingHint(TlvModel):
     name = NameField()
 
 class RegisterPrefix(TlvModel):
+    name = NameField()
+
+class CheckPrefix(TlvModel):
     name = NameField()
 
 class RepoCommandParameter(TlvModel):
@@ -31,6 +35,7 @@ class RepoCommandParameter(TlvModel):
     end_block_id = UintField(RepoTypeNumber.END_BLOCK_ID)
     process_id = UintField(RepoTypeNumber.PROCESS_ID)
     register_prefix = ModelField(RepoTypeNumber.REGISTER_PREFIX, RegisterPrefix)
+    check_prefix = ModelField(RepoTypeNumber.CHECK_PREFIX, CheckPrefix)
 
 class RepoCommandResponse(TlvModel):
     name = NameField()

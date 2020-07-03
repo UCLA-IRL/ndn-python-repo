@@ -23,6 +23,8 @@ are relevant:
 
 * ``register_prefix`` (Optional). If repo doesn't register the root prefix, client can tell repo to register this prefix.
 
+* ``check_prefix``. Repo will publish status check messages under ``<check_prefix>/<process_id>``.
+
 3. The repo fetches the data with the following behavior:
 
 * If neither ``start_block_id`` nor ``end_block_id`` is given, the repo fetches a single data packet named ``/name``. The process is deemed successful if this data packet is received.

@@ -68,6 +68,8 @@ def main():
     if args.register_prefix == None:
         args.register_prefix = args.name_at_repo
     args.register_prefix = Name.from_str(args.register_prefix)
+    if args.forwarding_hint:
+        args.forwarding_hint = Name.from_str(args.forwarding_hint)
 
     app = NDNApp(face=None, keychain=KeychainDigest())
     try:

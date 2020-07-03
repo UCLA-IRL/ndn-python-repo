@@ -12,7 +12,8 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import asyncio as aio
 from .command_checker import CommandChecker
-from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse, ForwardingHint, RegisterPrefix
+from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse, ForwardingHint,\
+    RegisterPrefix, CheckPrefix
 from ..utils import PubSub
 import logging
 import multiprocessing
@@ -103,7 +104,8 @@ class PutfileClient(object):
     async def insert_file(self, file_path: str, name_at_repo: NonStrictName, segment_size: int,
                           freshness_period: int, cpu_count: int,
                           forwarding_hint: Optional[NonStrictName]=None,
-                          register_prefix: Optional[NonStrictName]=None) -> int:
+                          register_prefix: Optional[NonStrictName]=None,
+                          check_prefix: Optional[NonStrictName]=None) -> int:
         """
         Insert a file to remote repo.
 
@@ -115,6 +117,11 @@ class PutfileClient(object):
         :param forwarding_hint: NonStrictName. The forwarding hint the repo uses when fetching data.
         :param register_prefix: NonStrictName. If repo is configured with ``register_root=False``,\
             it registers ``register_prefix`` after receiving the insertion command.
+        :param check_prefix: NonStrictName. The repo will publish process check messages under\
+            ``<check_prefix>/check``. It is necessary to specify this value in the param, instead\
+            of using a predefined prefix, to make sure the subscriber can register this prefix\
+            under the NDN prefix registration security model. If not specified, default value is\
+            the client prefix.
         :return: Number of packets inserted.
         """
         self._prepare_data(file_path, name_at_repo, segment_size, freshness_period, cpu_count)
@@ -132,10 +139,14 @@ class PutfileClient(object):
         cmd_param.forwarding_hint.name = forwarding_hint
         cmd_param.start_block_id = 0
         cmd_param.end_block_id = num_packets - 1
-        cmd_param.register_prefix = RegisterPrefix()
-        cmd_param.register_prefix.name = register_prefix
         process_id = gen_nonce()
         cmd_param.process_id = process_id
+        cmd_param.register_prefix = RegisterPrefix()
+        cmd_param.register_prefix.name = register_prefix
+        if check_prefix == None:
+            check_prefix = self.prefix
+        cmd_param.check_prefix = CheckPrefix()
+        cmd_param.check_prefix.name = check_prefix
         cmd_param_bytes = cmd_param.encode()
 
         # publish msg to repo's insert topic
@@ -144,19 +155,21 @@ class PutfileClient(object):
         logging.info('published an insert msg')
 
         # wait until finish so that repo can finish fetching the data
-        return await self._wait_for_finish(process_id)
+        return await self._wait_for_finish(check_prefix, process_id)
 
-    async def _wait_for_finish(self, process_id: int) -> int:
+    async def _wait_for_finish(self, check_prefix: NonStrictName, process_id: int) -> int:
         """
         Wait until process `process_id` completes by sending check interests.
 
+        :param check_prefix: NonStrictName. The prefix under which the check message will be\
+            published.
         :param process_id: int. The process id to check.
         :return: number of inserted packets.
         """
         checker = CommandChecker(self.app, self.pb)
         n_retries = 3
         while n_retries > 0:
-            response = checker.check(self.repo_name, process_id)
+            response = checker.check(check_prefix, process_id)
             if response is None:
                 logging.info(f'Response code is None')
                 await aio.sleep(1)

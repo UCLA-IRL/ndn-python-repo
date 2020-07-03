@@ -13,6 +13,7 @@ The repo commands and responses contains ``RepoCommandParameter`` and
         [EndBlockId]
         [ProcessId]
         [RegisterPrefix]
+        [CheckPrefix]
 
     RepoCommandResponse = DATA-TYPE TLV-LENGTH
         [Name]
@@ -32,6 +33,8 @@ The repo commands and responses contains ``RepoCommandParameter`` and
     ProcessId = PROCESS-ID-TYPE TLV-LENGTH NonNegativeInteger
 
     RegisterPrefix = REGISTER-PREFIX-TYPE TLV-LENGTH Name
+
+    CheckPrefix = CHECK-PREFIX-TYPE TLV-LENGTH Name
 
     StatusCode = STATUS-CODE-TYPE TLV-LENGTH NonNegativeInteger
 
@@ -59,4 +62,6 @@ The type number assignments are as follows:
     | FORWARDING-HINT-TYPE | 211                        | 0xD3                           |
     +----------------------+----------------------------+--------------------------------+
     | REGISTER-PREFIX-TYPE | 212                        | 0xD4                           |
+    +----------------------+----------------------------+--------------------------------+
+    | CHECK-PREFIX-TYPE    | 213                        | 0xD5                           |
     +----------------------+----------------------------+--------------------------------+
