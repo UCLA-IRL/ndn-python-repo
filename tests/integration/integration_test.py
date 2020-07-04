@@ -100,6 +100,7 @@ class TestBasic(RepoTestSuite):
         # delete
         dc = DeleteClient(self.app, Name.from_str('/delete_client'), Name.from_str(repo_name))
         delete_num = await dc.delete_file(Name.from_str(filepath2))
+        print("Insert: {}, delete: {}".format(insert_num, delete_num))
         assert insert_num == delete_num
         # cleanup
         self.files_to_cleanup.append(filepath1)
@@ -150,7 +151,8 @@ class TestSingleDataInsert(RepoTestSuite):
 
         pb = PubSub(self.app, Name.from_str('/putfile_client'))
         await pb.wait_for_ready()
-        pb.publish(Name.from_str(repo_name) + ['insert'], cmd_param_bytes)
+        is_success = await pb.publish(Name.from_str(repo_name) + ['insert'], cmd_param_bytes)
+        assert is_success
 
         # insert_num should be 1
         checker = CommandChecker(self.app, pb)
@@ -224,7 +226,7 @@ class TestTcpBulkInsert(RepoTestSuite):
 
 if __name__ == '__main__':
     TestBasic().test_main()
-    TestLargeFile().test_main()
-    TestSingleDataInsert().test_main()
-    TestFlags().test_main()
-    TestTcpBulkInsert().test_main()
+    # testLargeFile().test_main()
+    # testSingleDataInsert().test_main()
+    # testFlags().test_main()
+    # testTcpBulkInsert().test_main()

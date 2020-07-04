@@ -42,7 +42,8 @@ class CommandHandle(object):
             check_prefix = self.m_process_id_to_check_prefix[process_id]
             topic = check_prefix + ['check', str(process_id)]
             msg = status.encode()
-            self.pb.publish(topic, msg)
+            # do not care about whether the subscriber acknowledges
+            aio.ensure_future(self.pb.publish(topic, msg))
 
     @staticmethod
     def decode_cmd_param_bytes(name) -> RepoCommandParameter:

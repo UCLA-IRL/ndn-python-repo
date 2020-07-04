@@ -74,10 +74,17 @@ class DeleteClient(object):
 
         # publish msg to repo's delete topic
         await self.pb.wait_for_ready()
-        self.pb.publish(self.repo_name + ['delete'], cmd_param_bytes)
+        is_success = await self.pb.publish(self.repo_name + ['delete'], cmd_param_bytes)
+        if is_success:
+            logging.info('Published an delete msg and was acknowledged by a subscriber')
+        else:
+            logging.info('Published an delete msg but was not acknowledged by a subscriber')
 
         # wait until repo delete all data
-        return await self._wait_for_finish(check_prefix, process_id)
+        delete_num = 0
+        if is_success:
+            delete_num = await self._wait_for_finish(check_prefix, process_id)
+        return delete_num
 
     async def _wait_for_finish(self, check_prefix: NonStrictName, process_id: int):
         """

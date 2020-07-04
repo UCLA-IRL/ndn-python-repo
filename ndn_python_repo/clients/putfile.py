@@ -151,11 +151,17 @@ class PutfileClient(object):
 
         # publish msg to repo's insert topic
         await self.pb.wait_for_ready()
-        self.pb.publish(self.repo_name + ['insert'], cmd_param_bytes)
-        logging.info('published an insert msg')
+        is_success = await self.pb.publish(self.repo_name + ['insert'], cmd_param_bytes)
+        if is_success:
+            logging.info('Published an insert msg and was acknowledged by a subscriber')
+        else:
+            logging.info('Published an insert msg but was not acknowledged by a subscriber')
 
         # wait until finish so that repo can finish fetching the data
-        return await self._wait_for_finish(check_prefix, process_id)
+        insert_num = 0
+        if is_success:
+            insert_num = await self._wait_for_finish(check_prefix, process_id)
+        return insert_num
 
     async def _wait_for_finish(self, check_prefix: NonStrictName, process_id: int) -> int:
         """
@@ -172,6 +178,7 @@ class PutfileClient(object):
             response = checker.check(check_prefix, process_id)
             if response is None:
                 logging.info(f'Response code is None')
+                n_retries -= 1
                 await aio.sleep(1)
             # might receive 404 if repo has not yet processed insert command msg
             elif response.status_code == 404:

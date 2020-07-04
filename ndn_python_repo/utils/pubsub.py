@@ -42,6 +42,7 @@ class PubSub(object):
         self.forwarding_hint = forwarding_hint
         self.published_data = NameTrie()    # name -> packet
         self.topic_to_cb = NameTrie()
+        self.nonce_processed = set()        # used by subscriber to de-duplicate notify interests
 
     def set_prefix(self, prefix: NonStrictName):
         """
@@ -60,16 +61,6 @@ class PubSub(object):
         except ValueError as esc:
             # duplicate registration
             pass
-
-    def publish(self, topic: NonStrictName, msg: bytes):
-        """
-        Publish ``msg`` to ``topic``.
-
-        :param topic: NonStrictName. The topic to publish ``msg`` to.
-        :param msg: bytes. The message to publish. The pub-sub API does not make any assumptions on\
-            the format of this message.
-        """
-        aio.ensure_future(self._publish_helper(topic, msg))
 
     def subscribe(self, topic: NonStrictName, cb: callable):
         """
@@ -91,9 +82,15 @@ class PubSub(object):
         topic = Name.normalize(topic)
         del self.topic_to_cb[topic]
 
-    async def _publish_helper(self, topic: NonStrictName, msg: bytes):
+    async def publish(self, topic: NonStrictName, msg: bytes):
         """
-        Async helper for `subscribe()``.
+        Publish ``msg`` to ``topic``. Make several attempts until the subscriber returns a\
+            response.
+
+        :param topic: NonStrictName. The topic to publish ``msg`` to.
+        :param msg: bytes. The message to publish. The pub-sub API does not make any assumptions on\
+            the format of this message.
+        :return: Return true if received response from a subscriber.
         """
         logging.info(f'publishing a message to topic: {Name.to_str(topic)}')
         # generate a nonce for each message
@@ -111,23 +108,33 @@ class PubSub(object):
             app_param.publisher_fwd_hint = ForwardingHint()
             app_param.publisher_fwd_hint.name = self.forwarding_hint
 
-        aio.ensure_future(self._erase_state_after(data_name, 5))
+        aio.ensure_future(self._erase_publisher_state_after(data_name, 5))
 
         # express notify interest
-        try:
-            logging.debug(f'sending notify interest: {Name.to_str(int_name)}')
-            data_name, meta_info, content = await self.app.express_interest(
-                int_name, app_param.encode(), must_be_fresh=False, can_be_prefix=False)
-        except InterestNack as e:
-            logging.debug(f'Nacked with reason: {e.reason}')
-            return
-        except InterestTimeout:
-            logging.debug(f'Timeout')
-            return
+        n_retries = 3
+        is_success = False
+        while n_retries > 0:
+            try:
+                logging.debug(f'sending notify interest: {Name.to_str(int_name)}')
+                _, _, _ = await self.app.express_interest(
+                    int_name, app_param.encode(), must_be_fresh=False, can_be_prefix=False)
+                is_success = True
+                break
+            except InterestNack as e:
+                logging.debug(f'Nacked with reason: {e.reason}')
+                await aio.sleep(1)
+                n_retries -= 1
+            except InterestTimeout:
+                logging.debug(f'Timeout')
+                n_retries -= 1
 
         # if receiving notify response, the subscriber has finished fetching msg
-        logging.debug(f'received notify response: {data_name}')
-        await self._erase_state_after(data_name, 0)
+        if is_success:
+            logging.debug(f'received notify response for: {data_name}')
+        else:
+            logging.debug(f'did not receive notify response for: {data_name}')
+        await self._erase_publisher_state_after(data_name, 0)
+        return is_success
 
     async def _subscribe_helper(self, topic: NonStrictName, cb: callable):
         """
@@ -161,6 +168,14 @@ class PubSub(object):
         # send msg interest, retransmit 3 times
         msg_int_name = publisher_prefix + ['msg'] + topic + [str(nonce)]
         n_retries = 3
+
+        # de-duplicate notify interests of the same nonce
+        if nonce in self.nonce_processed:
+            logging.info(f'Received duplicate notify interest for nonce {nonce}')
+            return
+        self.nonce_processed.add(nonce)
+        aio.ensure_future(self._erase_subsciber_state_after(nonce, 60))
+
         while n_retries > 0:
             try:
                 logging.debug(f'sending msg interest: {Name.to_str(msg_int_name)}')
@@ -170,8 +185,10 @@ class PubSub(object):
             except InterestNack as e:
                 logging.debug(f'Nacked with reason: {e.reason}')
                 await aio.sleep(1)
+                n_retries -= 1
             except InterestTimeout:
                 logging.debug(f'Timeout')
+                n_retries -= 1
         if msg == None:
             return
 
@@ -198,7 +215,7 @@ class PubSub(object):
         else:
             logging.debug(f'no matching msg with name {Name.to_str(int_name)}')
 
-    async def _erase_state_after(self, name: NonStrictName, timeout: int):
+    async def _erase_publisher_state_after(self, name: NonStrictName, timeout: int):
         """
         Erase data with name ``name`` after ``timeout`` from application cache.
         """
@@ -206,6 +223,14 @@ class PubSub(object):
         if name in self.published_data:
             del self.published_data[name]
             logging.debug(f'erased state for data {Name.to_str(name)}')
+
+    async def _erase_subsciber_state_after(self, nonce: int, timeout: int):
+        """
+        Erase state associated with nonce ``nonce`` after ``timeout``.
+        """
+        await aio.sleep(timeout)
+        if nonce in self.nonce_processed:
+            self.nonce_processed.remove(nonce)
 
 
 class ForwardingHint(TlvModel):
