@@ -151,7 +151,7 @@ class WriteCommandHandle(CommandHandle):
         """
         try:
             data_name, _, _, data_bytes = await self.app.express_interest(
-                name, need_raw_packet=True, must_be_fresh=True, can_be_prefix=False, lifetime=1000,
+                name, need_raw_packet=True, can_be_prefix=False, lifetime=1000,
                 forwarding_hint=forwarding_hint)
         except InterestNack as e:
             logging.info(f'Nacked with reason={e.reason}')
