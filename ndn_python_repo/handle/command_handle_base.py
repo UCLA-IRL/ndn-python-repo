@@ -40,7 +40,7 @@ class CommandHandle(object):
         """
         for process_id, status in self.m_process_id_to_status.items():
             check_prefix = self.m_process_id_to_check_prefix[process_id]
-            topic = check_prefix + ['check', str(process_id)]
+            topic = check_prefix + ['check', Component.from_bytes(process_id)]
             msg = status.encode()
             # do not care about whether the subscriber acknowledges
             aio.ensure_future(self.pb.publish(topic, msg))
@@ -56,7 +56,7 @@ class CommandHandle(object):
         param_bytes = Component.get_value(name[-1])
         return RepoCommandParameter.parse(param_bytes)
 
-    async def _delete_process_state_after(self, process_id: int, delay: int):
+    async def _delete_process_state_after(self, process_id: bytes, delay: int):
         """
         Remove process state after some delay.
         """

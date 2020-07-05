@@ -61,15 +61,18 @@ class DeleteCommandHandle(CommandHandle):
         Process delete command.
         Return to client with status code 100 immediately, and then start data fetching process.
         """
-        name = cmd_param.name
-        start_block_id = cmd_param.start_block_id if cmd_param.start_block_id else 0
-        end_block_id = cmd_param.end_block_id if cmd_param.end_block_id else sys.maxsize
-        process_id = cmd_param.process_id
-        if cmd_param.register_prefix:
-            register_prefix = cmd_param.register_prefix.name
-        else:
-            register_prefix = None
-        check_prefix = cmd_param.check_prefix.name
+        try:
+            name = cmd_param.name
+            start_block_id = cmd_param.start_block_id if cmd_param.start_block_id else 0
+            end_block_id = cmd_param.end_block_id if cmd_param.end_block_id else sys.maxsize
+            process_id = cmd_param.process_id
+            if cmd_param.register_prefix:
+                register_prefix = cmd_param.register_prefix.name
+            else:
+                register_prefix = None
+            check_prefix = cmd_param.check_prefix.name
+        except AttributeError:
+            return
 
         logging.info(f'Delete handle processing delete command: {Name.to_str(name)}, {start_block_id}, {end_block_id}')
 

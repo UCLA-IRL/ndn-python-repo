@@ -8,7 +8,7 @@ from ndn.security import KeychainDigest
 from ndn.types import InterestNack, InterestTimeout
 from ndn.utils import gen_nonce
 from ndn_python_repo.clients import GetfileClient, PutfileClient, DeleteClient, CommandChecker
-from ndn_python_repo.command.repo_commands import RepoCommandParameter, RepoCommandResponse
+from ndn_python_repo.command.repo_commands import RepoCommandParameter, RepoCommandResponse, CheckPrefix
 from ndn_python_repo.utils import PubSub
 import os
 import platform
@@ -145,8 +145,10 @@ class TestSingleDataInsert(RepoTestSuite):
         cmd_param.name = 'test_name'
         cmd_param.start_block_id = None
         cmd_param.end_block_id = None
-        process_id = gen_nonce()
+        process_id = os.urandom(4)
         cmd_param.process_id = process_id
+        cmd_param.check_prefix = CheckPrefix()
+        cmd_param.check_prefix.name = Name.from_str('/putfile_client')
         cmd_param_bytes = cmd_param.encode()
 
         pb = PubSub(self.app, Name.from_str('/putfile_client'))
@@ -226,7 +228,7 @@ class TestTcpBulkInsert(RepoTestSuite):
 
 if __name__ == '__main__':
     TestBasic().test_main()
-    # testLargeFile().test_main()
-    # testSingleDataInsert().test_main()
-    # testFlags().test_main()
-    # testTcpBulkInsert().test_main()
+    TestLargeFile().test_main()
+    TestSingleDataInsert().test_main()
+    TestFlags().test_main()
+    TestTcpBulkInsert().test_main()

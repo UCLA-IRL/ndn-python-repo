@@ -15,11 +15,11 @@
 import asyncio as aio
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import TlvModel, ModelField, NameField, UintField
+from ndn.encoding import TlvModel, ModelField, NameField, BytesField
 from ndn.encoding import Name, NonStrictName, Component, InterestParam
 from ndn.name_tree import NameTrie
 from ndn.types import InterestNack, InterestTimeout
-from ndn.utils import gen_nonce
+import os
 
 
 class PubSub(object):
@@ -93,10 +93,10 @@ class PubSub(object):
         :return: Return true if received response from a subscriber.
         """
         logging.info(f'publishing a message to topic: {Name.to_str(topic)}')
-        # generate a nonce for each message
-        nonce = gen_nonce()
+        # generate a nonce for each message. Nonce is a random sequence of bytes
+        nonce = os.urandom(4)
         # wrap msg in a data packet named /<publisher_prefix>/msg/<topic>/nonce
-        data_name = Name.normalize(self.prefix + ['msg'] + topic + [str(nonce)])
+        data_name = Name.normalize(self.prefix + ['msg'] + topic + [Component.from_bytes(nonce)])
         self.published_data[data_name] = self.app.prepare_data(data_name, msg)
 
         # prepare notify interest
@@ -166,7 +166,7 @@ class PubSub(object):
             int_param.forwarding_hint = [(0x0, publisher_fwd_hint.name)]
 
         # send msg interest, retransmit 3 times
-        msg_int_name = publisher_prefix + ['msg'] + topic + [str(nonce)]
+        msg_int_name = publisher_prefix + ['msg'] + topic + [Component.from_bytes(nonce)]
         n_retries = 3
 
         # de-duplicate notify interests of the same nonce
@@ -224,7 +224,7 @@ class PubSub(object):
             del self.published_data[name]
             logging.debug(f'erased state for data {Name.to_str(name)}')
 
-    async def _erase_subsciber_state_after(self, nonce: int, timeout: int):
+    async def _erase_subsciber_state_after(self, nonce: bytes, timeout: int):
         """
         Erase state associated with nonce ``nonce`` after ``timeout``.
         """
@@ -241,5 +241,5 @@ class NotifyAppParam(TlvModel):
     Used to serialize application parameters for PubSub notify interest.
     """
     publisher_prefix = NameField()
-    nonce = UintField(128)
+    nonce = BytesField(128)
     publisher_fwd_hint = ModelField(211, ForwardingHint)

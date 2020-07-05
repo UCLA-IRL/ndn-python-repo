@@ -37,7 +37,7 @@ class CommandChecker(object):
 
         aio.ensure_future(self._schedule_unsubscribe())
 
-    def check(self, check_prefix: NonStrictName, process_id: int) -> Optional[RepoCommandResponse]:
+    def check(self, check_prefix: NonStrictName, process_id: bytes) -> Optional[RepoCommandResponse]:
         """
         Check the status of process ``process_id`` published under ``check_prefix``. This function\
             returns the in-memory process status, therefore it returns immediately.
@@ -46,7 +46,7 @@ class CommandChecker(object):
         """
         # If process_id is not seen before, subscribe to its status with PubSub
         if process_id not in self.process_id_to_response:
-            topic = check_prefix + ['check', str(process_id)]
+            topic = check_prefix + ['check', Component.from_bytes(process_id)]
             cb = self.make_on_msg(process_id)
             self.pb.subscribe(topic, cb)
             self.process_id_to_response[process_id] = None
@@ -59,10 +59,10 @@ class CommandChecker(object):
         return self.process_id_to_response[process_id]
 
 
-    def make_on_msg(self, process_id: int):
+    def make_on_msg(self, process_id: bytes):
         """
         Create a callback for receiving the status of process ``process_id``.
-        :param process_id: int.
+        :param process_id: bytes.
         """
         def on_msg(msg):
             """
@@ -90,7 +90,7 @@ class CommandChecker(object):
     def _unsubscribe_inactive_processes(self):
         for process_id, last_check_tp in self.process_id_to_last_check_tp.items():
             if last_check_tp > int(time.time()) + 10:
-                topic = process_id_to_check_prefix[process_id] + ['check', str(process_id)]
+                topic = process_id_to_check_prefix[process_id] + ['check', Component.from_bytes(process_id)]
                 self.pb.unsubscribe(topic)
                 logging.info('CommandChecker unsubscribed from {}'.format(Name.to_str(topic)))
                 del self.process_id_to_response[process_id]

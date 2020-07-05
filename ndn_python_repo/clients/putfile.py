@@ -139,7 +139,7 @@ class PutfileClient(object):
         cmd_param.forwarding_hint.name = forwarding_hint
         cmd_param.start_block_id = 0
         cmd_param.end_block_id = num_packets - 1
-        process_id = gen_nonce()
+        process_id = os.urandom(4)
         cmd_param.process_id = process_id
         cmd_param.register_prefix = RegisterPrefix()
         cmd_param.register_prefix.name = register_prefix
