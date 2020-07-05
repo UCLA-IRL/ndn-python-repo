@@ -19,7 +19,7 @@ are relevant:
 
 * ``end_block_id`` (Optional). The end segment number of the data to insert.
 
-* ``process_id``. A random id generated on the client side to identify this insertion process.
+* ``process_id``. A random byte string generated on the client side to identify this insertion process.
 
 * ``register_prefix`` (Optional). If repo doesn't register the root prefix, client can tell repo to register this prefix.
 
