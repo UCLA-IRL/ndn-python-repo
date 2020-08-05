@@ -28,15 +28,15 @@ Under the hood the ``PubSub`` module transmits a series of Interest and Data pac
 ``"/<topic>/notify"``, which will be routed to a subscriber. The interest carries the following fields in its application parameters:
 
     * Publisher prefix: used by the subscriber to reach the publisher in the next step
-    * Nonce: a random bytes string, used by the publisher to de-multiplex among different publications
+    * NotifyNonce: a random bytes string, used by the publisher to de-multiplex among different publications
     * Forwarding hint (optional): if publisher prefix is not announced in the routing system, publisher can provide a forwarding hint
 
-    Meanwhile, ``msg`` is wrapped into a Data packet named ``"/<pub_prefix>/msg/<topic>/<nonce>"``. Here, the data name contains ``topic`` to establish a binding between topic and nonce, to prevent man-in-the-middle attacks that changes the topic.
+    Meanwhile, ``msg`` is wrapped into a Data packet named ``"/<pub_prefix>/msg/<topic>/<notify_nonce>"``. Here, the data name contains ``topic`` to establish a binding between topic and nonce, to prevent man-in-the-middle attacks that changes the topic.
 
 3. The subscriber receives the notification interest, constructs a new Interest
-``"/<pub_prefix>/msg/<topic>/<nonce>"`` and send it to the publisher.
+``"/<pub_prefix>/msg/<topic>/<notify_nonce>"`` and send it to the publisher.
 
-4. The publisher receives the interest ``"/<pub_prefix>/msg/<topic>/<nonce>"``, and returns the
+4. The publisher receives the interest ``"/<pub_prefix>/msg/<topic>/<notify_nonce>"``, and returns the
 corresponding data.
 
 5. The subscriber receives the data, and invokes ``cb(data.content)`` to hand the message to the
@@ -54,12 +54,12 @@ The notify Interest's application parameter is encoded as follows:
 
     NotifyAppParam = DATA-TYPE TLV-LENGTH
         [PublisherPrefix]
-        [Nonce]
+        [NotifyNonce]
         [PublisherFwdHint]
 
     PublisherPrefix = Name
 
-    Nonce = NONCE-TYPE TLV-LENGTH Bytes
+    NotifyNonce = NOTIFY-NONCE-TYPE TLV-LENGTH Bytes
 
     PublisherFwdHint = PUBLISHER-FWD-HINT-TYPE TLV-LENGTH Name
 
@@ -68,7 +68,7 @@ The type number assignments are as follows:
     +---------------------------+----------------------------+--------------------------------+
     | type                      | Assigned number (decimal)  | Assigned number (hexadecimal)  |
     +===========================+============================+================================+
-    | NONCE-TYPE                | 128                        | 0x80                           |
+    | NOTIFY-NONCE-TYPE         | 128                        | 0x80                           |
     +---------------------------+----------------------------+--------------------------------+
     | PUBLISHER-FWD-HINT-TYPE   | 211                        | 0xD3                           |
     +---------------------------+----------------------------+--------------------------------+

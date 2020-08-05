@@ -103,7 +103,7 @@ class PubSub(object):
         int_name = topic + ['notify']
         app_param = NotifyAppParam()
         app_param.publisher_prefix = self.prefix
-        app_param.nonce = nonce
+        app_param.notify_nonce = nonce
         if self.forwarding_hint:
             app_param.publisher_fwd_hint = ForwardingHint()
             app_param.publisher_fwd_hint.name = self.forwarding_hint
@@ -158,7 +158,7 @@ class PubSub(object):
         # parse notify interest
         app_param = NotifyAppParam.parse(app_param)
         publisher_prefix = app_param.publisher_prefix
-        nonce = app_param.nonce
+        notify_nonce = app_param.notify_nonce
         publisher_fwd_hint = app_param.publisher_fwd_hint
         int_param = InterestParam()
         if publisher_fwd_hint:
@@ -166,15 +166,15 @@ class PubSub(object):
             int_param.forwarding_hint = [(0x0, publisher_fwd_hint.name)]
 
         # send msg interest, retransmit 3 times
-        msg_int_name = publisher_prefix + ['msg'] + topic + [Component.from_bytes(nonce)]
+        msg_int_name = publisher_prefix + ['msg'] + topic + [Component.from_bytes(notify_nonce)]
         n_retries = 3
 
         # de-duplicate notify interests of the same nonce
-        if nonce in self.nonce_processed:
-            logging.info(f'Received duplicate notify interest for nonce {nonce}')
+        if notify_nonce in self.nonce_processed:
+            logging.info(f'Received duplicate notify interest for nonce {notify_nonce}')
             return
-        self.nonce_processed.add(nonce)
-        aio.ensure_future(self._erase_subsciber_state_after(nonce, 60))
+        self.nonce_processed.add(notify_nonce)
+        aio.ensure_future(self._erase_subsciber_state_after(notify_nonce, 60))
 
         while n_retries > 0:
             try:
@@ -224,13 +224,13 @@ class PubSub(object):
             del self.published_data[name]
             logging.debug(f'erased state for data {Name.to_str(name)}')
 
-    async def _erase_subsciber_state_after(self, nonce: bytes, timeout: int):
+    async def _erase_subsciber_state_after(self, notify_nonce: bytes, timeout: int):
         """
         Erase state associated with nonce ``nonce`` after ``timeout``.
         """
         await aio.sleep(timeout)
-        if nonce in self.nonce_processed:
-            self.nonce_processed.remove(nonce)
+        if notify_nonce in self.nonce_processed:
+            self.nonce_processed.remove(notify_nonce)
 
 
 class ForwardingHint(TlvModel):
@@ -241,5 +241,5 @@ class NotifyAppParam(TlvModel):
     Used to serialize application parameters for PubSub notify interest.
     """
     publisher_prefix = NameField()
-    nonce = BytesField(128)
+    notify_nonce = BytesField(128)
     publisher_fwd_hint = ModelField(211, ForwardingHint)
