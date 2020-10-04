@@ -3,45 +3,43 @@
 Insert
 ======
 
-The repo insertion process makes use of the ``PubSub`` module:
+Repo insertion process makes use of the :doc:`../misc_pkgs/pub_sub`.
 
-1. Repo subscribe to topic ``/<repo_name>/insert``.
+1. The repo subscribes to the topic ``/<repo_name>/insert``.
 
-2. The client publishes a message to topic to ``/<repo_name>/insert``. This
-message is in format ``RepoCommandParameter``, and the following parameters
-are relevant:
+2. The client publishes a message to the topic ``/<repo_name>/insert``.
+   The message payload is ``RepoCommandParameter`` with the following fields:
 
-* ``name``: The prefix of the data to insert.
+  * ``name``: either a Data packet name, or a name prefix of Data packets.
+  * ``start_block_id`` (Optional): inclusive start segment number.
+  * ``end_block_id`` (Optional): inclusive end segment number.
+  * ``forwarding_hint`` (Optional): forwarding hint for Data fetching.
+    This is useful in two scenarios:
 
-* ``forwarding_hint`` (Optional). The forwarding hint used when repo fetches the data. This is useful in two scenarios: 1) the producer choose not to announce its name prefix, but only allow the repo to reach it via forwarding hint, or 2) the data is already announced by the repo node(s), while the producer in another node wants to insert to the repo.
-    
-* ``start_block_id`` (Optional). The start segment number of the data to insert.
+    * The producer choose not to announce its name prefix, but only allow the repo to reach it via forwarding hint.
+    * The name prefix is already announced by repo node(s), but the producer in another node wants to insert to the repo.
 
-* ``end_block_id`` (Optional). The end segment number of the data to insert.
+  * ``register_prefix`` (Optional): if repo doesn't register the root prefix (:doc:`../configuration` ``register_root`` is disabled), client can tell repo to register this prefix.
+  * ``check_prefix``: a prefix of status check topic name. See :doc:`check`.
+  * ``process_id``: a random byte string to identify this insertion process.
 
-* ``process_id``. A random byte string generated on the client side to identify this insertion process.
+3. The repo fetches and inserts Data packets according to given parameters.
 
-* ``register_prefix`` (Optional). If repo doesn't register the root prefix, client can tell repo to register this prefix.
-
-* ``check_prefix``. Repo will publish status check messages under ``<check_prefix>/<process_id>``.
-
-3. The repo fetches the data with the following behavior:
-
-* If neither ``start_block_id`` nor ``end_block_id`` is given, the repo fetches a single data packet named ``/name``. The process is deemed successful if this data packet is received.
-
-* If ``end_block_id`` is not given, the repo attempts to fetch all segments starting from ``/name/start_block_id``, until an interest receives timeout or nack 3 times. In this scenario, the process is always assumed to be successful.
-
-* Otherwise, the repo fetches all data segments between ``/name/start_block_id`` and ``/name/end_block_id`` inclusive. If ``start_block_id`` is not given, it is set to 0. The process is successful if all packets are received.
+  * If both ``start_block_id`` and ``end_block_id`` are omitted, the repo fetches a single packet identified in ``name`` parameter.
+    The insertion process succeeds when this packet is received.
+  * If ``start_block_id`` is specified but ``end_block_id`` is omitted, the repo starts fetching segments starting from ``/name/start_block_id``, and increments segment number after each packet.
+    When an Interest receives timeout or nack 3 times, the insertion process stops and is considered successful.
+  * Otherwise, the repo fetches all segments between ``/name/start_block_id`` and ``/name/end_block_id``.
+    If ``start_block_id`` is omitted, it defaults to 0.
+    The insertion process succeeds when all packets are received.
+  * Segment numbers are encoded in accordance with `NDN naming conventions rev2 <https://named-data.net/publications/techreports/ndn-tr-22-2-ndn-memo-naming-conventions/>`_.
 
 
 Insert status check
 -------------------
 
-To check the status of a insertion process, the client can check its status 
-using the insertion check protocol.
-The insertion check response is a message in ``RepoCommandResponse`` format,
-where the following parameters are relevant:
+The client can use the :doc:`check` protocol to check the progress of an insertion process.
+The insertion check response message payload is ``RepoCommandResponse`` with the following fields:
 
-* ``status_code``: The status code of the process. For status code definitions, please refer to :ref:`specification-check-label`.
-
-* ``insert_num``: The number of data packets that was received by the repo.
+* ``status_code``: status code, as defined on :doc:`check`.
+* ``insert_num``: number of Data packets received by the repo so far.

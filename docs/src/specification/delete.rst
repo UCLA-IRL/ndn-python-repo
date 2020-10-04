@@ -3,43 +3,37 @@
 Delete
 ======
 
-The repo deletion process makes use of the ``PubSub`` module:
+Repo deletion process makes use of the :doc:`../misc_pkgs/pub_sub`.
 
-1. Repo subscribe to topic ``/<repo_name>/delete``.
+1. The repo subscribes to the topic ``/<repo_name>/delete``.
 
-2. The client publishes a message to topic to ``/<repo_name>/delete``. This
-message is in format ``RepoCommandParameter``, and the following parameters
-are relevant:
+2. The client publishes a message to the topic ``/<repo_name>/delete``.
+   The message payload is ``RepoCommandParameter`` with the following fields:
 
-* ``name``: The prefix of the data to delete.
+  * ``name``: either a Data packet name, or a name prefix of Data packets.
+  * ``start_block_id`` (Optional): inclusive start segment number.
+  * ``end_block_id`` (Optional): inclusive end segment number.
+  * ``register_prefix`` (Optional): if repo doesn't register the root prefix (:doc:`../configuration` ``register_root`` is disabled), client can tell repo to unregister this prefix.
+  * ``check_prefix``: a prefix of status check topic name. See :doc:`check`.
+  * ``process_id``: a random byte string to identify this deletion process.
 
-* ``start_block_id``: The start segment number of the data to delete.
+3. The repo deletes Data packets according to given parameters.
 
-* ``end_block_id``: The end segment number of the data to delete.
-
-* ``process_id``: A random byte string generated on the client side to identify this deletion process.
-
-* ``register_prefix`` (Optional). If repo doesn't register the root prefix, client can tell repo to unregister this prefix.
-
-* ``check_prefix``. Repo will publish status check messages under ``<check_prefix>/<process_id>``.
-
-3. The repo deletes the data with the following behavior:
-
-* If neither ``start_block_id`` nor ``end_block_id`` is given, the repo deletes a single data packet named ``/name``. The process is deemed successful if this data packet is deleted.
-
-* If ``end_block_id`` is not given, the repo attempts to delete all segments starting from ``/name/start_block_id``, until encountering a non-existing segment. In this scenario, the process is always assumed to be successful.
-
-* Otherwise, the repo deletes all data segments between ``/name/start_block_id`` and ``/name/end_block_id`` inclusive. If ``start_block_id`` is not given, it is set to 0. The process is successful if all packets are deleted.
+  * If both ``start_block_id`` and ``end_block_id`` are omitted, the repo deletes a single packet identified in ``name`` parameter.
+    The deletion process succeeds when this packet is deleted.
+  * If ``start_block_id`` is specified but ``end_block_id`` is omitted, the repo starts deleting segments starting from ``/name/start_block_id``, and increments segment number after each packet.
+    When a name query does not find an existing segment, the deletion process stops and is considered successful.
+  * Otherwise, the repo fetches all segments between ``/name/start_block_id`` and ``/name/end_block_id``.
+    If ``start_block_id`` is omitted, it defaults to 0.
+    The deletion process succeeds when all packets are deleted.
+  * Segment numbers are encoded in accordance with `NDN naming conventions rev2 <https://named-data.net/publications/techreports/ndn-tr-22-2-ndn-memo-naming-conventions/>`_.
 
 
 Delete status check
 -------------------
 
-To check the status of a deletion process, the client can check its status 
-using the deletion check protocol.
-The deletion check response is a message in ``RepoCommandResponse`` format,
-where the following parameters are relevant:
+The client can use the :doc:`check` protocol to check the progress of a deletion process.
+The deletion check response message payload is ``RepoCommandResponse`` with the following fields:
 
-* ``status_code``: The status code of the process. For status code definitions, please refer to :ref:`specification-check-label`.
-
-* ``delete_num``: The number of data packets that was deleted by the repo.
+* ``status_code``: status code, as defined on :doc:`check`.
+* ``delete_num``: number of Data packets deleted by the repo so far.
