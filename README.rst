@@ -10,7 +10,7 @@ A Named Data Networking (NDN) Repo implementation using python-ndn_.
 Please see our documentation_ if you have any issues.
 
 .. |Test Badge| image:: https://travis-ci.org/JonnyKong/ndn-python-repo.svg?branch=master
-    :target: https://github.com/JonnyKong/ndn-python-repo
+    :target: https://travis-ci.org/github/JonnyKong/ndn-python-repo
     :alt: Test Status
 
 .. |Release Badge| image:: https://badge.fury.io/py/ndn-python-repo.svg
@@ -21,6 +21,6 @@ Please see our documentation_ if you have any issues.
     :target: https://ndn-python-repo.readthedocs.io/en/latest/
     :alt: Docs Status
 
-.. _python-ndn: https://github.com/zjkmxy/python-ndn
+.. _python-ndn: https://github.com/named-data/python-ndn
 
 .. _documentation: https://ndn-python-repo.readthedocs.io/en/latest
