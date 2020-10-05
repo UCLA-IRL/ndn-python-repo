@@ -1,12 +1,13 @@
 Encoding
 ========
 
-The repo commands and responses contains ``RepoCommandParameter`` and
-``RepoCommandResponse``, which are custom TLV formats, specifically:
+Most repo commands and status reports are Data packets whose Content contains
+``RepoCommandParameter`` or ``RepoCommandResponse`` structure.
+These structures are defined as follows:
 
-.. code-block::
+.. code-block:: abnf
 
-    RepoCommandParameter = DATA-TYPE TLV-LENGTH
+    RepoCommandParameter =
         [Name]
         [ForwardingHint]
         [StartBlockId]
@@ -15,7 +16,7 @@ The repo commands and responses contains ``RepoCommandParameter`` and
         [RegisterPrefix]
         [CheckPrefix]
 
-    RepoCommandResponse = DATA-TYPE TLV-LENGTH
+    RepoCommandResponse =
         [Name]
         [StartBlockId]
         [EndBlockId]

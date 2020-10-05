@@ -1,14 +1,13 @@
-.. _specification-check-label:
-
 Check
 =====
 
-The check protocols is used by the clients to check the status of a 
-insertion or deletion process.
+The check protocol is used by clients to check the progress of a insertion or deletion process.
 
-1. After the repo receives the insert/delete command, it periodically publishes the status of the corresponding process to topic ``/<check_prefix>/check/<process_id>``. The published message is a ``RepoCommandResponse`` encoded in TLV format. Here, ``check_prefix`` and ``process_id`` are obtained from the insert/delete command.
-
-2. The application can subscribe to the corresponding topic, to get the process's status.
+1. Each insert/delete command has ``check_prefix`` and ``process_id`` parameters.
+   Status check messages are published to the topic ``/<check_prefix>/check/<process_id>``, derived from these parameters.
+2. After receiving an insert/delete command, the repo periodically publishes the status of the insertion/deletion process to the topic.
+   The message payload is ``RepoCommandResponse``.
+3. The client can subscribe to the topic to receive status updates.
 
 Status Code Definition
 ----------------------
