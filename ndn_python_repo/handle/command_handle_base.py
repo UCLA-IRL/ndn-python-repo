@@ -135,7 +135,7 @@ class CommandHandle(object):
     @staticmethod
     def add_registered_prefix_in_storage(storage: Storage, prefix):
         ret = CommandHandle.add_name_to_set_in_storage('prefixes', storage, prefix)
-        if ret:
+        if not ret:
             logging.info(f'Added new registered prefix to storage: {Name.to_str(prefix)}')
         return ret
 

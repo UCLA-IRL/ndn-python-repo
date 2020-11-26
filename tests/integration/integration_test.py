@@ -32,10 +32,11 @@ db_config:
   sqlite3:
     'path': '{sqlite3_path}'
 tcp_bulk_insert:
-  'addr': '0.0.0.0'
-  'port': '{port}'
+  addr: '0.0.0.0'
+  port: '{port}'
+  register_prefix: False
 logging_config:
-  'level': 'INFO' 
+  level: 'INFO' 
 """
 
 

@@ -22,12 +22,14 @@ db_config:
 
 
 tcp_bulk_insert:
-  'addr': '0.0.0.0'
-  'port': '7376'
+  addr: '0.0.0.0'
+  port: '7376'
+  # when register_root is False, whether packets inserted via TCP triggers prefix registration
+  register_prefix: True 
 
 
 logging_config:
   # one of 'CRITICAL', 'ERROR', 'WARNING', 'INFO', 'DEBUG'
-  'level': 'INFO'
+  level: 'INFO'
   # absolute path to log file. If not given, logs to stdout
-  # 'file': 'repo.log'
+  # file: 'repo.log'

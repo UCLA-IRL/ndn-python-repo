@@ -15,7 +15,7 @@ class TcpBulkInsertHandle(object):
         """
         An instance of this nested class will be created for every new connection.
         """
-        def __init__(self, reader, writer, storage: Storage, read_handle: ReadHandle):
+        def __init__(self, reader, writer, storage: Storage, read_handle: ReadHandle, config: dict):
             """
             TCP Bulk insertion client need to keep a reference to ReadHandle to register new prefixes.
             """
@@ -23,6 +23,7 @@ class TcpBulkInsertHandle(object):
             self.writer = writer
             self.storage = storage
             self.read_handle = read_handle
+            self.config = config
             self.m_inputBufferSize = 0
             logging.info("New connection")
 
@@ -54,6 +55,13 @@ class TcpBulkInsertHandle(object):
                 data_name, _, _, _ = parse_data(data_bytes, with_tl=True)
                 self.storage.put_data_packet(data_name, data_bytes)
                 logging.info(f'Inserted data: {Name.to_str(data_name)}')
+
+                # Register prefix
+                if not self.config['repo_config']['register_root'] and self.config['tcp_bulk_insert']['register_prefix']:
+                    is_existing = CommandHandle.add_registered_prefix_in_storage(self.storage, data_name)
+                    if not is_existing:
+                        self.read_handle.listen(data_name)
+
                 await aio.sleep(0)
 
     def __init__(self, storage: Storage, read_handle: ReadHandle, config: dict):
@@ -69,10 +77,12 @@ class TcpBulkInsertHandle(object):
 
         self.storage = storage
         self.read_handle = read_handle
-        server_addr = config['tcp_bulk_insert']['addr']
-        server_port = config['tcp_bulk_insert']['port']
+        self.config = config
+
+        server_addr = self.config['tcp_bulk_insert']['addr']
+        server_port = self.config['tcp_bulk_insert']['port']
         event_loop = aio.get_event_loop()
-        
+
         if sys.version_info.minor >= 7:
             # python 3.7+
             event_loop.create_task(run())
@@ -86,7 +96,7 @@ class TcpBulkInsertHandle(object):
         Create a new client for every new connection.
         """
         logging.info("Accepted new TCP connection")
-        client = TcpBulkInsertHandle.TcpBulkInsertClient(reader, writer, self.storage, self.read_handle)
+        client = TcpBulkInsertHandle.TcpBulkInsertClient(reader, writer, self.storage, self.read_handle, self.config)
         event_loop = aio.get_event_loop()
         event_loop.create_task(client.handleReceive())
 
