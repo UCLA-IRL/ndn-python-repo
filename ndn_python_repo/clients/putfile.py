@@ -173,7 +173,7 @@ class PutfileClient(object):
         :return: number of inserted packets.
         """
         checker = CommandChecker(self.app, self.pb)
-        n_retries = 3
+        n_retries = 5
         while n_retries > 0:
             response = checker.check(check_prefix, process_id)
             if response is None:

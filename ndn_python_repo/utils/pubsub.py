@@ -56,8 +56,11 @@ class PubSub(object):
         """
         Need to be called to wait for pub-sub to be ready.
         """
+        # Wait until app connected, otherwise app.register() throws an NetworkError
+        while not self.app.face.running:
+            await aio.sleep(0.1)
         try:
-            self.app.route(self.prefix + ['msg'])(self._on_msg_interest)
+            await self.app.register(self.prefix + ['msg'], self._on_msg_interest)
         except ValueError as esc:
             # duplicate registration
             pass
@@ -176,6 +179,7 @@ class PubSub(object):
         self.nonce_processed.add(notify_nonce)
         aio.ensure_future(self._erase_subsciber_state_after(notify_nonce, 60))
 
+        msg = None
         while n_retries > 0:
             try:
                 logging.debug(f'sending msg interest: {Name.to_str(msg_int_name)}')
