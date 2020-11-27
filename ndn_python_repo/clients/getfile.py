@@ -30,11 +30,13 @@ class GetfileClient(object):
         self.app = app
         self.repo_name = repo_name
 
-    async def fetch_file(self, name_at_repo: NonStrictName):
+    async def fetch_file(self, name_at_repo: NonStrictName, local_filename: str = None, overwrite=False):
         """
         Fetch a file from remote repo, and write to the current working directory.
 
         :param name_at_repo: NonStrictName. The name with which this file is stored in the repo.
+        :param local_filename: str. The filename of the retrieved file on the local file system.
+        :param overwrite: If true, existing files are replaced.
         """
         semaphore = aio.Semaphore(10)
         b_array = bytearray()
@@ -42,8 +44,24 @@ class GetfileClient(object):
             b_array.extend(content)
 
         if len(b_array) > 0:
-            filename = Name.to_str(name_at_repo)
-            filename = filename.strip().split('/')[-1]
-            logging.info(f'Fetching completed, writing to file {filename}')
-            with open(filename, 'wb') as f:
+            # If no local filename is provided, store file with last name prefix
+            # of repo filename
+            if local_filename is None:
+                local_filename = Name.to_str(name_at_repo)
+                local_filename = local_filename.strip().split("/")[-1]
+
+
+            logging.info(f'Fetching completed, writing to file {local_filename}')
+
+            # Create folder hierarchy
+            local_folder = "/".join(local_filename.split("/")[:-1])
+            if len(local_folder.split("/")) > 1:
+                os.makedirs(local_folder, exist_ok=True)
+
+            # Write retrieved data to file
+            if os.path.isfile(local_filename) and overwrite:
+                os.remove(local_filename)
+            elif os.path.isfile(local_filename):
+                raise FileExistsError("{} already exists".format(local_filename))
+            with open(local_filename, 'wb') as f:
                 f.write(b_array)
