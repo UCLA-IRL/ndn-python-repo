@@ -62,7 +62,7 @@ class GetfileClient(object):
 
             # Create folder hierarchy
             local_folder = os.path.dirname(local_filename)
-            if len(local_folder.split("/")) > 1:
+            if local_folder:
                 os.makedirs(local_folder, exist_ok=True)
 
             # Write retrieved data to file
