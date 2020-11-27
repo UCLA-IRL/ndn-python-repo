@@ -38,30 +38,35 @@ class GetfileClient(object):
         :param local_filename: str. The filename of the retrieved file on the local file system.
         :param overwrite: If true, existing files are replaced.
         """
+
+        # If no local filename is provided, store file with last name component
+        # of repo filename
+        if local_filename is None:
+            local_filename = Name.to_str(name_at_repo)
+            local_filename = local_filename.strip().split("/")[-1]
+
+        # If the file already exists locally and overwrite=False, retrieving the file makes no
+        # sense.
+        if os.path.isfile(local_filename) and not overwrite:
+            raise FileExistsError("{} already exists".format(local_filename))
+
+
         semaphore = aio.Semaphore(10)
         b_array = bytearray()
         async for (_, _, content, _) in concurrent_fetcher(self.app, name_at_repo, 0, None, semaphore):
             b_array.extend(content)
 
         if len(b_array) > 0:
-            # If no local filename is provided, store file with last name prefix
-            # of repo filename
-            if local_filename is None:
-                local_filename = Name.to_str(name_at_repo)
-                local_filename = local_filename.strip().split("/")[-1]
-
 
             logging.info(f'Fetching completed, writing to file {local_filename}')
 
             # Create folder hierarchy
-            local_folder = "/".join(local_filename.split("/")[:-1])
+            local_folder = os.path.dirname(local_filename)
             if len(local_folder.split("/")) > 1:
                 os.makedirs(local_folder, exist_ok=True)
 
             # Write retrieved data to file
             if os.path.isfile(local_filename) and overwrite:
                 os.remove(local_filename)
-            elif os.path.isfile(local_filename):
-                raise FileExistsError("{} already exists".format(local_filename))
             with open(local_filename, 'wb') as f:
                 f.write(b_array)
