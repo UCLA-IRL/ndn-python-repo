@@ -43,7 +43,7 @@ class GetfileClient(object):
         # of repo filename
         if local_filename is None:
             local_filename = Name.to_str(name_at_repo)
-            local_filename = local_filename.strip().split("/")[-1]
+            local_filename = os.path.basename(local_filename)
 
         # If the file already exists locally and overwrite=False, retrieving the file makes no
         # sense.
