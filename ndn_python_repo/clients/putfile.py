@@ -54,7 +54,7 @@ class PutfileClient(object):
         self.app = app
         self.prefix = prefix
         self.repo_name = repo_name
-        self.encoded_packets = []
+        self.encoded_packets = {}
         self.pb = PubSub(self.app, self.prefix)
 
         # https://bugs.python.org/issue35219
@@ -88,15 +88,20 @@ class PutfileClient(object):
             final_block_id,
         ] for seq in range(seg_cnt)]
 
+        self.encoded_packets[Name.to_str(name_at_repo)] = []
+
         with multiprocessing.Pool(processes=cpu_count) as p:
-            self.encoded_packets = p.starmap(_create_packets, packet_params)
+            self.encoded_packets[Name.to_str(name_at_repo)] = p.starmap(_create_packets, packet_params)
+        logging.info("Prepared {} data for {}".format(seg_cnt, Name.to_str(name_at_repo)))
 
     def _on_interest(self, int_name, _int_param, _app_param):
         # use segment number to index into the encoded packets array
         logging.info(f'On interest: {Name.to_str(int_name)}')
         seq = Component.to_number(int_name[-1])
-        if seq >= 0 and seq < len(self.encoded_packets):
-            self.app.put_raw_packet(self.encoded_packets[seq])
+        name_wo_seq = Name.to_str(int_name[:-1])
+        if name_wo_seq in self.encoded_packets and seq >= 0 and seq < len(self.encoded_packets[name_wo_seq]):
+            encoded_packets = self.encoded_packets[name_wo_seq]
+            self.app.put_raw_packet(encoded_packets[seq])
             logging.info(f'Serve data: {Name.to_str(int_name)}')
         else:
             logging.info(f'Data does not exist: {Name.to_str(int_name)}')
@@ -125,7 +130,7 @@ class PutfileClient(object):
         :return: Number of packets inserted.
         """
         self._prepare_data(file_path, name_at_repo, segment_size, freshness_period, cpu_count)
-        num_packets = len(self.encoded_packets)
+        num_packets = len(self.encoded_packets[Name.to_str(name_at_repo)])
         if num_packets == 0:
             return
 
