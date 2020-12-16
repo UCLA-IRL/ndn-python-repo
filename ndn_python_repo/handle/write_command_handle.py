@@ -79,7 +79,7 @@ class WriteCommandHandle(CommandHandle):
         except AttributeError:
             return
 
-        logging.info(f'Write handle processing insert command: {Name.to_str(name)}, {start_block_id}, {end_block_id}')
+        logging.info(f'Write handle processing insert command: {Name.to_str(name)}, first block: {start_block_id}, last block: {end_block_id}')
 
         # rejects any data that overlaps with repo's own namespace
         if Name.is_prefix(self.prefix, name) or Name.is_prefix(name, self.prefix):
