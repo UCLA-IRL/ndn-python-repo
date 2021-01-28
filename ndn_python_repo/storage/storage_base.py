@@ -86,7 +86,7 @@ class Storage:
         Get a data packet named ``name``.
 
         :param name: NonStrictName. The name of the data packet. 
-        :param can_be_perfix: bool. If true, use prefix match instead of exact match.
+        :param can_be_prefix: bool. If true, use prefix match instead of exact match.
         :param must_be_fresh: bool. If true, ignore expired data.
         :return: The value of the data packet.
         """

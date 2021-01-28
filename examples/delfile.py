@@ -22,10 +22,18 @@ async def run_delete_client(app: NDNApp, **kwargs):
     client = DeleteClient(app=app,
                           prefix=kwargs['client_prefix'],
                           repo_name=kwargs['repo_name'])
+    
+    # Set pubsub to register ``check_prefix`` directly, so all prefixes under ``check_prefix`` will
+    # be handled with interest filters. This reduces the number of registered prefixes at NFD, when
+    # inserting multiple files with one client
+    check_prefix = kwargs['client_prefix']
+    client.pb.set_base_prefix(check_prefix)
+
     await client.delete_file(prefix=kwargs['name_at_repo'],
                              start_block_id=kwargs['start_block_id'],
                              end_block_id=kwargs['end_block_id'],
-                             register_prefix=kwargs['register_prefix'])
+                             register_prefix=kwargs['register_prefix'],
+                             check_prefix=check_prefix)
     app.shutdown()
 
 

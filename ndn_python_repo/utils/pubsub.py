@@ -30,27 +30,40 @@ class PubSub(object):
         TODO: support msg larger than MTU
 
         :param app: NDNApp.
-        :param prefix: NonStrictName. The identity of this ``PubSub`` instance. ``PubSub`` sends\
-            Data packets under the hood to make pub-sub work, so it needs an identify under which\
-            can publish data. Note that you cannot initialize two ``PubSub`` instances on the same\
-            node, which will cause double registration error.
+        :param prefix: NonStrictName. The identity of this ``PubSub`` instance. The publisher needs\
+            a prefix under which can publish data. Note that you cannot initialize two ``PubSub``\
+            instances with the same ``prefix`` on the same node, since it will cause double\
+            registration error.
         :param forwarding_hint: NonStrictName. When working as publisher, if ``prefix`` is not\
             reachable, the subscriber can use ``forwarding_hint`` to reach the publisher.
         """
         self.app = app
-        self.prefix = prefix
+        self.publisher_prefix = prefix
         self.forwarding_hint = forwarding_hint
+        self.base_prefix = None
         self.published_data = NameTrie()    # name -> packet
         self.topic_to_cb = NameTrie()
         self.nonce_processed = set()        # used by subscriber to de-duplicate notify interests
 
-    def set_prefix(self, prefix: NonStrictName):
+    def set_publisher_prefix(self, prefix: NonStrictName):
         """
-        Set the identify of this ``PubSub`` instance after initialization.
+        Set the identify of the publisher after initialization.
+        Need to be called before ``_wait_for_ready()``.
 
-        :param perfix: NonStrictName. The identity of this ``PubSub`` instance.
+        :param prefix: NonStrictName. The identity of this ``PubSub`` instance.
         """
-        self.prefix = prefix
+        self.publisher_prefix = prefix
+    
+    def set_base_prefix(self, prefix: NonStrictName):
+        """
+        Avoid registering too many prefixes, by registering ``prefix`` with NFD. All other prefixes\
+        under ``prefix`` will be registered with interest filters, and will not have to be\
+        registered with NFD.
+        Need to be called before ``_wait_for_ready()``.
+
+        :param prefix: NonStrictName. The base prefix to register.
+        """
+        self.base_prefix = prefix
 
     async def wait_for_ready(self):
         """
@@ -60,10 +73,17 @@ class PubSub(object):
         while not self.app.face.running:
             await aio.sleep(0.1)
         try:
-            await self.app.register(self.prefix + ['msg'], self._on_msg_interest)
+            await self.app.register(self.publisher_prefix + ['msg'], self._on_msg_interest)
         except ValueError as esc:
             # duplicate registration
+            logging.error('Pubsub duplicate registration error')
             pass
+
+        if self.base_prefix != None:
+            try:
+                await self.app.register(self.base_prefix, func=None)
+            except ValueError as esc:
+                pass
 
     def subscribe(self, topic: NonStrictName, cb: callable):
         """
@@ -99,13 +119,13 @@ class PubSub(object):
         # generate a nonce for each message. Nonce is a random sequence of bytes
         nonce = os.urandom(4)
         # wrap msg in a data packet named /<publisher_prefix>/msg/<topic>/nonce
-        data_name = Name.normalize(self.prefix + ['msg'] + topic + [Component.from_bytes(nonce)])
+        data_name = Name.normalize(self.publisher_prefix + ['msg'] + topic + [Component.from_bytes(nonce)])
         self.published_data[data_name] = self.app.prepare_data(data_name, msg)
 
         # prepare notify interest
         int_name = topic + ['notify']
         app_param = NotifyAppParam()
-        app_param.publisher_prefix = self.prefix
+        app_param.publisher_prefix = self.publisher_prefix
         app_param.notify_nonce = nonce
         if self.forwarding_hint:
             app_param.publisher_fwd_hint = ForwardingHint()
@@ -143,10 +163,15 @@ class PubSub(object):
         """
         Async helper for ``subscribe()``.
         """
-        logging.info(f'subscribing to topic: {Name.to_str(topic)}')
         topic = Name.normalize(topic)
         self.topic_to_cb[topic] = cb
-        self.app.route(topic + ['notify'])(self._on_notify_interest)
+        to_register = topic + ['notify']
+        if self.base_prefix != None and Name.is_prefix(self.base_prefix, to_register):
+            self.app.set_interest_filter(to_register, self._on_notify_interest)
+            logging.info(f'Subscribing to topic (with interest filter): {Name.to_str(topic)}')
+        else:
+            await self.app.register(to_register, self._on_notify_interest)
+            logging.info(f'Subscribing to topic: {Name.to_str(topic)}')
 
     def _on_notify_interest(self, int_name, int_param, app_param):
         aio.ensure_future(self._process_notify_interest(int_name, int_param, app_param))

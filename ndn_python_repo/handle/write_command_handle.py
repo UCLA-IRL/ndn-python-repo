@@ -36,7 +36,7 @@ class WriteCommandHandle(CommandHandle):
         Register routes for command interests.
         This function needs to be called explicitly after initialization.
 
-        :param perfix: NonStrictName. The name prefix to listen on.
+        :param prefix: NonStrictName. The name prefix to listen on.
         """
         self.prefix = prefix
 
