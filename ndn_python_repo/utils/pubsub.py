@@ -72,18 +72,22 @@ class PubSub(object):
         # Wait until app connected, otherwise app.register() throws an NetworkError
         while not self.app.face.running:
             await aio.sleep(0.1)
-        try:
-            await self.app.register(self.publisher_prefix + ['msg'], self._on_msg_interest)
-        except ValueError as esc:
-            # duplicate registration
-            logging.error('Pubsub duplicate registration error')
-            pass
 
         if self.base_prefix != None:
             try:
                 await self.app.register(self.base_prefix, func=None)
             except ValueError as esc:
                 pass
+        
+        try:
+            if self.base_prefix != None and Name.is_prefix(self.base_prefix, self.publisher_prefix + ['msg']):
+                self.app.set_interest_filter(self.publisher_prefix + ['msg'], self._on_msg_interest)
+            else:
+                    await self.app.register(self.publisher_prefix + ['msg'], self._on_msg_interest)
+        except ValueError as esc:
+            # duplicate registration
+            pass
+
 
     def subscribe(self, topic: NonStrictName, cb: callable):
         """
