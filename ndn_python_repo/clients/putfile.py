@@ -56,6 +56,7 @@ class PutfileClient(object):
         self.repo_name = repo_name
         self.encoded_packets = {}
         self.pb = PubSub(self.app, self.prefix)
+        self.pb.base_prefix = self.prefix
 
         # https://bugs.python.org/issue35219
         if platform.system() == 'Darwin':
