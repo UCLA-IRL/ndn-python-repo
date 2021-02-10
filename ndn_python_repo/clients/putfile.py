@@ -56,6 +56,7 @@ class PutfileClient(object):
         self.repo_name = repo_name
         self.encoded_packets = {}
         self.pb = PubSub(self.app, self.prefix)
+        self.pb.base_prefix = self.prefix
 
         # https://bugs.python.org/issue35219
         if platform.system() == 'Darwin':
@@ -132,10 +133,16 @@ class PutfileClient(object):
         self._prepare_data(file_path, name_at_repo, segment_size, freshness_period, cpu_count)
         num_packets = len(self.encoded_packets[Name.to_str(name_at_repo)])
         if num_packets == 0:
-            return
+            return 0
 
-        # Register prefix for responding interests from repo
-        await self.app.register(name_at_repo, self._on_interest)
+        # If the uploaded file has the client's name as prefix, set an interest filter
+        # for handling corresponding Interests from the repo
+        if Name.is_prefix(self.prefix, name_at_repo):
+            self.app.set_interest_filter(name_at_repo, self._on_interest)
+        else:
+            # Otherwise, register the file name as prefix for responding interests from the repo
+            logging.info(f'Register prefix for file upload: {Name.to_str(name_at_repo)}')
+            await self.app.register(name_at_repo, self._on_interest)
 
         # construct insert cmd msg
         cmd_param = RepoCommandParameter()

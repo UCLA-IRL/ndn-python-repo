@@ -90,7 +90,7 @@ class CommandChecker(object):
     def _unsubscribe_inactive_processes(self):
         for process_id, last_check_tp in self.process_id_to_last_check_tp.items():
             if last_check_tp > int(time.time()) + 10:
-                topic = process_id_to_check_prefix[process_id] + ['check', Component.from_bytes(process_id)]
+                topic = self.process_id_to_check_prefix[process_id] + ['check', Component.from_bytes(process_id)]
                 self.pb.unsubscribe(topic)
                 logging.info('CommandChecker unsubscribed from {}'.format(Name.to_str(topic)))
                 del self.process_id_to_response[process_id]

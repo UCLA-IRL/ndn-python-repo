@@ -29,7 +29,6 @@ async def run_putfile_client(app: NDNApp, **kwargs):
     # be handled with interest filters. This reduces the number of registered prefixes at NFD, when
     # inserting multiple files with one client
     check_prefix = kwargs['client_prefix']
-    client.pb.set_base_prefix(check_prefix)
 
     await client.insert_file(file_path=kwargs['file_path'],
                              name_at_repo=kwargs['name_at_repo'],
