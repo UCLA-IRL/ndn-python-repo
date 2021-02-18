@@ -28,16 +28,22 @@ from typing import List, Optional
 
 
 if not os.environ.get('READTHEDOCS'):
-    app_create_packets = NDNApp()   # used for _create_packets only
+    app_to_create_packet = None   # used for _create_packets only
     def _create_packets(name, content, freshness_period, final_block_id):
         """
         Worker for parallelize prepare_data().
         This function has to be defined at the top level, so that it can be pickled and used
         by multiprocessing.
         """
-        packet = app_create_packets.prepare_data(name, content,
-                                                 freshness_period=freshness_period,
-                                                 final_block_id=final_block_id)
+        # The keychain's sqlite3 connection is not thread-safe. Create a new NDNApp instance for
+        # each process, so that each process gets a separate sqlite3 connection
+        global app_to_create_packet
+        if app_to_create_packet is None:
+            app_to_create_packet = NDNApp()
+
+        packet = app_to_create_packet.prepare_data(name, content,
+                                                freshness_period=freshness_period,
+                                                final_block_id=final_block_id)
         return bytes(packet)
 
 
@@ -184,10 +190,10 @@ class PutfileClient(object):
         :param process_id: int. The process id to check.
         :return: number of inserted packets.
         """
-        checker = CommandChecker(self.app, self.pb)
+        checker = CommandChecker(self.app)
         n_retries = 5
         while n_retries > 0:
-            response = checker.check(check_prefix, process_id)
+            response = await checker.check_insert(self.repo_name, process_id)
             if response is None:
                 logging.info(f'Response code is None')
                 n_retries -= 1

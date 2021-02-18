@@ -85,7 +85,7 @@ class RepoTestSuite(object):
 
 class TestBasic(RepoTestSuite):
     async def run(self):
-        await aio.sleep(1)  # wait for repo to startup
+        await aio.sleep(2)  # wait for repo to startup
         filepath1 = self.create_tmp_file(size_bytes=10 * 1024)
         filepath2 = uuid.uuid4().hex.upper()[0:6]
 
@@ -111,7 +111,7 @@ class TestBasic(RepoTestSuite):
 
 class TestLargeFile(RepoTestSuite):
     async def run(self):
-        await aio.sleep(1)  # wait for repo to startup
+        await aio.sleep(2)  # wait for repo to startup
         filepath1 = self.create_tmp_file(size_bytes=40*1024*1024)
         filepath2 = uuid.uuid4().hex.upper()[0:6]
 
@@ -124,7 +124,6 @@ class TestLargeFile(RepoTestSuite):
         await gc.fetch_file(Name.from_str(filepath2))
         # diff
         ret = filecmp.cmp(filepath1, filepath2)
-        print("Is same: ", ret)
         assert ret
         # cleanup
         self.files_to_cleanup.append(filepath1)
@@ -134,7 +133,7 @@ class TestLargeFile(RepoTestSuite):
 
 class TestSingleDataInsert(RepoTestSuite):
     async def run(self):
-        await aio.sleep(1)  # wait for repo to startup
+        await aio.sleep(2)  # wait for repo to startup
 
         # respond to interest from repo
         def on_int(int_name, _int_param, _app_param):
@@ -158,11 +157,11 @@ class TestSingleDataInsert(RepoTestSuite):
         assert is_success
 
         # insert_num should be 1
-        checker = CommandChecker(self.app, pb)
+        checker = CommandChecker(self.app)
         n_retries = 3
         while n_retries > 0:
-            response = checker.check(Name.from_str(repo_name), process_id)
-            if response == None or response.status_code == 404:
+            response = await checker.check_insert(Name.from_str(repo_name), process_id)
+            if response is None or response.status_code == 404:
                 n_retries -= 1
             elif response.status_code != 300:
                 assert response.status_code == 200
@@ -206,7 +205,7 @@ class TestFlags(RepoTestSuite):
 
 class TestTcpBulkInsert(RepoTestSuite):
     async def run(self):
-        await aio.sleep(1)  # wait for repo to startup
+        await aio.sleep(2)  # wait for repo to startup
 
         reader, writer = await aio.open_connection('127.0.0.1', port)
 

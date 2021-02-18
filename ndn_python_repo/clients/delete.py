@@ -95,10 +95,10 @@ class DeleteClient(object):
         :param process_id: int. The process id to check for delete process
         :return: Number of deleted packets.
         """
-        checker = CommandChecker(self.app, self.pb)
+        checker = CommandChecker(self.app)
         n_retries = 3
         while n_retries > 0:
-            response = checker.check(check_prefix, process_id)
+            response = await checker.check_delete(self.repo_name, process_id)
             if response is None:
                 logging.info(f'Response code is None')
                 await aio.sleep(1)

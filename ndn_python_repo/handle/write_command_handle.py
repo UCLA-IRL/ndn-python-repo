@@ -43,8 +43,8 @@ class WriteCommandHandle(CommandHandle):
         # subscribe to insert messages
         self.pb.subscribe(self.prefix + ['insert'], self._on_insert_msg)
 
-        # start to announce process status
-        await self._schedule_announce_process_status(period=3)
+        # listen on insert check interests
+        self.app.route(self.prefix + ['insert check'])(self._on_check_interest)
 
     def _on_insert_msg(self, msg):
         try:
@@ -90,10 +90,9 @@ class WriteCommandHandle(CommandHandle):
             return
 
         # Reply to client with status code 100
-        self.m_process_id_to_status[process_id] = RepoCommandResponse()
-        self.m_process_id_to_status[process_id].process_id = process_id
-        self.m_process_id_to_status[process_id].insert_num = 0
-        self.m_process_id_to_check_prefix[process_id] = check_prefix
+        self.m_processes[process_id] = RepoCommandResponse()
+        self.m_processes[process_id].process_id = process_id
+        self.m_processes[process_id].insert_num = 0
 
         # Remember the prefixes to register
         if register_prefix:
@@ -106,7 +105,7 @@ class WriteCommandHandle(CommandHandle):
         CommandHandle.add_inserted_filename_in_storage(self.storage, name)
 
         # Start data fetching process
-        self.m_process_id_to_status[process_id].status_code = 300
+        self.m_processes[process_id].status_code = 300
         insert_num = 0
         is_success = False
         if start_block_id != None:
@@ -121,12 +120,12 @@ class WriteCommandHandle(CommandHandle):
                 is_success = True
 
         if is_success:
-            self.m_process_id_to_status[process_id].status_code = 200
+            self.m_processes[process_id].status_code = 200
             logging.info('Insertion success, {} items inserted'.format(insert_num))
         else:
-            self.m_process_id_to_status[process_id].status_code = 400
+            self.m_processes[process_id].status_code = 400
             logging.info('Insertion failure, {} items inserted'.format(insert_num))
-        self.m_process_id_to_status[process_id].insert_num = insert_num
+        self.m_processes[process_id].insert_num = insert_num
 
         # Delete process state after some time
         await self._delete_process_state_after(process_id, 60)

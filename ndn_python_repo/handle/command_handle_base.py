@@ -18,32 +18,39 @@ class CommandHandle(object):
         self.app = app
         self.storage = storage
         self.pb = pb
-        self.m_process_id_to_status = dict()
-        self.m_process_id_to_check_prefix = dict()
+        self.m_processes = dict()
 
     async def listen(self, prefix: Name):
         raise NotImplementedError
 
-    async def _schedule_announce_process_status(self, period: int):
-        """
-        Periodically call ``_announce_process_status``.
-        :param period: int. The period between two successive announcements.
-        """
-        await aio.sleep(period)
-        self._announce_process_status()
-        aio.ensure_future(self._schedule_announce_process_status(period))
+    def _on_check_interest(self, int_name, _int_param, _app_param):
+        logging.info('on_check_interest(): {}'.format(Name.to_str(int_name)))
 
-    def _announce_process_status(self):
-        """
-        Announce the status of all active processes over PubSub. Each process status is published\
-            to topic /<check_prefix>/check/<process_id>.
-        """
-        for process_id, status in self.m_process_id_to_status.items():
-            check_prefix = self.m_process_id_to_check_prefix[process_id]
-            topic = check_prefix + ['check', Component.from_bytes(process_id)]
-            msg = status.encode()
-            # do not care about whether the subscriber acknowledges
-            aio.ensure_future(self.pb.publish(topic, msg))
+        response = None
+        process_id = None
+        try:
+            parameter = self.decode_cmd_param_bytes(int_name)
+            process_id = parameter.process_id
+            if process_id == None:
+                raise DecodeError()
+        except (DecodeError, IndexError, RuntimeError) as exc:
+            response = RepoCommandResponse()
+            response.status_code = 403
+            logging.warning('Command blob decoding failed')
+        if response is None and process_id not in self.m_processes:
+            response = RepoCommandResponse()
+            response.status_code = 404
+            logging.warning('Process does not exist')
+
+        if response is None:
+            self.reply_with_response(int_name, self.m_processes[process_id])
+        else:
+            self.reply_with_response(int_name, response)
+
+    def reply_with_response(self, int_name, response: RepoCommandResponse):
+        logging.info('Reply to command: {}'.format(Name.to_str(int_name)))
+        response_bytes = response.encode()
+        self.app.put_data(int_name, response_bytes, freshness_period=1000)
 
     @staticmethod
     def decode_cmd_param_bytes(name) -> RepoCommandParameter:
@@ -61,10 +68,8 @@ class CommandHandle(object):
         Remove process state after some delay.
         """
         await aio.sleep(delay)
-        if process_id in self.m_process_id_to_status:
-            del self.m_process_id_to_status[process_id]
-        if process_id in self.m_process_id_to_check_prefix:
-            del self.m_process_id_to_check_prefix[process_id]
+        if process_id in self.m_processes:
+            del self.m_processes[process_id]
 
     @staticmethod
     def add_name_to_set_in_storage(set_name: str, storage: Storage, name: NonStrictName) -> bool:
