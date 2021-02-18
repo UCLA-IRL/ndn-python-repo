@@ -42,5 +42,4 @@ jobs:
           pip install wheel
           pip install .
       - name: Run tests
-          pytest
-          
+        run: pytest
