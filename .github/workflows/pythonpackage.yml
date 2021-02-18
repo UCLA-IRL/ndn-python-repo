@@ -25,21 +25,16 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      # For debugging
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
-
       - name: Install dependencies
         run: |
-          python3 -m pip install --upgrade pip
           sudo apt-get update
           sudo apt-get install libboost-all-dev python3-setuptools
           git clone https://github.com/named-data/ndn-cxx.git && cd ndn-cxx
           git checkout ndn-cxx-0.7.0
-          ./waf configure && ./waf && sudo ./waf install && cd ..
+          sudo ./waf configure && sudo ./waf && sudo ./waf install && cd ..
           git clone https://github.com/named-data/NFD.git && cd NFD
           git checkout NFD-0.7.0
-          ./waf configure --without-libpcap --without-websocket && ./waf && sudo ./waf install && cd ..
+          sudo ./waf configure --without-libpcap --without-websocket && sudo ./waf && sudo ./waf install && cd ..
           sudo ldconfig
           ndnsec-key-gen test
           sudo nfd start -c /usr/local/etc/ndn/nfd.conf.sample &
