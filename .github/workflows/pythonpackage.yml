@@ -33,7 +33,7 @@ jobs:
         run: |
           python3 -m pip install --upgrade pip
           sudo apt-get update
-          sudo apt-get install libboost1.65-all-dev, python3-setuptools
+          sudo apt-get install libboost-all-dev python3-setuptools
           git clone https://github.com/named-data/ndn-cxx.git && cd ndn-cxx
           git checkout ndn-cxx-0.7.0
           ./waf configure && ./waf && sudo ./waf install && cd ..
