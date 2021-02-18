@@ -20,6 +20,10 @@ jobs:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
       
+      # For debugging
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+      
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
@@ -28,6 +32,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          sudo add-apt-repository universe
+          sudo apt-get update
           sudo apt-get install libboost1.65-all-dev
           git clone https://github.com/named-data/ndn-cxx.git && cd ndn-cxx
           git checkout ndn-cxx-0.7.0
