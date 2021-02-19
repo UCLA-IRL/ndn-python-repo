@@ -9,8 +9,8 @@ A Named Data Networking (NDN) Repo implementation using python-ndn_.
 
 Please see our documentation_ if you have any issues.
 
-.. |Test Badge| image:: https://travis-ci.com/UCLA-IRL/ndn-python-repo.svg?branch=master
-    :target: https://travis-ci.com/UCLA-IRL/ndn-python-repo
+.. |Test Badge| image:: https://github.com/UCLA-IRL/ndn-python-repo/actions/workflows/pythonpackage.yml/badge.svg
+    :target: https://github.com/UCLA-IRL/ndn-python-repo/actions/workflows/pythonpackage.yml
     :alt: Test Status
 
 .. |Release Badge| image:: https://badge.fury.io/py/ndn-python-repo.svg
