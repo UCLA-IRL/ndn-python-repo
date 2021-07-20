@@ -93,7 +93,7 @@ def main() -> int:
     tcp_bulk_insert_handle = TcpBulkInsertHandle(storage, read_handle, config)
 
     repo = Repo(app, storage, read_handle, write_handle, delete_handle, tcp_bulk_insert_handle, config)
-    aio.ensure_future(repo.listen())
+    app.run_forever(after_start=repo.listen())
 
     try:
         app.run_forever()
