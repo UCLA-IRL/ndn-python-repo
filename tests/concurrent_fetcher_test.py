@@ -1,11 +1,10 @@
 import abc
 import asyncio as aio
 from ndn.app import NDNApp
-from ndn.encoding import Name, ndn_format_0_3
+from ndn.encoding import Name
 from ndn.transport.dummy_face import DummyFace
 from ndn.security import KeychainDigest
 from ndn_python_repo.utils.concurrent_fetcher import concurrent_fetcher
-import pytest
 
 
 class ConcurrentFetcherTestSuite(object):
@@ -13,11 +12,14 @@ class ConcurrentFetcherTestSuite(object):
     Abstract test fixture to simulate packet send and recv.
     """
     def test_main(self):
+        aio.run(self.comain())
+
+    async def comain(self):
         face = DummyFace(self.face_proc)
         keychain = KeychainDigest()
         self.app = NDNApp(face, keychain)
         face.app = self.app
-        self.app.run_forever(after_start=self.app_main())
+        await self.app.main_loop(after_start=self.app_main())
     
     @abc.abstractmethod
     async def face_proc(self, face: DummyFace):
