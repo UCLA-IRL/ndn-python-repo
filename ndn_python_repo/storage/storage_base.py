@@ -1,5 +1,6 @@
 import asyncio as aio
 import logging
+from contextlib import suppress
 from ndn.encoding.tlv_var import parse_tl_num
 from ndn.encoding import Name, parse_data, NonStrictName
 from ndn.name_tree import NameTrie
@@ -34,12 +35,10 @@ class Storage:
 
     ###### wrappers around key-value store
     async def _periodic_write_back(self):
-        try:
+        with suppress(aio.CancelledError):
             while True:
                 self._write_back()
                 await aio.sleep(10)
-        except aio.CancelledError:
-            pass
 
     @staticmethod
     def _get_name_bytes_wo_tl(name: NonStrictName) -> bytes:

@@ -75,16 +75,8 @@ def config_logging(config: dict):
                             level=log_level)
 
 
-def main() -> int:
-    cmdline_args = process_cmd_opts()
-    config = process_config(cmdline_args)
-    print(config)
-
-    config_logging(config['logging_config'])
-
+async def async_main(app: NDNApp, config):
     storage = create_storage(config['db_config'])
-
-    app = NDNApp()
 
     pb = PubSub(app)
     read_handle = ReadHandle(app, storage, config)
@@ -93,9 +85,19 @@ def main() -> int:
     tcp_bulk_insert_handle = TcpBulkInsertHandle(storage, read_handle, config)
 
     repo = Repo(app, storage, read_handle, write_handle, delete_handle, tcp_bulk_insert_handle, config)
+    await repo.listen()
 
+
+def main() -> int:
+    cmdline_args = process_cmd_opts()
+    config = process_config(cmdline_args)
+    print(config)
+
+    config_logging(config['logging_config'])
+
+    app = NDNApp()
     try:
-        app.run_forever(after_start=repo.listen())
+        app.run_forever(after_start=async_main(app, config))
     except FileNotFoundError:
         print('Error: could not connect to NFD.')
     return 0
