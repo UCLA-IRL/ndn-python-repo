@@ -28,9 +28,9 @@ setup(
 
         'License :: OSI Approved :: Apache Software License',
 
-        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: 3.7',
         'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
     ],
 
     keywords='NDN',
@@ -46,7 +46,7 @@ setup(
         'leveldb': ['plyvel'],
         'mongodb': ['pymongo']
     },
-    python_requires=">=3.6",
+    python_requires=">=3.7",
 
     entry_points={
         'console_scripts': [

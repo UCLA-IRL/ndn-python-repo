@@ -1,5 +1,6 @@
 import asyncio as aio
 import logging
+from contextlib import suppress
 from ndn.encoding.tlv_var import parse_tl_num
 from ndn.encoding import Name, parse_data, NonStrictName
 from ndn.name_tree import NameTrie
@@ -14,7 +15,10 @@ class Storage:
         """
         Interface for a unified key-value storage API.
         """
-        aio.get_event_loop().create_task(self._periodic_write_back())
+        self.write_back_task = aio.create_task(self._periodic_write_back())
+
+    def __del__(self):
+        self.write_back_task.cancel()
 
     def _put(self, key: bytes, data: bytes, expire_time_ms: int=None):
         raise NotImplementedError
@@ -31,9 +35,10 @@ class Storage:
 
     ###### wrappers around key-value store
     async def _periodic_write_back(self):
-        self._write_back()
-        await aio.sleep(10)
-        aio.get_event_loop().create_task(self._periodic_write_back())
+        with suppress(aio.CancelledError):
+            while True:
+                self._write_back()
+                await aio.sleep(10)
 
     @staticmethod
     def _get_name_bytes_wo_tl(name: NonStrictName) -> bytes:

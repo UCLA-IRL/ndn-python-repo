@@ -1,6 +1,7 @@
 import abc
 import os
 import sys
+import asyncio as aio
 from ndn.encoding import Name
 from ndn_python_repo.storage import *
 import pytest
@@ -13,7 +14,7 @@ class StorageTestFixture(object):
     storage = None
 
     @staticmethod
-    def test_main():
+    def test_main(_tmp_path):
         StorageTestFixture._test_put()
         StorageTestFixture._test_get()
         StorageTestFixture._test_remove()
@@ -109,8 +110,13 @@ class TestSqliteStorage(StorageTestFixture):
     """
     @staticmethod
     def test_main(tmp_path):
+        aio.run(TestSqliteStorage.body(tmp_path))
+
+    @classmethod
+    async def body(cls, tmp_path):
         StorageTestFixture.storage = SqliteStorage(tmp_path / 'test.db')
-        StorageTestFixture.test_main()
+        StorageTestFixture.test_main(tmp_path)
+
 
 # Unit tests for optional DBs only if they can be successfully imported
 class TestLevelDBStorage(StorageTestFixture):
@@ -119,12 +125,17 @@ class TestLevelDBStorage(StorageTestFixture):
     """
     @staticmethod
     def test_main(tmp_path):
+        aio.run(TestLevelDBStorage.body(tmp_path))
+
+    @classmethod
+    async def body(cls, tmp_path):
         try:
             from ndn_python_repo.storage import LevelDBStorage
         except ImportError as exc:
             return
         StorageTestFixture.storage = LevelDBStorage(tmp_path)
-        StorageTestFixture.test_main()
+        StorageTestFixture.test_main(tmp_path)
+
 
 class TestMongoDBStorage(StorageTestFixture):
     """
@@ -132,9 +143,13 @@ class TestMongoDBStorage(StorageTestFixture):
     """
     @staticmethod
     def test_main(tmp_path):
+        aio.run(TestMongoDBStorage.body(tmp_path))
+
+    @classmethod
+    async def body(cls, tmp_path):
         try:
             from ndn_python_repo.storage import MongoDBStorage
         except ImportError as exc:
             return
         StorageTestFixture.storage = MongoDBStorage('_test_db', '_test_collection')
-        StorageTestFixture.test_main()
+        StorageTestFixture.test_main(tmp_path)
