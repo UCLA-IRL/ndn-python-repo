@@ -80,7 +80,7 @@ class CommandHandle(object):
         :param set_name: str
         :param storage: Storage
         :param name: NonStrictName
-        :return: Returns true if ``name`` is already in set ``set_name``. 
+        :return: Returns true if ``name`` is already in set ``set_name``.
         """
         names_msg = RepeatedNames()
         ret = storage._get(set_name.encode('utf-8'))
@@ -90,12 +90,11 @@ class CommandHandle(object):
         name = Name.normalize(name)
         if name in names_msg.names:
             return True
-        else:
-            names_msg.names.append(name)
-            names_msg_bytes = names_msg.encode()
-            storage._put(set_name.encode('utf-8'), bytes(names_msg_bytes))
-            return False
-    
+        names_msg.names.append(name)
+        names_msg_bytes = names_msg.encode()
+        storage._put(set_name.encode('utf-8'), bytes(names_msg_bytes))
+        return False
+
     @staticmethod
     def get_name_from_set_in_storage(set_name: str, storage: Storage) -> List[FormalName]:
         """
@@ -109,9 +108,8 @@ class CommandHandle(object):
         if ret:
             names_msg = RepeatedNames.parse(ret)
             return names_msg.names
-        else:
-            return []
-    
+        return []
+
     @staticmethod
     def remove_name_from_set_in_storage(set_name: str, storage: Storage, name: NonStrictName) -> bool:
         """
@@ -126,15 +124,14 @@ class CommandHandle(object):
         ret = storage._get(set_name.encode('utf-8'))
         if ret:
             names_msg = RepeatedNames.parse(ret)
-        
+
         name = Name.normalize(name)
         if name in names_msg.names:
             names_msg.names.remove(Name.normalize(name))
             names_msg_bytes = names_msg.encode()
             storage._put(set_name.encode('utf-8'), bytes(names_msg_bytes))
             return True
-        else:
-            return False
+        return False
 
     # Wrapper for registered prefixes
     @staticmethod

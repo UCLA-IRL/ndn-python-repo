@@ -85,7 +85,7 @@ class WriteCommandHandle(CommandHandle):
         if Name.is_prefix(self.prefix, name) or Name.is_prefix(name, self.prefix):
             logging.warning('Inserted data name overlaps with repo prefix')
             return
-        elif self.normalize_params_or_reject(cmd_param) == False:
+        if self.normalize_params_or_reject(cmd_param) == False:
             logging.warning('Insert command malformed')
             return
 
@@ -151,7 +151,7 @@ class WriteCommandHandle(CommandHandle):
         # Valid if end_block_id is given, and larger than or equal to start_block_id
         if end_block_id == None or end_block_id >= start_block_id:
             return True
-        
+
         return False
 
     async def fetch_single_data(self, name: NonStrictName, forwarding_hint: Optional[NonStrictName]):

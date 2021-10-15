@@ -97,7 +97,7 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_block_id: i
         if recv_window == final_id:
             await aio.gather(*tasks)
             return
-        elif is_failed:
+        if is_failed:
             await aio.gather(*tasks)
             # New data may return during gather(), need to check again
             while recv_window + 1 in seq_to_data_packet:

@@ -85,8 +85,7 @@ class MongoDBStorage(Storage):
         ret = self.c_collection.find_one(query)
         if ret:
             return ret['value']
-        else:
-            return None
+        return None
 
     def _remove(self, key: bytes) -> bool:
         """

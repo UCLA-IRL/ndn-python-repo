@@ -12,7 +12,6 @@ jobs:
   build:
     # The type of runner that the job will run on
     runs-on: ${{ matrix.os }}
-    
     strategy:
       matrix:
         os: [ubuntu-16.04, ubuntu-18.04]
@@ -21,7 +20,7 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v2
-      
+
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
@@ -43,5 +42,6 @@ jobs:
           pip3 install pytest
           pip3 install wheel
           pip3 install .
+
       - name: Run tests
         run: pytest

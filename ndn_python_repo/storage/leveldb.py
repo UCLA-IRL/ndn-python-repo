@@ -7,14 +7,14 @@ from typing import List, Optional
 
 class LevelDBStorage(Storage):
 
-    def __init__(self, dir: str):
+    def __init__(self, directory: str):
         """
         Creates a LevelDB storage instance at disk location ``str``.
 
-        :param dir: str. The disk location of the database directory.
+        :param directory: str. The disk location of the database directory.
         """
         super().__init__()
-        db_dir = os.path.expanduser(dir)
+        db_dir = os.path.expanduser(directory)
         if not os.path.exists(db_dir):
             try:
                 os.makedirs(db_dir)
@@ -61,14 +61,12 @@ class LevelDBStorage(Storage):
             value, expire_time_ms = pickle.loads(record)
             if not must_be_fresh or expire_time_ms != None and expire_time_ms > int(time.time() * 1000):
                 return value
-            else:
-                return None
-        else:
-            for _, v_e in self.db.iterator(prefix=key):
-                value, expire_time_ms = pickle.loads(v_e)
-                if not must_be_fresh or expire_time_ms != None and expire_time_ms > self.time_ms():
-                    return value
             return None
+        for _, v_e in self.db.iterator(prefix=key):
+            value, expire_time_ms = pickle.loads(v_e)
+            if not must_be_fresh or expire_time_ms != None and expire_time_ms > self.time_ms():
+                return value
+        return None
 
     def _remove(self, key: bytes) -> bool:
         """
@@ -80,5 +78,4 @@ class LevelDBStorage(Storage):
         if self._get(key) != None:
             self.db.delete(key)
             return True
-        else:
-            return False
+        return False
