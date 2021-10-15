@@ -13,6 +13,7 @@ from .command_checker import CommandChecker
 from ..command.repo_commands import RepoCommandParameter, ForwardingHint, RegisterPrefix, CheckPrefix
 from ..utils import PubSub
 import logging
+import asyncio as aio
 from multiprocessing import Pool
 from ndn.app import NDNApp
 from ndn.encoding import Name, NonStrictName, Component
