@@ -7,7 +7,7 @@
 
 from argparse import ArgumentParser
 import logging
-from multiprocessing
+import multiprocessing
 from ndn.app import NDNApp
 from ndn.encoding import Name
 from ndn.security import KeychainDigest
