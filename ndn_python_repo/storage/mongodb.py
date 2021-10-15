@@ -1,5 +1,4 @@
-import base64
-import pymongo
+from base64 import b16encode
 from pymongo import MongoClient, ReplaceOne
 from .storage_base import Storage
 from typing import List, Optional

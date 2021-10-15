@@ -5,21 +5,15 @@
 # @Date   2019-09-26
 # -----------------------------------------------------------------------------
 
-import os
-import sys
+import os, sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
-import argparse
-import asyncio as aio
-from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse, RegisterPrefix,\
-    CheckPrefix
+from ..command.repo_commands import RepoCommandParameter, RegisterPrefix, CheckPrefix
 from .command_checker import CommandChecker
 from ..utils import PubSub
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name, Component, DecodeError, NonStrictName
-from ndn.types import InterestNack, InterestTimeout
-from ndn.utils import gen_nonce
+from ndn.encoding import NonStrictName
 from typing import Optional
 
 

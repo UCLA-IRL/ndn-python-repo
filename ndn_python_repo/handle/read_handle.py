@@ -1,7 +1,7 @@
 import asyncio as aio
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name, tlv_var
+from ndn.encoding import Name
 from ..storage import Storage
 
 
@@ -28,7 +28,7 @@ class ReadHandle(object):
         """
         self.app.route(prefix)(self._on_interest)
         logging.info(f'Read handle: listening to {Name.to_str(prefix)}')
-    
+
     def unlisten(self, prefix):
         """
         :param name: NonStrictName.

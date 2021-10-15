@@ -5,15 +5,14 @@
     @Author jonnykong@cs.ucla.edu
 """
 
-import argparse
-import asyncio as aio
+from argparse import ArgumentParser
 import logging
-import multiprocessing
+from multiprocessing
 from ndn.app import NDNApp
 from ndn.encoding import Name
 from ndn.security import KeychainDigest
 from ndn_python_repo.clients import PutfileClient
-import uuid
+from uuid import uuid4
 
 
 async def run_putfile_client(app: NDNApp, **kwargs):
@@ -24,7 +23,7 @@ async def run_putfile_client(app: NDNApp, **kwargs):
     client = PutfileClient(app=app,
                            prefix=kwargs['client_prefix'],
                            repo_name=kwargs['repo_name'])
-    
+
     # Set pubsub to register ``check_prefix`` directly, so all prefixes under ``check_prefix`` will
     # be handled with interest filters. This reduces the number of registered prefixes at NFD, when
     # inserting multiple files with one client
@@ -42,7 +41,7 @@ async def run_putfile_client(app: NDNApp, **kwargs):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='putfile')
+    parser = ArgumentParser(description='putfile')
     parser.add_argument('-r', '--repo_name',
                         required=True, help='Name of repo')
     parser.add_argument('-f', '--file_path',
@@ -50,7 +49,7 @@ def main():
     parser.add_argument('-n', '--name_at_repo',
                         required=True, help='Prefix used to store file at Repo')
     parser.add_argument('--client_prefix',
-                        required=False, default='/putfile_client' + uuid.uuid4().hex.upper()[0:6],
+                        required=False, default='/putfile_client' + uuid4().hex.upper()[0:6],
                         help='prefix of this client')
     parser.add_argument('--segment_size', type=int,
                         required=False, default=8000,

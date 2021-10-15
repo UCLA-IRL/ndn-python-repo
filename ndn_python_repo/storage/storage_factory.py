@@ -26,7 +26,7 @@ def create_storage(config):
     :return: handle
     """
     db_type = config['db_type']
-    
+
     try:
         if db_type == 'sqlite3':
             db_path = config[db_type]['path']
@@ -43,5 +43,5 @@ def create_storage(config):
 
     except NameError as exc:
         raise NotImplementedError(f'Unsupported database backend: {db_type}')
-    
+
     return ret

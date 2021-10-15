@@ -5,11 +5,10 @@
 # @Date   2019-10-24
 # -----------------------------------------------------------------------------
 
-import os
-import sys
+import os, sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
-import asyncio as aio
+from asyncio import Semaphore
 import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name, NonStrictName
@@ -51,7 +50,7 @@ class GetfileClient(object):
             raise FileExistsError("{} already exists".format(local_filename))
 
 
-        semaphore = aio.Semaphore(10)
+        semaphore = Semaphore(10)
         b_array = bytearray()
         async for (_, _, content, _) in concurrent_fetcher(self.app, name_at_repo, 0, None, semaphore):
             b_array.extend(content)

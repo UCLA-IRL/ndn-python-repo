@@ -5,12 +5,10 @@
     @Author jonnykong@cs.ucla.edu
 """
 
-import argparse
-import asyncio as aio
+from argparse import ArgumentParser
 import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name
-from ndn.security import KeychainDigest
 from ndn_python_repo.clients import GetfileClient
 
 
@@ -25,7 +23,7 @@ async def run_getfile_client(app: NDNApp, **kwargs):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='getfile')
+    parser = ArgumentParser(description='getfile')
     parser.add_argument('-r', '--repo_name',
                         required=True, help='Name of repo')
     parser.add_argument('-n', '--name_at_repo',

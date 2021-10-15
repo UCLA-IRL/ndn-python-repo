@@ -6,25 +6,18 @@
 # @Date   2019-10-18
 # -----------------------------------------------------------------------------
 
-import os
-import sys
+import os, sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
-import asyncio as aio
 from .command_checker import CommandChecker
-from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse, ForwardingHint,\
-    RegisterPrefix, CheckPrefix
+from ..command.repo_commands import RepoCommandParameter, ForwardingHint, RegisterPrefix, CheckPrefix
 from ..utils import PubSub
 import logging
-import multiprocessing
+from multiprocessing import Pool
 from ndn.app import NDNApp
-from ndn.encoding import Name, NonStrictName, Component, DecodeError
-from ndn.types import InterestNack, InterestTimeout
-from ndn.security import KeychainDigest
-from ndn.utils import gen_nonce
-import os
+from ndn.encoding import Name, NonStrictName, Component
 import platform
-from typing import List, Optional
+from typing import Optional
 
 
 if not os.environ.get('READTHEDOCS'):
@@ -97,7 +90,7 @@ class PutfileClient(object):
 
         self.encoded_packets[Name.to_str(name_at_repo)] = []
 
-        with multiprocessing.Pool(processes=cpu_count) as p:
+        with Pool(processes=cpu_count) as p:
             self.encoded_packets[Name.to_str(name_at_repo)] = p.starmap(_create_packets, packet_params)
         logging.info("Prepared {} data for {}".format(seg_cnt, Name.to_str(name_at_repo)))
 

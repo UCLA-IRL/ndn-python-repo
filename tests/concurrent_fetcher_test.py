@@ -20,7 +20,7 @@ class ConcurrentFetcherTestSuite(object):
         self.app = NDNApp(face, keychain)
         face.app = self.app
         await self.app.main_loop(after_start=self.app_main())
-    
+
     @abc.abstractmethod
     async def face_proc(self, face: DummyFace):
         pass

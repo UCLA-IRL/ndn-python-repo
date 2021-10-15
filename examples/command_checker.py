@@ -5,12 +5,10 @@
     @Author jonnykong@cs.ucla.edu
 """
 
-import argparse
-import asyncio as aio
+from argparse import ArgumentParser
 import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name
-from ndn.security import KeychainDigest
 from ndn_python_repo.clients import CommandChecker
 
 
@@ -28,7 +26,7 @@ async def run_check(app: NDNApp, **kwargs):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='segmented insert client')
+    parser = ArgumentParser(description='segmented insert client')
     parser.add_argument('-r', '--repo_name',
                         required=True, help='Name of repo')
     parser.add_argument('-p', '--process_id',
