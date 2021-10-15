@@ -5,14 +5,12 @@
 # @Date   2019-09-23
 # -----------------------------------------------------------------------------
 
-import os
-import sys
+import os, sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
-import argparse
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name, NonStrictName, Component, TlvModel, DecodeError
+from ndn.encoding import Name, NonStrictName, Component, DecodeError
 from ndn.types import InterestNack, InterestTimeout
 from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse
 
@@ -25,7 +23,7 @@ class CommandChecker(object):
         :param app: NDNApp.
         """
         self.app = app
-    
+
     async def check_insert(self, repo_name: NonStrictName, process_id: int) -> RepoCommandResponse:
         """
         Check the status of an insert process.
@@ -35,7 +33,7 @@ class CommandChecker(object):
         :return: The response from the repo.
         """
         return await self._check('insert', repo_name, process_id)
-    
+
     async def check_delete(self, repo_name, process_id: int) -> RepoCommandResponse:
         """
         Check the status of a delete process.

@@ -19,7 +19,7 @@ from ndn.encoding import TlvModel, ModelField, NameField, BytesField
 from ndn.encoding import Name, NonStrictName, Component, InterestParam
 from ndn.name_tree import NameTrie
 from ndn.types import InterestNack, InterestTimeout
-import os
+from os import urandom
 
 
 class PubSub(object):
@@ -53,7 +53,7 @@ class PubSub(object):
         :param prefix: NonStrictName. The identity of this ``PubSub`` instance.
         """
         self.publisher_prefix = prefix
-    
+
     def set_base_prefix(self, prefix: NonStrictName):
         """
         Avoid registering too many prefixes, by registering ``prefix`` with NFD. All other prefixes\
@@ -78,7 +78,7 @@ class PubSub(object):
                 await self.app.register(self.base_prefix, func=None)
             except ValueError as esc:
                 pass
-        
+
         try:
             if self.base_prefix != None and Name.is_prefix(self.base_prefix, self.publisher_prefix + ['msg']):
                 self.app.set_interest_filter(self.publisher_prefix + ['msg'], self._on_msg_interest)
@@ -121,7 +121,7 @@ class PubSub(object):
         """
         logging.info(f'publishing a message to topic: {Name.to_str(topic)}')
         # generate a nonce for each message. Nonce is a random sequence of bytes
-        nonce = os.urandom(4)
+        nonce = urandom(4)
         # wrap msg in a data packet named /<publisher_prefix>/msg/<topic>/nonce
         data_name = Name.normalize(self.publisher_prefix + ['msg'] + topic + [Component.from_bytes(nonce)])
         self.published_data[data_name] = self.app.prepare_data(data_name, msg)

@@ -1,6 +1,5 @@
 import asyncio as aio
 import logging
-import random
 import sys
 from ndn.app import NDNApp
 from ndn.encoding import Name, NonStrictName, Component, DecodeError

@@ -5,12 +5,10 @@
     @Author jonnykong@cs.ucla.edu
 """
 
-import argparse
-import asyncio as aio
+from argparse import ArgumentParser
 import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name
-from ndn.security import KeychainDigest
 from ndn_python_repo.clients import DeleteClient
 
 
@@ -22,7 +20,7 @@ async def run_delete_client(app: NDNApp, **kwargs):
     client = DeleteClient(app=app,
                           prefix=kwargs['client_prefix'],
                           repo_name=kwargs['repo_name'])
-    
+
     # Set pubsub to register ``check_prefix`` directly, so all prefixes under ``check_prefix`` will
     # be handled with interest filters. This reduces the number of registered prefixes at NFD, when
     # inserting multiple files with one client
@@ -38,7 +36,7 @@ async def run_delete_client(app: NDNApp, **kwargs):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='delfile')
+    parser = ArgumentParser(description='delfile')
     parser.add_argument('-r', '--repo_name',
                         required=True, help='Name of repo')
     parser.add_argument('-n', '--name_at_repo',

@@ -1,7 +1,7 @@
 import asyncio as aio
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name, InterestParam, NonStrictName, DecodeError
+from ndn.encoding import Name, NonStrictName, DecodeError
 from ndn.types import InterestNack, InterestTimeout
 from . import ReadHandle, CommandHandle
 from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse

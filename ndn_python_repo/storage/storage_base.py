@@ -48,7 +48,7 @@ class Storage:
         offset += parse_tl_num(name, offset)[1]
         offset += parse_tl_num(name, offset)[1]
         return name[offset:]
-    
+
     @staticmethod
     def _time_ms():
         return int(time.time() * 1000)
@@ -71,7 +71,7 @@ class Storage:
         Insert a data packet named ``name`` with value ``data``.
         This method will parse ``data`` to get its freshnessPeriod, and compute its expiration time\
             by adding the freshnessPeriod to the current time.
-        
+
         :param name: NonStrictName. The name of the data packet.
         :param data: bytes. The value of the data packet.
         """
@@ -90,7 +90,7 @@ class Storage:
         """
         Get a data packet named ``name``.
 
-        :param name: NonStrictName. The name of the data packet. 
+        :param name: NonStrictName. The name of the data packet.
         :param can_be_prefix: bool. If true, use prefix match instead of exact match.
         :param must_be_fresh: bool. If true, ignore expired data.
         :return: The value of the data packet.
@@ -119,7 +119,7 @@ class Storage:
         """
         Remove a data packet named ``name``.
 
-        :param name: NonStrictName. The name of the data packet. 
+        :param name: NonStrictName. The name of the data packet.
         :return: True if a data packet is being removed.
         """
         removed = False

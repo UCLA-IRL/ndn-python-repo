@@ -7,7 +7,7 @@
     @Date   2019-12-26
 """
 
-import argparse
+from argparse import ArgumentParser
 import asyncio as aio
 import os
 import sqlite3
@@ -29,7 +29,7 @@ def convert_name(name: bytes) -> str:
     Convert the name to print.
     """
     # Remove ImplicitSha256DigestComponent TLV
-    data_bytes = name[:-34]    
+    data_bytes = name[:-34]
 
     # Prepend TL of Name
     type_len = tlv_var.get_tl_num_size(ndn_format_0_3.TypeNumber.DATA)
@@ -56,13 +56,13 @@ async def port_over_tcp(src_db_file: str, dest_addr: str, dest_port: str):
     for row in rows:
         print('Porting data:', convert_name(row[0]))
         writer.write(row[1])
-    
+
     writer.close()
     conn_from.close()
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description='port')
+    parser = ArgumentParser(description='port')
     parser.add_argument('-d', '--dbfile',
                         required=True, help='Source database file')
     parser.add_argument('-a', '--addr',
@@ -75,7 +75,7 @@ def main() -> int:
         args.addr = '127.0.0.1'
     if args.port == None:
         args.addr = '7376'
-    
+
     src_db_file = os.path.expanduser(args.dbfile)
     aio.get_event_loop().run_until_complete(port_over_tcp(src_db_file, args.addr, args.port))
     return 0

@@ -3,24 +3,23 @@ import filecmp
 import logging
 import multiprocessing
 from ndn.app import NDNApp
-from ndn.encoding import Name, Component
+from ndn.encoding import Name
 from ndn.security import KeychainDigest
 from ndn.types import InterestNack, InterestTimeout
-from ndn.utils import gen_nonce
 from ndn_python_repo.clients import GetfileClient, PutfileClient, DeleteClient, CommandChecker
-from ndn_python_repo.command.repo_commands import RepoCommandParameter, RepoCommandResponse, CheckPrefix
+from ndn_python_repo.command.repo_commands import RepoCommandParameter, CheckPrefix
 from ndn_python_repo.utils import PubSub
 import os
 import platform
 import pytest
-import subprocess
-import tempfile
-import uuid
+from subprocess import Popen
+from tempfile import mkdtemp
+from uuid import uuid4
 
 
-sqlite3_path = os.path.join(tempfile.mkdtemp(), 'sqlite3_test.db')
+sqlite3_path = os.path.join(mkdtemp(), 'sqlite3_test.db')
 repo_name = 'testrepo'
-register_root = True 
+register_root = True
 port = 7377
 inline_cfg = f"""
 ---
@@ -36,7 +35,7 @@ tcp_bulk_insert:
   port: '{port}'
   register_prefix: False
 logging_config:
-  level: 'INFO' 
+  level: 'INFO'
 """
 
 
@@ -55,7 +54,7 @@ class RepoTestSuite(object):
         tmp_cfg_path = self.create_tmp_cfg()
         self.files_to_cleanup.append(tmp_cfg_path)
         self.files_to_cleanup.append(sqlite3_path)
-        self.repo_proc = subprocess.Popen(['ndn-python-repo', '-c', tmp_cfg_path])
+        self.repo_proc = Popen(['ndn-python-repo', '-c', tmp_cfg_path])
 
         self.app = NDNApp(face=None, keychain=KeychainDigest())
         self.app.run_forever(after_start=self.run())
@@ -68,13 +67,13 @@ class RepoTestSuite(object):
                 os.remove(file)
 
     def create_tmp_file(self, size_bytes=4096):
-        tmp_file_path = os.path.join(tempfile.mkdtemp(), 'tempfile')
+        tmp_file_path = os.path.join(mkdtemp(), 'tempfile')
         with open(tmp_file_path, 'wb') as f:
             f.write(os.urandom(size_bytes))
         return tmp_file_path
 
     def create_tmp_cfg(self):
-        tmp_cfg_path = os.path.join(tempfile.mkdtemp(), 'ndn-python-repo.cfg')
+        tmp_cfg_path = os.path.join(mkdtemp(), 'ndn-python-repo.cfg')
         with open(tmp_cfg_path, 'w') as f:
             f.write(inline_cfg)
         return tmp_cfg_path
@@ -87,7 +86,7 @@ class TestBasic(RepoTestSuite):
     async def run(self):
         await aio.sleep(2)  # wait for repo to startup
         filepath1 = self.create_tmp_file(size_bytes=10 * 1024)
-        filepath2 = uuid.uuid4().hex.upper()[0:6]
+        filepath2 = uuid4().hex.upper()[0:6]
 
         # put
         pc = PutfileClient(self.app, Name.from_str('/putfile_client'), Name.from_str(repo_name))
@@ -113,7 +112,7 @@ class TestLargeFile(RepoTestSuite):
     async def run(self):
         await aio.sleep(2)  # wait for repo to startup
         filepath1 = self.create_tmp_file(size_bytes=40*1024*1024)
-        filepath2 = uuid.uuid4().hex.upper()[0:6]
+        filepath2 = uuid4().hex.upper()[0:6]
 
         # put file
         pc = PutfileClient(self.app, Name.from_str('/putfile_client'), Name.from_str(repo_name))

@@ -6,7 +6,6 @@
 # -----------------------------------------------------------------------------
 
 import asyncio as aio
-from datetime import datetime
 import logging
 from ndn.app import NDNApp
 from ndn.types import InterestNack, InterestTimeout

@@ -1,7 +1,6 @@
 import asyncio as aio
-import io
+from io import BytesIO
 import logging
-import pickle
 import sys
 from . import ReadHandle, CommandHandle
 from ..storage import *
@@ -34,7 +33,7 @@ class TcpBulkInsertHandle(object):
             """
             while True:
                 try:
-                    bio = io.BytesIO()
+                    bio = BytesIO()
                     ret = await read_tl_num_from_stream(self.reader, bio)
                     # only accept data packets
                     if ret != TypeNumber.DATA:

@@ -1,11 +1,7 @@
-import abc
-import os
-import sys
 import asyncio as aio
 from ndn.encoding import Name
 from ndn_python_repo.storage import *
 import pytest
-
 
 class StorageTestFixture(object):
     """
@@ -27,7 +23,7 @@ class StorageTestFixture(object):
     @staticmethod
     def _test_put():
         StorageTestFixture.storage._put(b'test_key_1', bytes([0x00, 0x01, 0x02, 0x03, 0x04]))
-    
+
     @staticmethod
     def _test_duplicate_put():
         StorageTestFixture.storage._put(b'test_key_1', bytes([0x00, 0x01, 0x02, 0x03, 0x04]))
@@ -47,7 +43,7 @@ class StorageTestFixture(object):
         StorageTestFixture.storage._put(b'test_key_1', bytes([0x00, 0x01, 0x02, 0x03, 0x04]))
         assert StorageTestFixture.storage._remove(b'test_key_1')
         assert StorageTestFixture.storage._remove(b'test_key_1') is False
-    
+
     @staticmethod
     def _test_get_data_packet():
         # /test_get_data_packet/0, freshnessPeriod = 10000ms
@@ -55,16 +51,16 @@ class StorageTestFixture(object):
         StorageTestFixture.storage.put_data_packet(Name.from_str('/test_get_data_packet/0'), data_bytes_in)
         data_bytes_out = StorageTestFixture.storage.get_data_packet(Name.from_str('/test_get_data_packet/0'))
         assert data_bytes_in == data_bytes_out
-    
+
     @staticmethod
     def _test_freshness_period():
         # /test_freshness_period/0, freshnessPeriod = 0ms
         data_bytes_in = b'\x06\xa5\x07$\x08\x15test_freshness_period\x08\x010$\x08\x00\x00\x01q\x04\xa1\xd3\x1b\x14\x06\x18\x01\x00\x19\x01\x00\x15\rHello, world!\x16\x1c\x1b\x01\x03\x1c\x17\x07\x15\x08\x04test\x08\x03KEY\x08\x08\xa0\x04\xf7\xe7\xdd\x0f\x17\xbd\x17H0F\x02!\x00\xc2K\xb7\xa3z\xd5\xd6z\xe0RuX\xa8\x967\xca.\x81!\xb1)\x9a\xf1\xd8\xd8\xcd\x95\x16\xd6\xa9\xb7p\x02!\x00\xe1mb/|$\xc3\xbf\xd3\xb1\x8a\x97\xef\x84\xfe\xebI\x1b5e\xf4\x9f/\xd9\x0e\x9ae\xed7b\xdc/'
         StorageTestFixture.storage.put_data_packet(Name.from_str('/test_freshness_period/1'), data_bytes_in)
-        data_bytes_out = StorageTestFixture.storage.get_data_packet(Name.from_str('/test_freshness_period/1'), 
+        data_bytes_out = StorageTestFixture.storage.get_data_packet(Name.from_str('/test_freshness_period/1'),
             must_be_fresh=True)
         assert data_bytes_out == None
-    
+
     @staticmethod
     def _test_get_prefix():
         # /test_get_prefix/0, freshnessPeriod = 10000ms
@@ -78,7 +74,7 @@ class StorageTestFixture(object):
         assert data_bytes_out1 == None
         assert data_bytes_out2 == data_bytes_in
         assert data_bytes_out3 == None  # should be None because the last name component doesn't match
-    
+
     @staticmethod
     def _test_put_batch():
         keys = [b'/test_put_batch0', b'/test_put_batch1', b'/test_put_batch2']
@@ -92,7 +88,7 @@ class StorageTestFixture(object):
         assert StorageTestFixture.storage._get(keys[0]) == values[0]
         assert StorageTestFixture.storage._get(keys[1]) == values[1]
         assert StorageTestFixture.storage._get(keys[2]) == values[2]
-    
+
     @staticmethod
     def _test_write_back():
         # /test_write_back/0
