@@ -9,7 +9,7 @@ def get_yaml(path):
 
     try:
         with open(path, 'r', encoding='utf-8') as file:
-            config = yaml.safe_load(file)
+            config = safe_load(file)
     except FileNotFoundError:
         raise FileNotFoundError(f'could not find config file: {path}') from None
     return config
