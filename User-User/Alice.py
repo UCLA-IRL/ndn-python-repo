@@ -1,20 +1,23 @@
-from Cryptodome.Hash import SHA256
-from Cryptodome.Signature import DSS
-from Cryptodome.PublicKey import ECC
-
-import ndn.utils
-from ndn.encoding import InterestParam, BinaryStr, FormalName, SignaturePtrs, SignatureType, Name, Component
-from ndn.types import InterestNack, InterestTimeout, InterestCanceled, ValidationFailure
-from ndn.app_support.security_v2 import parse_certificate
+from typing import Optional
 from ndn.app import NDNApp
+from ndn.encoding import Name, InterestParam, BinaryStr, FormalName, MetaInfo, SignaturePtrs, SignatureType, Component, Signer
+from ndn.app_support.security_v2 import parse_certificate
+import logging
 from CustomTLV import Model
 
 app = NDNApp()
+# Create identity on the machine local keychain
+repo_name = 'repo_name'
+user_name = 'alice'
+Alice_cert = None
+Repo_user_name = '/'+repo_name+'/'+user_name
+app.keychain.touch_identity(user_name)
+
 async def main():
     try:
         timestamp = ndn.utils.timestamp()
-        name = Name.from_str('/example/testApp/randomData') + [Component.from_timestamp(timestamp)]
-        cert = app.keychain.touch_identity('consumer').default_key().default_cert().data
+        name = Name.from_str('/'+repo_name+'/certify') + [Component.from_timestamp(timestamp)]
+        cert = app.keychain.touch_identity(user_name).default_key().default_cert().data
         send_cert = bytes(cert)
         cert = parse_certificate(cert)
         print(f'cert_name: {Name.to_str(cert.name[:])}')
@@ -22,10 +25,11 @@ async def main():
         # set a validator when requesting data
         data_name, meta_info, content = await app.express_interest(
             name, must_be_fresh=True, app_param=send_cert, can_be_prefix=False, lifetime=6000, validator=verify_ecdsa_signature)
-
         print(f'Received Data Name: {Name.to_str(data_name)}')
         print(meta_info)
-        print(Model.parse(bytes(content)) if content else None)
+        print(content if content else None)
+        Alice_cert = content
+
     except InterestNack as e:
         print(f'Nacked with reason={e.reason}')
     except InterestTimeout:
@@ -34,8 +38,6 @@ async def main():
         print(f'Canceled')
     except ValidationFailure:
         print(f'Data failed to validate')
-    finally:
-        app.shutdown()
 
 """
 This validator parses the key name from the signature info, expresses interest to fetch corresponding certificates, then use fetched 
@@ -86,6 +88,43 @@ async def verify_ecdsa_signature(name: FormalName, sig: SignaturePtrs) -> bool:
     except ValueError:
         return False
     return True
+
+@app.route(Repo_user_name +'/certify/', need_sig_ptrs=True)
+def on_interest(name: FormalName, param: InterestParam, _app_param: Optional[BinaryStr], sig_ptrs: SignaturePtrs):
+    print(f'>> I: {Name.to_str(name)}, {param}, {bytes(_app_param)}')
+    cert = parse_certificate(_app_param)
+    identity = Name.to_str(cert.name[:])
+    certified = False
+    if identity == 'Bob':
+        certified = True
+
+    if certified == False:
+        content = "Authentication failed".encode()
+        app.put_data(name, content=content, freshness_period=10000, identity=repo_name)
+    else:
+        # need to sign the data and return.
+        cert = Alice_cert+cert
+        content = Alice_cert+cert
+        app.put_raw_packet(cert)
+
+
+    print(f'<< D: {Name.to_str(name)}')
+    print(MetaInfo(freshness_period=10000))
+    print(f'Content: (size: {len(content)})')
+    print('')
+
+# Certificate is hosting under this prefix
+@app.route(Repo_user_name + '/KEY')
+def on_interest(name: FormalName, param: InterestParam, _app_param: Optional[BinaryStr]):
+    print(f'>> I: {Name.to_str(name)}, {param}')
+
+    cert = Alice_cert
+    app.put_raw_packet(cert)
+
+    # helper function
+    cert = parse_certificate(cert)
+    print(f'<< D: {Name.to_str(cert.name[:])}')
+    print('')
 
 if __name__ == '__main__':
     app.run_forever(after_start=main())

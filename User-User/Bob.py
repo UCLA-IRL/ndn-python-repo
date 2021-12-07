@@ -1,20 +1,23 @@
-from Cryptodome.Hash import SHA256
-from Cryptodome.Signature import DSS
-from Cryptodome.PublicKey import ECC
-
-import ndn.utils
-from ndn.encoding import InterestParam, BinaryStr, FormalName, SignaturePtrs, SignatureType, Name, Component
-from ndn.types import InterestNack, InterestTimeout, InterestCanceled, ValidationFailure
-from ndn.app_support.security_v2 import parse_certificate
+from typing import Optional
 from ndn.app import NDNApp
+from ndn.encoding import Name, InterestParam, BinaryStr, FormalName, MetaInfo, SignaturePtrs, SignatureType, Component, Signer
+from ndn.app_support.security_v2 import parse_certificate
+import logging
 from CustomTLV import Model
 
 app = NDNApp()
+# Create identity on the machine local keychain
+repo_name = 'repo_name'
+user_name = 'bob'
+Alice_cert = None
+Repo_user_name = '/'+repo_name+'/'+user_name
+app.keychain.touch_identity(user_name)
+
 async def main():
     try:
         timestamp = ndn.utils.timestamp()
-        name = Name.from_str('/example/testApp/randomData') + [Component.from_timestamp(timestamp)]
-        cert = app.keychain.touch_identity('consumer').default_key().default_cert().data
+        name = Name.from_str('/'+repo_name+'/alice/certify') + [Component.from_timestamp(timestamp)]
+        cert = app.keychain.touch_identity(user_name).default_key().default_cert().data
         send_cert = bytes(cert)
         cert = parse_certificate(cert)
         print(f'cert_name: {Name.to_str(cert.name[:])}')
@@ -22,10 +25,12 @@ async def main():
         # set a validator when requesting data
         data_name, meta_info, content = await app.express_interest(
             name, must_be_fresh=True, app_param=send_cert, can_be_prefix=False, lifetime=6000, validator=verify_ecdsa_signature)
-
         print(f'Received Data Name: {Name.to_str(data_name)}')
         print(meta_info)
-        print(Model.parse(bytes(content)) if content else None)
+        print(content if content else None)
+        Bob_cert = content
+        #send it to Repo for cert. 
+
     except InterestNack as e:
         print(f'Nacked with reason={e.reason}')
     except InterestTimeout:
