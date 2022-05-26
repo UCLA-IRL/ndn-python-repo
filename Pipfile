@@ -1,0 +1,17 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+
+[dev-packages]
+ndn-python-repo = {editable = true, extras = ["test"], path = "."}
+
+[requires]
+python_version = "3.10"
+
+[scripts]
+test = "pytest tests"
+main = "ndn-python-repo"
+port = "ndn-python-repo-port"

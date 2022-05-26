@@ -15,15 +15,15 @@ jobs:
     
     strategy:
       matrix:
-        os: [ubuntu-16.04, ubuntu-18.04]
-        python-version: ['3.7', '3.8', '3.9']
+        os: [ubuntu-18.04, ubuntu-20.04]
+        python-version: ['3.9', '3.10', 'pypy-3.9']
 
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v3
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -31,11 +31,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install libboost-all-dev python3-setuptools
-          git clone https://github.com/named-data/ndn-cxx.git && cd ndn-cxx
-          git checkout ndn-cxx-0.7.0
+          git clone --depth=1 --recursive --branch ndn-cxx-0.8.0 https://github.com/named-data/ndn-cxx.git
+          cd ndn-cxx
           sudo ./waf configure && sudo ./waf && sudo ./waf install && cd ..
-          git clone https://github.com/named-data/NFD.git && cd NFD
-          git checkout NFD-0.7.0
+          git clone --depth=1 --recursive --branch NFD-22.02 https://github.com/named-data/NFD.git && cd NFD
           sudo ./waf configure --without-libpcap --without-websocket && sudo ./waf && sudo ./waf install && cd ..
           sudo ldconfig
           ndnsec-key-gen test
