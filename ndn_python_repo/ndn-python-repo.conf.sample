@@ -25,7 +25,14 @@ tcp_bulk_insert:
   addr: '0.0.0.0'
   port: '7376'
   # when register_root is False, whether packets inserted via TCP triggers prefix registration
-  register_prefix: True 
+  register_prefix: True
+  # One prefix in the list is used for registration if:
+  # 1. register_root is False, and
+  # 2. register_prefix is True, and
+  # 3. the prefix matches the name of the sent data
+  # If 1 and 2 but not 3, the full data name is used to register.
+  prefixes:
+  - '/test'
 
 
 logging_config:

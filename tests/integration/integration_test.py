@@ -20,13 +20,13 @@ import uuid
 
 sqlite3_path = os.path.join(tempfile.mkdtemp(), 'sqlite3_test.db')
 repo_name = 'testrepo'
-register_root = True 
+register_root = False
 port = 7377
 inline_cfg = f"""
 ---
 repo_config:
   repo_name: '{repo_name}'
-  register_root: '{register_root}'
+  register_root: {register_root}
 db_config:
   db_type: 'sqlite3'
   sqlite3:
@@ -34,7 +34,9 @@ db_config:
 tcp_bulk_insert:
   addr: '0.0.0.0'
   port: '{port}'
-  register_prefix: False
+  register_prefix: True
+  prefixes:
+  - /test
 logging_config:
   level: 'INFO' 
 """
@@ -176,13 +178,9 @@ class TestFlags(RepoTestSuite):
         try:
             data_name, meta_info, content = await self.app.express_interest(
                 int_name, must_be_fresh=must_be_fresh, can_be_prefix=can_be_prefix, lifetime=1000)
-        except InterestNack as e:
-            logging.warning(f'Nacked with reason: {e.reason}')
-            return
-        except InterestTimeout:
-            logging.warning(f'Timeout')
-            return
-        return content
+            return content
+        except (InterestTimeout, InterestNack):
+            return None
 
     async def run(self):
         await aio.sleep(1)  # wait for repo to startup
@@ -216,19 +214,8 @@ class TestTcpBulkInsert(RepoTestSuite):
         writer.close()
 
         # content should be 'foobar'
-        try:
-            _, _, content = await self.app.express_interest(Name.from_str('/test/0'))
-            assert content.tobytes().decode() == 'foobar'
-        except InterestNack as e:
-            assert f'Nacked with reason={e.reason}'
-        except InterestTimeout:
-            assert False, 'Timeout'
+        _, _, content = await self.app.express_interest(Name.from_str('/test/0'))
+        assert content.tobytes().decode() == 'foobar'
+        _, _, content = await self.app.express_interest('/test', can_be_prefix=True)
+        assert content.tobytes().decode() == 'foobar'
         self.app.shutdown()
-
-
-if __name__ == '__main__':
-    TestBasic().test_main()
-    TestLargeFile().test_main()
-    TestSingleDataInsert().test_main()
-    TestFlags().test_main()
-    TestTcpBulkInsert().test_main()
