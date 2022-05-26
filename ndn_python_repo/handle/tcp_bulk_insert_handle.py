@@ -6,7 +6,7 @@ import sys
 from . import ReadHandle, CommandHandle
 from ..storage import *
 from ndn.encoding import Name, read_tl_num_from_stream, parse_data
-from ndn.encoding import TypeNumber
+from ndn.encoding import TypeNumber, FormalName
 
 
 class TcpBulkInsertHandle(object):
@@ -25,6 +25,10 @@ class TcpBulkInsertHandle(object):
             self.read_handle = read_handle
             self.config = config
             self.m_inputBufferSize = 0
+            prefix_strs = self.config['tcp_bulk_insert'].get('prefixes', [])
+            self.reg_root = self.config['repo_config']['register_root']
+            self.reg_prefix = self.config['tcp_bulk_insert']['register_prefix']
+            self.prefixes = [Name.from_str(s) for s in prefix_strs]
             logging.info("New connection")
 
         async def handleReceive(self):
@@ -57,12 +61,21 @@ class TcpBulkInsertHandle(object):
                 logging.info(f'Inserted data: {Name.to_str(data_name)}')
 
                 # Register prefix
-                if not self.config['repo_config']['register_root'] and self.config['tcp_bulk_insert']['register_prefix']:
-                    is_existing = CommandHandle.add_registered_prefix_in_storage(self.storage, data_name)
+                if not self.reg_root and self.reg_prefix:
+                    prefix = self.check_prefix(data_name)
+                    logging.info(f'Try to register prefix: {Name.to_str(prefix)}')
+                    is_existing = CommandHandle.add_registered_prefix_in_storage(self.storage, prefix)
                     if not is_existing:
-                        self.read_handle.listen(data_name)
+                        logging.info(f'Registered prefix: {Name.to_str(prefix)}')
+                        self.read_handle.listen(prefix)
 
                 await aio.sleep(0)
+
+        def check_prefix(self, data_name: FormalName) -> FormalName:
+            for prefix in self.prefixes:
+                if Name.is_prefix(prefix, data_name):
+                    return prefix
+            return data_name
 
     def __init__(self, storage: Storage, read_handle: ReadHandle, config: dict):
         """
