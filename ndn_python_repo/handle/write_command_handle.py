@@ -44,7 +44,7 @@ class WriteCommandHandle(CommandHandle):
         self.pb.subscribe(self.prefix + ['insert'], self._on_insert_msg)
 
         # listen on insert check interests
-        self.app.route(self.prefix + ['insert check'])(self._on_check_interest)
+        self.app.set_interest_filter(self.prefix + ['insert check'], self._on_check_interest)
 
     def _on_insert_msg(self, msg):
         try:
