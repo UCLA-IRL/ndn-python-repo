@@ -44,7 +44,7 @@ class DeleteCommandHandle(CommandHandle):
         self.pb.subscribe(self.prefix + ['delete'], self._on_delete_msg)
 
         # listen on delete check interests
-        self.app.route(self.prefix + ['delete check'])(self._on_check_interest)
+        self.app.set_interest_filter(self.prefix + ['delete check'], self._on_check_interest)
 
     def _on_delete_msg(self, msg):
         try:

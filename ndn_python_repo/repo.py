@@ -37,6 +37,8 @@ class Repo(object):
 
         # Init PubSub
         self.write_handle.pb.set_publisher_prefix(self.prefix)
+        self.write_handle.pb.set_base_prefix(self.prefix)
+        self.delete_handle.pb.set_base_prefix(self.prefix)
         await self.write_handle.pb.wait_for_ready()
 
         await self.write_handle.listen(self.prefix)
