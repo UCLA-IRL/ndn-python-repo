@@ -20,7 +20,7 @@ async def run_publisher(app: NDNApp, publisher_prefix: NonStrictName):
 
     topic = Name.from_str('/topic_foo')
     msg = f'pubsub message generated at {str(datetime.datetime.now())}'.encode()
-    pb.publish(topic, msg)
+    await pb.publish(topic, msg)
 
     # wait for msg to be fetched by subsciber
     await aio.sleep(10)
