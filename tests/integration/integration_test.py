@@ -192,11 +192,11 @@ class TestFlags(RepoTestSuite):
                              freshness_period=0, cpu_count=multiprocessing.cpu_count())
 
         ret = await self.fetch(Name.from_str('/TestFlags'), must_be_fresh=False, can_be_prefix=False)
-        assert ret == None
+        assert ret is None
         ret = await self.fetch(Name.from_str('/TestFlags'), must_be_fresh=False, can_be_prefix=True)
-        assert ret != None
+        assert ret is not None
         ret = await self.fetch(Name.from_str('/TestFlags'), must_be_fresh=True, can_be_prefix=True)
-        assert ret == None
+        assert ret is None
 
         self.app.shutdown()
 

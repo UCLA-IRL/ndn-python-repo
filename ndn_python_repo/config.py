@@ -4,9 +4,9 @@ import yaml
 from pkg_resources import resource_filename
 
 
-def get_yaml(path):
+def get_yaml(path=None):
     # if fall back to internal config file, so that repo can run without any external configs
-    if path == None:
+    if path is None:
         path = resource_filename(__name__, 'ndn-python-repo.conf.sample')
         
     try:

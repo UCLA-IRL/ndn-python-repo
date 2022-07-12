@@ -6,7 +6,6 @@
 # -----------------------------------------------------------------------------
 
 import asyncio as aio
-from datetime import datetime
 import logging
 from ndn.app import NDNApp
 from ndn.types import InterestNack, InterestTimeout
@@ -34,6 +33,7 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_block_id: i
     recv_window = cur_id - 1
     seq_to_data_packet = dict()           # Buffer for out-of-order delivery
     received_or_fail = aio.Event()
+    name = Name.normalize(name)
 
     async def _retry(seq: int):
         """
