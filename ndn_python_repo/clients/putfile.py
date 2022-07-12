@@ -12,23 +12,22 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import asyncio as aio
 from .command_checker import CommandChecker
-from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse, ForwardingHint,\
-    RegisterPrefix, CheckPrefix
+from ..command import RepoCommandParam, ObjParam, EmbName, RepoStatCode
 from ..utils import PubSub
 import logging
 import multiprocessing
 from ndn.app import NDNApp
-from ndn.encoding import Name, NonStrictName, Component, DecodeError
-from ndn.types import InterestNack, InterestTimeout
-from ndn.security import KeychainDigest
-from ndn.utils import gen_nonce
+from ndn.encoding import Name, NonStrictName, Component, Links
 import os
 import platform
-from typing import List, Optional
+from hashlib import sha256
+from typing import Optional
 
 
 if not os.environ.get('READTHEDOCS'):
+    # I don't think global variable is good design
     app_to_create_packet = None   # used for _create_packets only
+
     def _create_packets(name, content, freshness_period, final_block_id):
         """
         Worker for parallelize prepare_data().
@@ -42,8 +41,8 @@ if not os.environ.get('READTHEDOCS'):
             app_to_create_packet = NDNApp()
 
         packet = app_to_create_packet.prepare_data(name, content,
-                                                freshness_period=freshness_period,
-                                                final_block_id=final_block_id)
+                                                   freshness_period=freshness_period,
+                                                   final_block_id=final_block_id)
         return bytes(packet)
 
 
@@ -59,7 +58,7 @@ class PutfileClient(object):
         """
         self.app = app
         self.prefix = prefix
-        self.repo_name = repo_name
+        self.repo_name = Name.normalize(repo_name)
         self.encoded_packets = {}
         self.pb = PubSub(self.app, self.prefix)
         self.pb.base_prefix = self.prefix
@@ -151,25 +150,26 @@ class PutfileClient(object):
             await self.app.register(name_at_repo, self._on_interest)
 
         # construct insert cmd msg
-        cmd_param = RepoCommandParameter()
-        cmd_param.name = name_at_repo
-        cmd_param.forwarding_hint = ForwardingHint()
-        cmd_param.forwarding_hint.name = forwarding_hint
-        cmd_param.start_block_id = 0
-        cmd_param.end_block_id = num_packets - 1
-        process_id = os.urandom(4)
-        cmd_param.process_id = process_id
-        cmd_param.register_prefix = RegisterPrefix()
-        cmd_param.register_prefix.name = register_prefix
-        if check_prefix == None:
-            check_prefix = self.prefix
-        cmd_param.check_prefix = CheckPrefix()
-        cmd_param.check_prefix.name = check_prefix
-        cmd_param_bytes = cmd_param.encode()
+        cmd_param = RepoCommandParam()
+        cmd_obj = ObjParam()
+        cmd_param.objs = [cmd_obj]
+        cmd_obj.name = name_at_repo
+        if forwarding_hint is not None:
+            cmd_obj.forwarding_hint = Links()
+            cmd_obj.forwarding_hint.names = [forwarding_hint]
+        else:
+            cmd_obj.forwarding_hint = None
+        cmd_obj.start_block_id = 0
+        cmd_obj.end_block_id = num_packets - 1
+        cmd_obj.register_prefix = EmbName()
+        cmd_obj.register_prefix.name = register_prefix
+
+        cmd_param_bytes = bytes(cmd_param.encode())
+        request_no = sha256(cmd_param_bytes).digest()
 
         # publish msg to repo's insert topic
         await self.pb.wait_for_ready()
-        is_success = await self.pb.publish(self.repo_name + ['insert'], cmd_param_bytes)
+        is_success = await self.pb.publish(self.repo_name + Name.from_str('insert'), cmd_param_bytes)
         if is_success:
             logging.info('Published an insert msg and was acknowledged by a subscriber')
         else:
@@ -178,10 +178,10 @@ class PutfileClient(object):
         # wait until finish so that repo can finish fetching the data
         insert_num = 0
         if is_success:
-            insert_num = await self._wait_for_finish(check_prefix, process_id)
+            insert_num = await self._wait_for_finish(check_prefix, request_no)
         return insert_num
 
-    async def _wait_for_finish(self, check_prefix: NonStrictName, process_id: int) -> int:
+    async def _wait_for_finish(self, check_prefix: NonStrictName, request_no: bytes) -> int:
         """
         Wait until process `process_id` completes by sending check interests.
 
@@ -193,24 +193,26 @@ class PutfileClient(object):
         checker = CommandChecker(self.app)
         n_retries = 5
         while n_retries > 0:
-            response = await checker.check_insert(self.repo_name, process_id)
+            response = await checker.check_insert(self.repo_name, request_no)
             if response is None:
-                logging.info(f'Response code is None')
+                logging.info(f'No response')
                 n_retries -= 1
                 await aio.sleep(1)
             # might receive 404 if repo has not yet processed insert command msg
-            elif response.status_code == 404:
+            elif response.status_code == RepoStatCode.NOT_FOUND:
                 n_retries -= 1
                 await aio.sleep(1)
-            elif response.status_code == 300:
-                logging.info(f'Response code is {response.status_code}')
+            elif response.status_code == RepoStatCode.IN_PROGRESS:
+                logging.info(f'Insertion {request_no} in progress')
                 await aio.sleep(1)
-            elif response.status_code == 200:
-                logging.info('Insert process {} status: {}, insert_num: {}'
-                             .format(process_id,
-                                     response.status_code,
-                                     response.insert_num))
-                return response.insert_num
+            elif response.status_code == RepoStatCode.COMPLETED:
+                insert_num = 0
+                for obj in response.objs:
+                    insert_num += obj.insert_num
+                logging.info(f'Deletion request {request_no} complete, insert_num: {insert_num}')
+                return insert_num
+            elif response.status_code == RepoStatCode.FAILURE:
+                logging.info(f'Deletion request {request_no} failed')
             else:
                 # Shouldn't get here
-                assert False, f'Received unrecognized status code {response.status_code}'
+                logging.error(f'Received unrecognized status code {response.status_code}')

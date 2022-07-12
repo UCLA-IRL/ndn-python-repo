@@ -3,6 +3,7 @@ import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name, NonStrictName, Component, DecodeError
 from hashlib import sha256
+from typing import Optional
 from . import ReadHandle, CommandHandle
 from ..command import RepoCommandRes, RepoCommandParam, ObjParam, ObjStatus, RepoStatCode
 from ..storage import Storage
@@ -141,7 +142,7 @@ class DeleteCommandHandle(CommandHandle):
         # Remove process state after some time
         await self._delete_process_state_after(request_no, 60)
 
-    async def _perform_storage_delete(self, prefix, start_block_id: int, end_block_id: int) -> int:
+    async def _perform_storage_delete(self, prefix, start_block_id: int, end_block_id: Optional[int]) -> int:
         """
         Delete data packets between [start_block_id, end_block_id]. If end_block_id is None, delete
         all continuous data packets from start_block_id.
@@ -151,13 +152,17 @@ class DeleteCommandHandle(CommandHandle):
         :return: The number of data items deleted.
         """
         delete_num = 0
+        if end_block_id is None:
+            end_block_id = 2 ** 30  # TODO: For temp use; Should discover
         for idx in range(start_block_id, end_block_id + 1):
             key = prefix + [Component.from_segment(idx)]
             if self.storage.get_data_packet(key) is not None:
+                logging.debug(f'Data for key {Name.to_str(key)} to be deleted.')
                 self.storage.remove_data_packet(key)
                 delete_num += 1
             else:
                 # assume sequence numbers are continuous
+                logging.debug(f'Data for key {Name.to_str(key)} not found, break.')
                 break
             # Temporarily release control to make the process non-blocking
             await aio.sleep(0)
@@ -165,7 +170,9 @@ class DeleteCommandHandle(CommandHandle):
 
     # TODO: previous version only uses _perform_storage_delete
     # I doubt if it properly worked. So need test for the current change.
-    # NOTE: this test cannot done by a client because the prefix has been unregistered, so undeleted data become ghost.
+    # NOTE: this test cannot done by a client because
+    #  1) the prefix has been unregistered, so undeleted data become ghost.
+    #  2) the current client always uses segmented insertion/deletion
     async def _delete_single_data(self, name) -> int:
         """
         Delete data packets between [start_block_id, end_block_id]. If end_block_id is None, delete

@@ -14,7 +14,7 @@ class CommandHandle(object):
     """
     Interface for command interest handles
     """
-    def __init__(self, app: NDNApp, storage: Storage, pb: PubSub, config: dict):
+    def __init__(self, app: NDNApp, storage: Storage, pb: PubSub, _config: dict):
         self.app = app
         self.storage = storage
         self.pb = pb

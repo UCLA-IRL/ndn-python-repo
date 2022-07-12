@@ -69,7 +69,7 @@ class ObjStatus(enc.TlvModel):
 
 class RepoCommandRes(enc.TlvModel):
     status_code = enc.UintField(RepoTypeNumber.STATUS_CODE)
-    objs = enc.RepeatedField(enc.ModelField(RepoTypeNumber.OBJ_PARAM, ObjParam))
+    objs = enc.RepeatedField(enc.ModelField(RepoTypeNumber.OBJ_PARAM, ObjStatus))
 
 
 class RepeatedNames(enc.TlvModel):

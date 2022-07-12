@@ -8,7 +8,7 @@ from ndn.security import KeychainDigest
 from ndn.types import InterestNack, InterestTimeout
 from ndn.utils import gen_nonce
 from ndn_python_repo.clients import GetfileClient, PutfileClient, DeleteClient, CommandChecker
-from ndn_python_repo.command.repo_commands import RepoCommandParameter, RepoCommandResponse, CheckPrefix
+from ndn_python_repo.command import RepoCommandParam, ObjParam, RepoStatCode
 from ndn_python_repo.utils import PubSub
 import os
 import platform
@@ -16,6 +16,7 @@ import pytest
 import subprocess
 import tempfile
 import uuid
+from hashlib import sha256
 
 
 sqlite3_path = os.path.join(tempfile.mkdtemp(), 'sqlite3_test.db')
@@ -143,31 +144,34 @@ class TestSingleDataInsert(RepoTestSuite):
         await self.app.register('test_name', on_int)
 
         # construct insert parameter
-        cmd_param = RepoCommandParameter()
-        cmd_param.name = 'test_name'
-        cmd_param.start_block_id = None
-        cmd_param.end_block_id = None
-        process_id = os.urandom(4)
-        cmd_param.process_id = process_id
-        cmd_param.check_prefix = CheckPrefix()
-        cmd_param.check_prefix.name = Name.from_str('/putfile_client')
-        cmd_param_bytes = cmd_param.encode()
+        cmd_param = RepoCommandParam()
+        cmd_obj = ObjParam()
+        cmd_param.objs = [cmd_obj]
+        cmd_obj.name = 'test_name'
+        cmd_obj.forwarding_hint = None
+        cmd_obj.start_block_id = None
+        cmd_obj.end_block_id = None
+        cmd_obj.register_prefix = None
+
+        cmd_param_bytes = bytes(cmd_param.encode())
+        request_no = sha256(cmd_param_bytes).digest()
 
         pb = PubSub(self.app, Name.from_str('/putfile_client'))
         await pb.wait_for_ready()
-        is_success = await pb.publish(Name.from_str(repo_name) + ['insert'], cmd_param_bytes)
+        is_success = await pb.publish(Name.from_str(repo_name) + Name.from_str('insert'), cmd_param_bytes)
         assert is_success
 
         # insert_num should be 1
         checker = CommandChecker(self.app)
         n_retries = 3
         while n_retries > 0:
-            response = await checker.check_insert(Name.from_str(repo_name), process_id)
-            if response is None or response.status_code == 404:
+            response = await checker.check_insert(Name.from_str(repo_name), request_no)
+            if response is None or response.status_code == RepoStatCode.NOT_FOUND:
                 n_retries -= 1
-            elif response.status_code != 300:
-                assert response.status_code == 200
-                assert response.insert_num == 1
+            elif response.status_code != RepoStatCode.IN_PROGRESS:
+                assert response.status_code == RepoStatCode.COMPLETED
+                assert len(response.objs) == 1
+                assert response.objs[0].insert_num == 1
                 break
             await aio.sleep(1)
         self.app.shutdown()

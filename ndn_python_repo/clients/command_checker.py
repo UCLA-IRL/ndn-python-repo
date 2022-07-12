@@ -14,7 +14,7 @@ from typing import Optional
 from ndn.app import NDNApp
 from ndn.encoding import Name, NonStrictName, DecodeError
 from ndn.types import InterestNack, InterestTimeout
-from ..command.repo_commands import RepoCommandParam, RepoCommandRes
+from ..command.repo_commands import RepoStatQuery, RepoCommandRes
 
 
 class CommandChecker(object):
@@ -55,7 +55,7 @@ class CommandChecker(object):
         :param repo_name: NonStrictName. The name of the remote repo.
         :param request_no: bytes. The request id of the process to check.
         """
-        cmd_param = RepoCommandParam()
+        cmd_param = RepoStatQuery()
         cmd_param.request_no = request_no
         cmd_param_bytes = cmd_param.encode()
 
