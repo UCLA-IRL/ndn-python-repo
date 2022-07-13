@@ -137,7 +137,7 @@ class DeleteCommandHandle(CommandHandle):
         if global_succeeded:
             stat.status_code = RepoStatCode.COMPLETED
         else:
-            stat.status_code = RepoStatCode.FAILURE
+            stat.status_code = RepoStatCode.FAILED
 
         # Remove process state after some time
         await self._delete_process_state_after(request_no, 60)

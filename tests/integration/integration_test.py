@@ -1,18 +1,15 @@
 import asyncio as aio
 import filecmp
-import logging
 import multiprocessing
 from ndn.app import NDNApp
-from ndn.encoding import Name, Component
+from ndn.encoding import Name
 from ndn.security import KeychainDigest
 from ndn.types import InterestNack, InterestTimeout
-from ndn.utils import gen_nonce
 from ndn_python_repo.clients import GetfileClient, PutfileClient, DeleteClient, CommandChecker
 from ndn_python_repo.command import RepoCommandParam, ObjParam, RepoStatCode
 from ndn_python_repo.utils import PubSub
 import os
 import platform
-import pytest
 import subprocess
 import tempfile
 import uuid
@@ -109,6 +106,67 @@ class TestBasic(RepoTestSuite):
         # cleanup
         self.files_to_cleanup.append(filepath1)
         self.files_to_cleanup.append(filepath2)
+        self.app.shutdown()
+
+
+class TestBundle(RepoTestSuite):
+    async def run(self):
+        await aio.sleep(2)  # wait for repo to startup
+
+        # respond to interest from repo
+        def on_int_1(int_name, _int_param, _app_param):
+            self.app.put_data(int_name, b'foo', freshness_period=1000)
+
+        def on_int_2(int_name, _int_param, _app_param):
+            self.app.put_data(int_name, b'bar', freshness_period=1000)
+
+        await self.app.register('test_foo', on_int_1)
+        await self.app.register('test_bar', on_int_2)
+
+        # construct insert parameter
+        cmd_param = RepoCommandParam()
+        cmd_param.objs = [ObjParam(), ObjParam()]
+        cmd_param.objs[0].name = 'test_foo'
+        cmd_param.objs[0].forwarding_hint = None
+        cmd_param.objs[0].start_block_id = 0
+        cmd_param.objs[0].end_block_id = 0
+        cmd_param.objs[0].register_prefix = None
+        cmd_param.objs[1].name = 'test_bar'
+        cmd_param.objs[1].forwarding_hint = None
+        cmd_param.objs[1].start_block_id = None
+        cmd_param.objs[1].end_block_id = None
+        cmd_param.objs[1].register_prefix = None
+
+        cmd_param_bytes = bytes(cmd_param.encode())
+        request_no = sha256(cmd_param_bytes).digest()
+
+        # issue command
+        pb = PubSub(self.app, Name.from_str('/putfile_client'))
+        await pb.wait_for_ready()
+        is_success = await pb.publish(Name.from_str(repo_name) + Name.from_str('insert'), cmd_param_bytes)
+        assert is_success
+
+        # insert_num should be (1, 1)
+        checker = CommandChecker(self.app)
+        n_retries = 5
+        while n_retries > 0:
+            response = await checker.check_insert(Name.from_str(repo_name), request_no)
+            if response is None or response.status_code == RepoStatCode.NOT_FOUND:
+                n_retries -= 1
+            elif response.status_code != RepoStatCode.IN_PROGRESS:
+                assert response.status_code == RepoStatCode.COMPLETED
+                assert len(response.objs) == 2
+                assert response.objs[0].insert_num == 1
+                assert response.objs[1].insert_num == 1
+                break
+            await aio.sleep(1)
+
+        # content should be 'foobar'
+        _, _, content = await self.app.express_interest(Name.from_str('/test_foo/seg=0'))
+        assert bytes(content).decode() == 'foo'
+        _, _, content = await self.app.express_interest('/test_bar', can_be_prefix=True)
+        assert bytes(content).decode() == 'bar'
+
         self.app.shutdown()
 
 

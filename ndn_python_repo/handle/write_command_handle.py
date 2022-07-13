@@ -144,7 +144,7 @@ class WriteCommandHandle(CommandHandle):
                              f'{insert_num} inserted')
             else:
                 global_succeeded = False
-                stat.objs[i].status_code = RepoStatCode.FAILURE
+                stat.objs[i].status_code = RepoStatCode.FAILED
                 logging.info(f'Insertion {request_no.hex()} name={Name.to_str(name)} fail:'
                              f'{insert_num} inserted')
             stat.objs[i].insert_num = insert_num
@@ -155,7 +155,7 @@ class WriteCommandHandle(CommandHandle):
         if global_succeeded:
             stat.status_code = RepoStatCode.COMPLETED
         else:
-            stat.status_code = RepoStatCode.FAILURE
+            stat.status_code = RepoStatCode.FAILED
 
         # Delete process state after some time
         await self._delete_process_state_after(request_no, 60)

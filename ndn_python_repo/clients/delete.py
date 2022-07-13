@@ -112,7 +112,7 @@ class DeleteClient(object):
                     delete_num += obj.delete_num
                 logging.info(f'Deletion request {request_no} complete, delete_num: {delete_num}')
                 return delete_num
-            elif response.status_code == RepoStatCode.FAILURE:
+            elif response.status_code == RepoStatCode.FAILED:
                 logging.info(f'Deletion request {request_no} failed')
             else:
                 # Shouldn't get here

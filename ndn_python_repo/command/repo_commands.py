@@ -20,8 +20,8 @@ class RepoTypeNumber:
     FORWARDING_HINT = 211
     REGISTER_PREFIX = 212
     CHECK_PREFIX = 213
-    OBJ_PARAM = 301
-    OBJECT_INSERT_RESULT = 302
+    OBJECT_PARAM = 301
+    OBJECT_RESULT = 302
 
 
 class RepoStatCode:
@@ -33,7 +33,7 @@ class RepoStatCode:
     # Work in progress
     IN_PROGRESS = 300
     # Some data failed to be inserted / deleted
-    FAILURE = 400
+    FAILED = 400
     # The command or param is malformed
     MALFORMED = 403
     # The queried operation cannot be found
@@ -53,7 +53,7 @@ class ObjParam(enc.TlvModel):
 
 
 class RepoCommandParam(enc.TlvModel):
-    objs = enc.RepeatedField(enc.ModelField(RepoTypeNumber.OBJ_PARAM, ObjParam))
+    objs = enc.RepeatedField(enc.ModelField(RepoTypeNumber.OBJECT_PARAM, ObjParam))
 
 
 class RepoStatQuery(enc.TlvModel):
@@ -69,7 +69,7 @@ class ObjStatus(enc.TlvModel):
 
 class RepoCommandRes(enc.TlvModel):
     status_code = enc.UintField(RepoTypeNumber.STATUS_CODE)
-    objs = enc.RepeatedField(enc.ModelField(RepoTypeNumber.OBJ_PARAM, ObjStatus))
+    objs = enc.RepeatedField(enc.ModelField(RepoTypeNumber.OBJECT_RESULT, ObjStatus))
 
 
 class RepeatedNames(enc.TlvModel):

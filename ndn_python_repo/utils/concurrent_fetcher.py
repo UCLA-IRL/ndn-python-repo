@@ -100,6 +100,8 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_block_id: i
         elif is_failed:
             await aio.gather(*tasks)
             # New data may return during gather(), need to check again
+            # TODO: complete misuse of async for & yield. The generator does not make any sense since
+            # all data are already fetched.
             while recv_window + 1 in seq_to_data_packet:
                 yield seq_to_data_packet[recv_window + 1]
                 del seq_to_data_packet[recv_window + 1]

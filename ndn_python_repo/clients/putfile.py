@@ -211,7 +211,7 @@ class PutfileClient(object):
                     insert_num += obj.insert_num
                 logging.info(f'Deletion request {request_no} complete, insert_num: {insert_num}')
                 return insert_num
-            elif response.status_code == RepoStatCode.FAILURE:
+            elif response.status_code == RepoStatCode.FAILED:
                 logging.info(f'Deletion request {request_no} failed')
             else:
                 # Shouldn't get here
