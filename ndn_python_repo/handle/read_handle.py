@@ -1,7 +1,7 @@
 import asyncio as aio
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name, tlv_var
+from ndn.encoding import Name
 from ..storage import Storage
 
 

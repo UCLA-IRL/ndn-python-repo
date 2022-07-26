@@ -1,13 +1,14 @@
 import asyncio as aio
 import logging
-import random
-import sys
 from ndn.app import NDNApp
 from ndn.encoding import Name, NonStrictName, Component, DecodeError
+from hashlib import sha256
+from typing import Optional
 from . import ReadHandle, CommandHandle
-from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse
+from ..command import RepoCommandRes, RepoCommandParam, ObjParam, ObjStatus, RepoStatCode
 from ..storage import Storage
 from ..utils import PubSub
+from .utils import normalize_block_ids
 
 
 class DeleteCommandHandle(CommandHandle):
@@ -38,71 +39,110 @@ class DeleteCommandHandle(CommandHandle):
 
         :param name: NonStrictName. The name prefix to listen on.
         """
-        self.prefix = prefix
+        self.prefix = Name.normalize(prefix)
 
         # subscribe to delete messages
-        self.pb.subscribe(self.prefix + ['delete'], self._on_delete_msg)
+        self.pb.subscribe(self.prefix + Name.from_str('delete'), self._on_delete_msg)
 
         # listen on delete check interests
-        self.app.set_interest_filter(self.prefix + ['delete check'], self._on_check_interest)
+        self.app.set_interest_filter(self.prefix + Name.from_str('delete check'), self._on_check_interest)
 
     def _on_delete_msg(self, msg):
         try:
-            cmd_param = RepoCommandParameter.parse(msg)
-            if cmd_param.name == None:
-                raise DecodeError()
+            cmd_param = RepoCommandParam.parse(msg)
+            request_no = sha256(bytes(msg)).digest()
+            if not cmd_param.objs:
+                raise DecodeError('Missing objects')
+            for obj in cmd_param.objs:
+                if not obj.name:
+                    raise DecodeError('Missing name for one or more objects')
         except (DecodeError, IndexError) as exc:
-            logging.warning('Parameter interest decoding failed')
+            logging.warning(f'Parameter interest blob decoding failed w/ exception: {exc}')
             return
-        aio.ensure_future(self._process_delete(cmd_param))
+        aio.create_task(self._process_delete(cmd_param, request_no))
 
-    async def _process_delete(self, cmd_param: RepoCommandParameter):
+    async def _process_delete(self, cmd_param: RepoCommandParam, request_no: bytes):
         """
         Process delete command.
-        Return to client with status code 100 immediately, and then start data fetching process.
         """
-        try:
-            name = cmd_param.name
-            start_block_id = cmd_param.start_block_id if cmd_param.start_block_id else 0
-            end_block_id = cmd_param.end_block_id if cmd_param.end_block_id else sys.maxsize
-            process_id = cmd_param.process_id
-            if cmd_param.register_prefix:
-                register_prefix = cmd_param.register_prefix.name
+        objs = cmd_param.objs
+        logging.info(f'Recved delete command: {request_no.hex()}')
+
+        # Note that this function still has chance to switch coroutine in _perform_storage_delete.
+        # So status is required to be defined before actual deletion
+        def _init_obj_stat(obj: ObjParam) -> ObjStatus:
+            ret = ObjStatus()
+            ret.name = obj.name
+            ret.status_code = RepoStatCode.ROGER
+            ret.insert_num = None
+            ret.delete_num = 0
+            return ret
+
+        # Note: stat is hold by reference
+        stat = RepoCommandRes()
+        stat.status_code = RepoStatCode.IN_PROGRESS
+        stat.objs = [_init_obj_stat(obj) for obj in objs]
+        self.m_processes[request_no] = stat
+
+        global_deleted = 0
+        global_succeeded = True
+        for i, obj in enumerate(objs):
+            name = obj.name
+            valid, start_id, end_id = normalize_block_ids(obj)
+            if not valid:
+                logging.warning('Delete command malformed')
+                stat.objs[i].status_code = RepoStatCode.MALFORMED
+                global_succeeded = False
+                continue
+
+            logging.debug(f'Proc del cmd {request_no.hex()} w/'
+                          f'name={Name.to_str(name)}, start={obj.start_block_id}, end={obj.end_block_id}')
+
+            # Start data deleting process
+            stat.objs[i].status_code = RepoStatCode.IN_PROGRESS
+
+            # If repo does not register root prefix, the client tells repo what to unregister
+            # TODO: It is probably improper to let the client remember which prefix is registered.
+            # When register_prefix differs from the insertion command, unexpected result may arise.
+            if obj.register_prefix:
+                register_prefix = obj.register_prefix.name
             else:
                 register_prefix = None
-            check_prefix = cmd_param.check_prefix.name
-        except AttributeError:
-            return
+            if register_prefix:
+                is_existing = CommandHandle.remove_registered_prefix_in_storage(self.storage, register_prefix)
+                if not self.register_root and is_existing:
+                    self.m_read_handle.unlisten(register_prefix)
 
-        logging.info(f'Delete handle processing delete command: {Name.to_str(name)}, {start_block_id}, {end_block_id}')
+            # Remember what files are removed
+            # TODO: Warning: this code comes from previous impl.
+            # When start_id and end_id differs from the insertion command, unexpected result may arise.
+            # Please do not let such case happen until we fix this problem.
+            CommandHandle.remove_inserted_filename_in_storage(self.storage, name)
 
-        # Reply to client with status code 100
-        self.m_processes[process_id] = RepoCommandResponse()
-        self.m_processes[process_id].process_id = process_id
-        self.m_processes[process_id].delete_num = 0
+            # Perform delete
+            if start_id is not None:
+                delete_num = await self._perform_storage_delete(name, start_id, end_id)
+            else:
+                delete_num = await self._delete_single_data(name)
+            logging.info(f'Deletion {request_no.hex()} name={Name.to_str(name)} finish:'
+                         f'{delete_num} deleted')
 
-        # If repo does not register root prefix, the client tells repo what to unregister
-        if register_prefix:
-            is_existing = CommandHandle.remove_registered_prefix_in_storage(self.storage, register_prefix)
-            if not self.register_root and is_existing:
-                self.m_read_handle.unlisten(register_prefix)
+            # Delete complete, update process state
+            stat.objs[i].status_code = RepoStatCode.COMPLETED
+            stat.objs[i].delete_num = delete_num
+            global_deleted += delete_num
 
-        # Remember what files are removed
-        CommandHandle.remove_inserted_filename_in_storage(self.storage, name)
-
-        # Perform delete
-        self.m_processes[process_id].status_code = 300
-        delete_num = await self._perform_storage_delete(name, start_block_id, end_block_id)
-        logging.info('Deletion success, {} items deleted'.format(delete_num))
-
-        # Delete complete, update process state
-        self.m_processes[process_id].status_code = 200
-        self.m_processes[process_id].delete_num = delete_num
+        # All fetches finished
+        logging.info(f'Deletion {request_no.hex()} done, total {global_deleted} deleted.')
+        if global_succeeded:
+            stat.status_code = RepoStatCode.COMPLETED
+        else:
+            stat.status_code = RepoStatCode.FAILED
 
         # Remove process state after some time
-        await self._delete_process_state_after(process_id, 60)
+        await self._delete_process_state_after(request_no, 60)
 
-    async def _perform_storage_delete(self, prefix, start_block_id: int, end_block_id: int) -> int:
+    async def _perform_storage_delete(self, prefix, start_block_id: int, end_block_id: Optional[int]) -> int:
         """
         Delete data packets between [start_block_id, end_block_id]. If end_block_id is None, delete
         all continuous data packets from start_block_id.
@@ -112,14 +152,37 @@ class DeleteCommandHandle(CommandHandle):
         :return: The number of data items deleted.
         """
         delete_num = 0
+        if end_block_id is None:
+            end_block_id = 2 ** 30  # TODO: For temp use; Should discover
         for idx in range(start_block_id, end_block_id + 1):
             key = prefix + [Component.from_segment(idx)]
-            if self.storage.get_data_packet(key) != None:
+            if self.storage.get_data_packet(key) is not None:
+                logging.debug(f'Data for key {Name.to_str(key)} to be deleted.')
                 self.storage.remove_data_packet(key)
                 delete_num += 1
             else:
                 # assume sequence numbers are continuous
+                logging.debug(f'Data for key {Name.to_str(key)} not found, break.')
                 break
             # Temporarily release control to make the process non-blocking
             await aio.sleep(0)
         return delete_num
+
+    # TODO: previous version only uses _perform_storage_delete
+    # I doubt if it properly worked. So need test for the current change.
+    # NOTE: this test cannot done by a client because
+    #  1) the prefix has been unregistered, so undeleted data become ghost.
+    #  2) the current client always uses segmented insertion/deletion
+    async def _delete_single_data(self, name) -> int:
+        """
+        Delete data packets between [start_block_id, end_block_id]. If end_block_id is None, delete
+        all continuous data packets from start_block_id.
+        :param name: The name of data to be deleted.
+        :return: The number of data items deleted.
+        """
+        if self.storage.get_data_packet(name) is not None:
+            self.storage.remove_data_packet(name)
+            await aio.sleep(0)
+            return 1
+        else:
+            return 0

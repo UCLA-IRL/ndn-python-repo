@@ -1,8 +1,9 @@
 import asyncio as aio
+from hashlib import sha256
 import logging
 from contextlib import suppress
 from ndn.encoding.tlv_var import parse_tl_num
-from ndn.encoding import Name, parse_data, NonStrictName
+from ndn.encoding import Name, Component, parse_data, NonStrictName
 from ndn.name_tree import NameTrie
 import time
 from typing import List, Optional
@@ -96,24 +97,32 @@ class Storage:
         :return: The value of the data packet.
         """
         name = Name.normalize(name)
-        # cache lookup
-        try:
-            if not can_be_prefix:
-                data, expire_time_ms = self.cache[name]
-                if not must_be_fresh or expire_time_ms > self._time_ms():
-                    logging.info('get from cache')
-                    return data
+        if Component.get_type(name[-1]) == Component.TYPE_IMPLICIT_SHA256:
+            data = self.get_data_packet(name[:-1], can_be_prefix, must_be_fresh)
+            if sha256(data).digest() == Component.get_value(name[-1]):
+                logging.info('Data digest matches the ImplicitSha256Digest')
+                return data
             else:
-                it = self.cache.itervalues(prefix=name, shallow=True)
-                while True:
-                    data, expire_time_ms = next(it)
+                raise ValueError("Data digest does not match ImplicitSha256Digest")
+        else:
+            # cache lookup
+            try:
+                if not can_be_prefix:
+                    data, expire_time_ms = self.cache[name]
                     if not must_be_fresh or expire_time_ms > self._time_ms():
                         logging.info('get from cache')
                         return data
-        # not in cache, lookup in storage
-        except (KeyError, StopIteration):
-            key = self._get_name_bytes_wo_tl(name)
-            return self._get(key, can_be_prefix, must_be_fresh)
+                else:
+                    it = self.cache.itervalues(prefix=name, shallow=True)
+                    while True:
+                        data, expire_time_ms = next(it)
+                        if not must_be_fresh or expire_time_ms > self._time_ms():
+                            logging.info('get from cache')
+                            return data
+            # not in cache, lookup in storage
+            except (KeyError, StopIteration):
+                key = self._get_name_bytes_wo_tl(name)
+                return self._get(key, can_be_prefix, must_be_fresh)
 
     def remove_data_packet(self, name: NonStrictName) -> bool:
         """

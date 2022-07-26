@@ -9,12 +9,12 @@ import os
 import sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
-import argparse
 import logging
+from typing import Optional
 from ndn.app import NDNApp
-from ndn.encoding import Name, NonStrictName, Component, TlvModel, DecodeError
+from ndn.encoding import Name, NonStrictName, DecodeError
 from ndn.types import InterestNack, InterestTimeout
-from ..command.repo_commands import RepoCommandParameter, RepoCommandResponse
+from ..command.repo_commands import RepoStatQuery, RepoCommandRes
 
 
 class CommandChecker(object):
@@ -26,48 +26,46 @@ class CommandChecker(object):
         """
         self.app = app
     
-    async def check_insert(self, repo_name: NonStrictName, process_id: int) -> RepoCommandResponse:
+    async def check_insert(self, repo_name: NonStrictName, request_no: bytes) -> RepoCommandRes:
         """
         Check the status of an insert process.
 
         :param repo_name: NonStrictName. The name of the remote repo.
-        :param process_id: int. The process id of the process to check.
+        :param request_no: bytes. The request id of the process to check.
         :return: The response from the repo.
         """
-        return await self._check('insert', repo_name, process_id)
+        return await self._check('insert', repo_name, request_no)
     
-    async def check_delete(self, repo_name, process_id: int) -> RepoCommandResponse:
+    async def check_delete(self, repo_name, request_no: bytes) -> RepoCommandRes:
         """
         Check the status of a delete process.
 
         :param repo_name: NonStrictName. The name of the remote repo.
-        :param process_id: int. The process id of the process to check.
+        :param request_no: bytes. The request id of the process to check.
         :return: The response from the repo.
         """
-        return await self._check('delete', repo_name, process_id)
+        return await self._check('delete', repo_name, request_no)
 
     async def _check(self, method: str, repo_name: NonStrictName,
-                     process_id: int) -> RepoCommandResponse:
+                     request_no: bytes) -> Optional[RepoCommandRes]:
         """
         Return parsed insert check response message.
 
         :param method: str. One of `insert` or `delete`.
         :param repo_name: NonStrictName. The name of the remote repo.
-        :param process_id: int. The process id of the process to check.
-        # TODO: Use command interests instead of regular interests
+        :param request_no: bytes. The request id of the process to check.
         """
-        cmd_param = RepoCommandParameter()
-        cmd_param.process_id = process_id
+        cmd_param = RepoStatQuery()
+        cmd_param.request_no = request_no
         cmd_param_bytes = cmd_param.encode()
 
-        name = repo_name[:]
-        name.append(method + ' check')
-        name.append(Component.from_bytes(cmd_param_bytes))
+        name = Name.normalize(repo_name)
+        name += Name.from_str(method + ' check')
 
         try:
             logging.info(f'Expressing interest: {Name.to_str(name)}')
             data_name, meta_info, content = await self.app.express_interest(
-                name, must_be_fresh=True, can_be_prefix=False, lifetime=1000)
+                name, cmd_param_bytes, must_be_fresh=True, can_be_prefix=False, lifetime=1000)
             logging.info(f'Received data name: {Name.to_str(data_name)}')
         except InterestNack as e:
             logging.info(f'Nacked with reason={e.reason}')
@@ -77,10 +75,11 @@ class CommandChecker(object):
             return None
 
         try:
-            cmd_response = RepoCommandResponse.parse(content)
+            cmd_response = RepoCommandRes.parse(content)
+            return cmd_response
         except DecodeError as exc:
-            logging.warning('Response blob decoding failed')
+            logging.warning(f'Response blob decoding failed for {exc}')
             return None
         except Exception as e:
             logging.warning(e)
-        return cmd_response
+            return None

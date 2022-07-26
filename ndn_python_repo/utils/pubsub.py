@@ -23,6 +23,9 @@ import os
 
 
 class PubSub(object):
+    # TODO: prefix has wrong type notation
+    # Probably Optional[FormalName]. Need investigation.
+    # Please do not call with unnormalized name.
     def __init__(self, app: NDNApp, prefix: NonStrictName=None, forwarding_hint: NonStrictName=None):
         """
         Initialize a ``PubSub`` instance with identity ``prefix`` and can be reached at \
@@ -45,6 +48,7 @@ class PubSub(object):
         self.topic_to_cb = NameTrie()
         self.nonce_processed = set()        # used by subscriber to de-duplicate notify interests
 
+    # prefix has wrong type notation. do not call with unnormalized name.
     def set_publisher_prefix(self, prefix: NonStrictName):
         """
         Set the identify of the publisher after initialization.
@@ -53,7 +57,8 @@ class PubSub(object):
         :param prefix: NonStrictName. The identity of this ``PubSub`` instance.
         """
         self.publisher_prefix = prefix
-    
+
+    # prefix has wrong type notation. do not call with unnormalized name.
     def set_base_prefix(self, prefix: NonStrictName):
         """
         Avoid registering too many prefixes, by registering ``prefix`` with NFD. All other prefixes\

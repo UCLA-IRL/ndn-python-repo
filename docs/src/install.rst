@@ -55,3 +55,11 @@ Compile the documentation with Sphinx:
     $ cd docs && pip3 install -r requirements.txt
     $ make html
     $ open _build/html/index.html
+
+Or one can use `Pipenv <https://pipenv.pypa.io/>`_ to run it:
+
+.. code-block:: bash
+
+    $ pipenv install --dev
+    $ pipenv run main   # This starts the repo as an app
+    $ pipenv run test   # Please nfd-start before running unit test
