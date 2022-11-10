@@ -66,12 +66,12 @@ def config_logging(config: dict):
 
     if not log_file:
         logging.basicConfig(format='[%(asctime)s]%(levelname)s:%(message)s',
-                            datefmt='%Y-%m-%d %H:%M:%S',
+                            # datefmt='%Y-%m-%d %H:%M:%S',
                             level=log_level)
     else:
         logging.basicConfig(filename=log_file,
                             format='[%(asctime)s]%(levelname)s:%(message)s',
-                            datefmt='%Y-%m-%d %H:%M:%S',
+                            # datefmt='%Y-%m-%d %H:%M:%S',
                             level=log_level)
 
 
