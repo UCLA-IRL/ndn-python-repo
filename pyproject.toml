@@ -1,0 +1,54 @@
+[tool.poetry]
+name = "ndn-python-repo"
+version = "0.3"
+description = "An NDN Repo implementation using Python"
+authors = ["Zhaoning Kong <jonnykong@cs.ucla.edu>"]
+license = "Apache-2.0"
+readme = "README.rst"
+homepage = "https://ndn-python-repo.readthedocs.io"
+repository = "https://github.com/UCLA-IRL/ndn-python-repo"
+documentation = "https://ndn-python-repo.readthedocs.io"
+keywords = ["NDN"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Topic :: Database",
+    "Topic :: Internet",
+    "Topic :: System :: Networking",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+]
+
+packages = [{include = "ndn_python_repo"}]
+include = [{ path = "tests", format = "sdist" }]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+python-ndn = "^0.3.post2"
+pyyaml = "^6.0"
+
+# Extra dependencies [dev]
+pytest = { version = "^7.1.2", optional = true }
+pytest-cov = { version = "^4.1.0", optional = true }
+plyvel = { version = "^1.5.0", optional = true }
+pymongo = { version = "^4.4.1", optional = true }
+pendulum = "^2.1.2"
+
+# Extra dependencies [docs]
+Sphinx = { version = "^7.1.2", optional = true }
+sphinx-rtd-theme = { version = "^1.3.0rc1", optional = true }
+sphinx-autodoc-typehints = { version = "^1.24.0", optional = true }
+
+[tool.poetry.extras]
+docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-autodoc-typehints"]
+dev = ["pytest", "pytest-cov", "plyvel", "pymongo"]
+
+[tool.poetry.scripts]
+ndn-python-repo = "ndn_python_repo.cmd.main:main"
+ndn-python-repo-install = "ndn_python_repo.cmd.install:main"
+ndn-python-repo-port = "ndn_python_repo.cmd.port:main"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
