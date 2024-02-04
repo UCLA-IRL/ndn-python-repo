@@ -33,33 +33,30 @@ It takes as input a repo-ng database file, reads the Data packets and pipe them 
 Instruction for developers
 --------------------------
 
-Setup virtual environment with editable installation:
+For development, `poetry <https://python-poetry.org/>`_ is recommended.
 
 .. code-block:: bash
 
-    $ python3 -m venv venv
-    $ . venv/bin/activate
-    $ pip3 install -e .
+    $ poetry install --all-extras
+
+To setup a traditional python3 virtual environment with editable installation:
+
+.. code-block:: bash
+
+    python3 -m venv venv
+    . venv/bin/activate
+    pip3 install -e ".[dev,docs]"
 
 Run all tests:
 
 .. code-block:: bash
 
-    $ pip3 install pytest
-    $ pytest
+    $ nfd-start
+    $ pytest tests
 
 Compile the documentation with Sphinx:
 
 .. code-block:: bash
 
-    $ cd docs && pip3 install -r requirements.txt
-    $ make html
-    $ open _build/html/index.html
-
-Or one can use `Pipenv <https://pipenv.pypa.io/>`_ to run it:
-
-.. code-block:: bash
-
-    $ pipenv install --dev
-    $ pipenv run main   # This starts the repo as an app
-    $ pipenv run test   # Please nfd-start before running unit test
+    $ poetry run make -C docs html
+    $ open docs/_build/html/index.html
