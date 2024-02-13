@@ -124,7 +124,7 @@ class WriteCommandHandle(CommandHandle):
                     self.m_read_handle.listen(register_prefix)
 
             # Remember the files inserted, this is useful for enumerating all inserted files
-            CommandHandle.add_inserted_filename_in_storage(self.storage, name)
+            # CommandHandle.add_inserted_filename_in_storage(self.storage, name)
 
             # Start data fetching process
             stat.objs[i].status_code = RepoStatCode.IN_PROGRESS

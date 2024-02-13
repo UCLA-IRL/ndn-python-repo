@@ -117,7 +117,7 @@ class DeleteCommandHandle(CommandHandle):
             # TODO: Warning: this code comes from previous impl.
             # When start_id and end_id differs from the insertion command, unexpected result may arise.
             # Please do not let such case happen until we fix this problem.
-            CommandHandle.remove_inserted_filename_in_storage(self.storage, name)
+            # CommandHandle.remove_inserted_filename_in_storage(self.storage, name)
 
             # Perform delete
             if start_id is not None:

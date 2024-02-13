@@ -30,10 +30,6 @@ jobs:
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v3
-      # - name: Setup node for the following actions
-      #   run: |
-      #     apt-get update && apt-get install -y software-properties-common npm
-      #     npm install npm@latest -g && npm install n -g && n latest
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v3
         with:

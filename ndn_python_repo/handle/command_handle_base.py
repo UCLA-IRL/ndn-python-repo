@@ -145,22 +145,3 @@ class CommandHandle(object):
         if ret:
             logging.info(f'Removed existing registered prefix from storage: {Name.to_str(prefix)}')
         return ret
-
-    # Wrapper for inserted filenames
-    @staticmethod
-    def add_inserted_filename_in_storage(storage: Storage, name):
-        ret = CommandHandle.add_name_to_set_in_storage('inserted_filenames', storage, name)
-        if ret:
-            logging.info(f'Added new inserted filename to storage: {Name.to_str(name)}')
-        return ret
-
-    @staticmethod
-    def get_inserted_filename_in_storage(storage: Storage):
-        return CommandHandle.get_name_from_set_in_storage('inserted_filenames', storage)
-
-    @staticmethod
-    def remove_inserted_filename_in_storage(storage: Storage, name):
-        ret = CommandHandle.remove_name_from_set_in_storage('inserted_filenames', storage, name)
-        if ret:
-            logging.info(f'Removed existing inserted filename from storage: {Name.to_str(name)}')
-        return ret
