@@ -32,7 +32,7 @@ include = [
 
 [tool.poetry.dependencies]
 python = "^3.10"
-python-ndn = "^0.4.1"
+python-ndn = "^0.4.2"
 pyyaml = "^6.0"
 pendulum = "^3.0.0"
 setuptools = "^69.0.0"
@@ -50,7 +50,7 @@ sphinx-autodoc-typehints = { version = "^1.24.0", optional = true }
 
 [tool.poetry.extras]
 docs = ["Sphinx", "sphinx-rtd-theme", "sphinx-autodoc-typehints"]
-dev = ["pytest", "pytest-cov", "plyvel", "pymongo"]
+dev = ["pytest", "pytest-cov", "pymongo"]
 leveldb = ["plyvel"]
 mongodb = ["pymongo"]
 
