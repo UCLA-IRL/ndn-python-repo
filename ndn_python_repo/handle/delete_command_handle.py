@@ -55,7 +55,7 @@ class DeleteCommandHandle(CommandHandle):
             if not cmd_param.objs:
                 raise DecodeError('Missing objects')
             for obj in cmd_param.objs:
-                if not obj.name:
+                if obj.name is None:
                     raise DecodeError('Missing name for one or more objects')
         except (DecodeError, IndexError) as exc:
             self.logger.warning(f'Parameter interest blob decoding failed w/ exception: {exc}')
