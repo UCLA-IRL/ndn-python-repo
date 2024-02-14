@@ -2,7 +2,8 @@ import os
 import platform
 import shutil
 import sys
-from pkg_resources import resource_filename
+# from pkg_resources import resource_filename
+import importlib.resources
 
 
 def install(source, destination):
@@ -12,9 +13,11 @@ def install(source, destination):
 def main():
     # systemd for linux
     if platform.system() == 'Linux':
-        source = resource_filename(__name__, '../ndn-python-repo.service')
+        resource = importlib.resources.files('ndn_python_repo').joinpath('ndn-python-repo.service')
+        # source = resource_filename(__name__, '../ndn-python-repo.service')
         destination = '/etc/systemd/system/'
-        install(source, destination)
+        with importlib.resources.as_file(resource) as source:
+            install(source, destination)
 
 
 if __name__ == "__main__":
