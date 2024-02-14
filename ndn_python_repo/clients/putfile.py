@@ -62,6 +62,7 @@ class PutfileClient(object):
         self.encoded_packets = {}
         self.pb = PubSub(self.app, self.prefix)
         self.pb.base_prefix = self.prefix
+        self.logger = logging.getLogger(__name__)
 
         # https://bugs.python.org/issue35219
         if platform.system() == 'Darwin':
@@ -76,12 +77,12 @@ class PutfileClient(object):
         :param name_at_repo: Name used to store file at repo
         """
         if not os.path.exists(file_path):
-            logging.error(f'file {file_path} does not exist')
+            self.logger.error(f'file {file_path} does not exist')
             return 0
         with open(file_path, 'rb') as binary_file:
             b_array = bytearray(binary_file.read())
         if len(b_array) == 0:
-            logging.warning("File is empty")
+            self.logger.warning("File is empty")
             return 0
 
         # use multiple threads to speed up creating TLV
@@ -98,19 +99,19 @@ class PutfileClient(object):
 
         with multiprocessing.Pool(processes=cpu_count) as p:
             self.encoded_packets[Name.to_str(name_at_repo)] = p.starmap(_create_packets, packet_params)
-        logging.info("Prepared {} data for {}".format(seg_cnt, Name.to_str(name_at_repo)))
+        self.logger.info("Prepared {} data for {}".format(seg_cnt, Name.to_str(name_at_repo)))
 
     def _on_interest(self, int_name, _int_param, _app_param):
         # use segment number to index into the encoded packets array
-        logging.info(f'On interest: {Name.to_str(int_name)}')
+        self.logger.info(f'On interest: {Name.to_str(int_name)}')
         seq = Component.to_number(int_name[-1])
         name_wo_seq = Name.to_str(int_name[:-1])
         if name_wo_seq in self.encoded_packets and seq >= 0 and seq < len(self.encoded_packets[name_wo_seq]):
             encoded_packets = self.encoded_packets[name_wo_seq]
             self.app.put_raw_packet(encoded_packets[seq])
-            logging.info(f'Serve data: {Name.to_str(int_name)}')
+            self.logger.info(f'Serve data: {Name.to_str(int_name)}')
         else:
-            logging.info(f'Data does not exist: {Name.to_str(int_name)}')
+            self.logger.info(f'Data does not exist: {Name.to_str(int_name)}')
 
     async def insert_file(self, file_path: str, name_at_repo: NonStrictName, segment_size: int,
                           freshness_period: int, cpu_count: int,
@@ -146,7 +147,7 @@ class PutfileClient(object):
             self.app.set_interest_filter(name_at_repo, self._on_interest)
         else:
             # Otherwise, register the file name as prefix for responding interests from the repo
-            logging.info(f'Register prefix for file upload: {Name.to_str(name_at_repo)}')
+            self.logger.info(f'Register prefix for file upload: {Name.to_str(name_at_repo)}')
             await self.app.register(name_at_repo, self._on_interest)
 
         # construct insert cmd msg
@@ -171,9 +172,9 @@ class PutfileClient(object):
         await self.pb.wait_for_ready()
         is_success = await self.pb.publish(self.repo_name + Name.from_str('insert'), cmd_param_bytes)
         if is_success:
-            logging.info('Published an insert msg and was acknowledged by a subscriber')
+            self.logger.info('Published an insert msg and was acknowledged by a subscriber')
         else:
-            logging.info('Published an insert msg but was not acknowledged by a subscriber')
+            self.logger.info('Published an insert msg but was not acknowledged by a subscriber')
 
         # wait until finish so that repo can finish fetching the data
         insert_num = 0
@@ -195,7 +196,7 @@ class PutfileClient(object):
         while n_retries > 0:
             response = await checker.check_insert(self.repo_name, request_no)
             if response is None:
-                logging.info(f'No response')
+                self.logger.info(f'No response')
                 n_retries -= 1
                 await aio.sleep(1)
             # might receive 404 if repo has not yet processed insert command msg
@@ -203,16 +204,16 @@ class PutfileClient(object):
                 n_retries -= 1
                 await aio.sleep(1)
             elif response.status_code == RepoStatCode.IN_PROGRESS:
-                logging.info(f'Insertion {request_no} in progress')
+                self.logger.info(f'Insertion {request_no} in progress')
                 await aio.sleep(1)
             elif response.status_code == RepoStatCode.COMPLETED:
                 insert_num = 0
                 for obj in response.objs:
                     insert_num += obj.insert_num
-                logging.info(f'Deletion request {request_no} complete, insert_num: {insert_num}')
+                self.logger.info(f'Deletion request {request_no} complete, insert_num: {insert_num}')
                 return insert_num
             elif response.status_code == RepoStatCode.FAILED:
-                logging.info(f'Deletion request {request_no} failed')
+                self.logger.info(f'Deletion request {request_no} failed')
             else:
                 # Shouldn't get here
-                logging.error(f'Received unrecognized status code {response.status_code}')
+                self.logger.error(f'Received unrecognized status code {response.status_code}')

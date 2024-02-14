@@ -19,12 +19,13 @@ class CommandHandle(object):
         self.storage = storage
         self.pb = pb
         self.m_processes = dict()
+        self.logger = logging.getLogger(__name__)
 
     async def listen(self, prefix: Name):
         raise NotImplementedError
 
     def _on_check_interest(self, int_name, _int_param, app_param):
-        logging.info('on_check_interest(): {}'.format(Name.to_str(int_name)))
+        self.logger.info('on_check_interest(): {}'.format(Name.to_str(int_name)))
 
         response = None
         request_no = None
@@ -38,12 +39,12 @@ class CommandHandle(object):
         except (DecodeError, IndexError, RuntimeError) as exc:
             response = RepoCommandRes()
             response.status_code = RepoStatCode.MALFORMED
-            logging.warning(f'Command blob decoding failed for exception {exc}')
+            self.logger.warning(f'Command blob decoding failed for exception {exc}')
 
         if response is None and request_no not in self.m_processes:
             response = RepoCommandRes()
             response.status_code = RepoStatCode.NOT_FOUND
-            logging.warning(f'Process does not exist for id={request_no}')
+            self.logger.warning(f'Process does not exist for id={request_no}')
 
         if response is None:
             self.reply_with_response(int_name, self.m_processes[request_no])
@@ -51,7 +52,7 @@ class CommandHandle(object):
             self.reply_with_response(int_name, response)
 
     def reply_with_response(self, int_name, response: RepoCommandRes):
-        logging.info(f'Reply to command: {Name.to_str(int_name)} w/ code={response.status_code}')
+        self.logger.info(f'Reply to command: {Name.to_str(int_name)} w/ code={response.status_code}')
         response_bytes = response.encode()
         self.app.put_data(int_name, response_bytes, freshness_period=1000)
 
@@ -132,7 +133,7 @@ class CommandHandle(object):
     def add_registered_prefix_in_storage(storage: Storage, prefix):
         ret = CommandHandle.add_name_to_set_in_storage('prefixes', storage, prefix)
         if not ret:
-            logging.info(f'Added new registered prefix to storage: {Name.to_str(prefix)}')
+            logging.getLogger(__name__).info(f'Added new registered prefix to storage: {Name.to_str(prefix)}')
         return ret
 
     @staticmethod
@@ -143,5 +144,5 @@ class CommandHandle(object):
     def remove_registered_prefix_in_storage(storage: Storage, prefix):
         ret = CommandHandle.remove_name_from_set_in_storage('prefixes', storage, prefix)
         if ret:
-            logging.info(f'Removed existing registered prefix from storage: {Name.to_str(prefix)}')
+            logging.getLogger(__name__).info(f'Removed existing registered prefix from storage: {Name.to_str(prefix)}')
         return ret

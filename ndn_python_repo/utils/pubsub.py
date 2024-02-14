@@ -47,6 +47,7 @@ class PubSub(object):
         self.published_data = NameTrie()    # name -> packet
         self.topic_to_cb = NameTrie()
         self.nonce_processed = set()        # used by subscriber to de-duplicate notify interests
+        self.logger = logging.getLogger(__name__)
 
     # prefix has wrong type notation. do not call with unnormalized name.
     def set_publisher_prefix(self, prefix: NonStrictName):
@@ -110,7 +111,7 @@ class PubSub(object):
 
         :param topic: NonStrictName. The topic to unsubscribe from.
         """
-        logging.info(f'unsubscribing topic: {Name.to_str(topic)}')
+        self.logger.info(f'unsubscribing topic: {Name.to_str(topic)}')
         topic = Name.normalize(topic)
         del self.topic_to_cb[topic]
 
@@ -124,7 +125,7 @@ class PubSub(object):
             the format of this message.
         :return: Return true if received response from a subscriber.
         """
-        logging.info(f'publishing a message to topic: {Name.to_str(topic)}')
+        self.logger.info(f'publishing a message to topic: {Name.to_str(topic)}')
         # generate a nonce for each message. Nonce is a random sequence of bytes
         nonce = os.urandom(4)
         # wrap msg in a data packet named /<publisher_prefix>/msg/<topic>/nonce
@@ -147,24 +148,24 @@ class PubSub(object):
         is_success = False
         while n_retries > 0:
             try:
-                logging.debug(f'sending notify interest: {Name.to_str(int_name)}')
+                self.logger.debug(f'sending notify interest: {Name.to_str(int_name)}')
                 _, _, _ = await self.app.express_interest(
                     int_name, app_param.encode(), must_be_fresh=False, can_be_prefix=False)
                 is_success = True
                 break
             except InterestNack as e:
-                logging.debug(f'Nacked with reason: {e.reason}')
+                self.logger.debug(f'Nacked with reason: {e.reason}')
                 await aio.sleep(1)
                 n_retries -= 1
             except InterestTimeout:
-                logging.debug(f'Timeout')
+                self.logger.debug(f'Timeout')
                 n_retries -= 1
 
         # if receiving notify response, the subscriber has finished fetching msg
         if is_success:
-            logging.debug(f'received notify response for: {data_name}')
+            self.logger.debug(f'received notify response for: {data_name}')
         else:
-            logging.debug(f'did not receive notify response for: {data_name}')
+            self.logger.debug(f'did not receive notify response for: {data_name}')
         await self._erase_publisher_state_after(data_name, 0)
         return is_success
 
@@ -177,10 +178,10 @@ class PubSub(object):
         to_register = topic + ['notify']
         if self.base_prefix != None and Name.is_prefix(self.base_prefix, to_register):
             self.app.set_interest_filter(to_register, self._on_notify_interest)
-            logging.info(f'Subscribing to topic (with interest filter): {Name.to_str(topic)}')
+            self.logger.info(f'Subscribing to topic (with interest filter): {Name.to_str(topic)}')
         else:
             await self.app.register(to_register, self._on_notify_interest)
-            logging.info(f'Subscribing to topic: {Name.to_str(topic)}')
+            self.logger.info(f'Subscribing to topic: {Name.to_str(topic)}')
 
     def _on_notify_interest(self, int_name, int_param, app_param):
         aio.ensure_future(self._process_notify_interest(int_name, int_param, app_param))
@@ -189,7 +190,7 @@ class PubSub(object):
         """
         Async helper for ``_on_notify_interest()``.
         """
-        logging.debug(f'received notify interest: {Name.to_str(int_name)}')
+        self.logger.debug(f'received notify interest: {Name.to_str(int_name)}')
         topic = int_name[:-2]   # remove digest and `notify`
 
         # parse notify interest
@@ -208,7 +209,7 @@ class PubSub(object):
 
         # de-duplicate notify interests of the same nonce
         if notify_nonce in self.nonce_processed:
-            logging.info(f'Received duplicate notify interest for nonce {notify_nonce}')
+            self.logger.info(f'Received duplicate notify interest for nonce {notify_nonce}')
             return
         self.nonce_processed.add(notify_nonce)
         aio.ensure_future(self._erase_subsciber_state_after(notify_nonce, 60))
@@ -216,26 +217,26 @@ class PubSub(object):
         msg = None
         while n_retries > 0:
             try:
-                logging.debug(f'sending msg interest: {Name.to_str(msg_int_name)}')
+                self.logger.debug(f'sending msg interest: {Name.to_str(msg_int_name)}')
                 data_name, meta_info, msg = await self.app.express_interest(
                     msg_int_name, int_param=int_param)
                 break
             except InterestNack as e:
-                logging.debug(f'Nacked with reason: {e.reason}')
+                self.logger.debug(f'Nacked with reason: {e.reason}')
                 await aio.sleep(1)
                 n_retries -= 1
             except InterestTimeout:
-                logging.debug(f'Timeout')
+                self.logger.debug(f'Timeout')
                 n_retries -= 1
         if msg == None:
             return
 
         # pass msg to application
-        logging.info(f'received subscribed msg: {Name.to_str(msg_int_name)}')
+        self.logger.info(f'received subscribed msg: {Name.to_str(msg_int_name)}')
         self.topic_to_cb[topic](bytes(msg))
 
         # acknowledge notify interest with an empty data packet
-        logging.debug(f'acknowledging notify interest {Name.to_str(int_name)}')
+        self.logger.debug(f'acknowledging notify interest {Name.to_str(int_name)}')
         self.app.put_data(int_name, None)
 
     def _on_msg_interest(self, int_name, int_param, app_param):
@@ -246,12 +247,12 @@ class PubSub(object):
         Async helper for ``_on_msg_interest()``.
         The msg interest has the format of ``/<publisher_prefix>/msg/<topic>/<nonce>``.
         """
-        logging.debug(f'received msg interest: {Name.to_str(int_name)}')
+        self.logger.debug(f'received msg interest: {Name.to_str(int_name)}')
         if int_name in self.published_data:
             self.app.put_raw_packet(self.published_data[int_name])
-            logging.debug(f'reply msg with name {Name.to_str(int_name)}')
+            self.logger.debug(f'reply msg with name {Name.to_str(int_name)}')
         else:
-            logging.debug(f'no matching msg with name {Name.to_str(int_name)}')
+            self.logger.debug(f'no matching msg with name {Name.to_str(int_name)}')
 
     async def _erase_publisher_state_after(self, name: NonStrictName, timeout: int):
         """
@@ -260,7 +261,7 @@ class PubSub(object):
         await aio.sleep(timeout)
         if name in self.published_data:
             del self.published_data[name]
-            logging.debug(f'erased state for data {Name.to_str(name)}')
+            self.logger.debug(f'erased state for data {Name.to_str(name)}')
 
     async def _erase_subsciber_state_after(self, notify_nonce: bytes, timeout: int):
         """

@@ -34,6 +34,7 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_block_id: i
     seq_to_data_packet = dict()           # Buffer for out-of-order delivery
     received_or_fail = aio.Event()
     name = Name.normalize(name)
+    logger = logging.getLogger(__name__)
 
     async def _retry(seq: int):
         """
@@ -52,20 +53,20 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_block_id: i
                 received_or_fail.set()
                 return
             try:
-                logging.info('Express Interest: {}'.format(Name.to_str(int_name)))
+                logger.info('Express Interest: {}'.format(Name.to_str(int_name)))
                 data_name, meta_info, content, data_bytes = await app.express_interest(
                     int_name, need_raw_packet=True, can_be_prefix=False, lifetime=1000, **kwargs)
 
                 # Save data and update final_id
-                logging.info('Received data: {}'.format(Name.to_str(data_name)))
+                logger.info('Received data: {}'.format(Name.to_str(data_name)))
                 seq_to_data_packet[seq] = (data_name, meta_info, content, data_bytes)
                 if meta_info is not None and meta_info.final_block_id is not None:
                     final_id = Component.to_number(meta_info.final_block_id)
                 break
             except InterestNack as e:
-                logging.info(f'Nacked with reason={e.reason}')
+                logger.info(f'Nacked with reason={e.reason}')
             except InterestTimeout:
-                logging.info(f'Timeout')
+                logger.info(f'Timeout')
         semaphore.release()
         received_or_fail.set()
 

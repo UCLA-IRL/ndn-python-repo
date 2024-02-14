@@ -25,6 +25,7 @@ class CommandChecker(object):
         :param app: NDNApp.
         """
         self.app = app
+        self.logger = logging.getLogger(__name__)
     
     async def check_insert(self, repo_name: NonStrictName, request_no: bytes) -> RepoCommandRes:
         """
@@ -63,23 +64,23 @@ class CommandChecker(object):
         name += Name.from_str(method + ' check')
 
         try:
-            logging.info(f'Expressing interest: {Name.to_str(name)}')
+            self.logger.info(f'Expressing interest: {Name.to_str(name)}')
             data_name, meta_info, content = await self.app.express_interest(
                 name, cmd_param_bytes, must_be_fresh=True, can_be_prefix=False, lifetime=1000)
-            logging.info(f'Received data name: {Name.to_str(data_name)}')
+            self.logger.info(f'Received data name: {Name.to_str(data_name)}')
         except InterestNack as e:
-            logging.info(f'Nacked with reason={e.reason}')
+            self.logger.info(f'Nacked with reason={e.reason}')
             return None
         except InterestTimeout:
-            logging.info(f'Timeout: {Name.to_str(name)}')
+            self.logger.info(f'Timeout: {Name.to_str(name)}')
             return None
 
         try:
             cmd_response = RepoCommandRes.parse(content)
             return cmd_response
         except DecodeError as exc:
-            logging.warning(f'Response blob decoding failed for {exc}')
+            self.logger.warning(f'Response blob decoding failed for {exc}')
             return None
         except Exception as e:
-            logging.warning(e)
+            self.logger.warning(e)
             return None

@@ -31,6 +31,7 @@ class DeleteCommandHandle(CommandHandle):
         self.m_read_handle = read_handle
         self.prefix = None
         self.register_root = config['repo_config']['register_root']
+        self.logger = logging.getLogger(__name__)
 
     async def listen(self, prefix: NonStrictName):
         """
@@ -57,7 +58,7 @@ class DeleteCommandHandle(CommandHandle):
                 if not obj.name:
                     raise DecodeError('Missing name for one or more objects')
         except (DecodeError, IndexError) as exc:
-            logging.warning(f'Parameter interest blob decoding failed w/ exception: {exc}')
+            self.logger.warning(f'Parameter interest blob decoding failed w/ exception: {exc}')
             return
         aio.create_task(self._process_delete(cmd_param, request_no))
 
@@ -66,7 +67,7 @@ class DeleteCommandHandle(CommandHandle):
         Process delete command.
         """
         objs = cmd_param.objs
-        logging.info(f'Recved delete command: {request_no.hex()}')
+        self.logger.info(f'Recved delete command: {request_no.hex()}')
 
         # Note that this function still has chance to switch coroutine in _perform_storage_delete.
         # So status is required to be defined before actual deletion
@@ -90,12 +91,12 @@ class DeleteCommandHandle(CommandHandle):
             name = obj.name
             valid, start_id, end_id = normalize_block_ids(obj)
             if not valid:
-                logging.warning('Delete command malformed')
+                self.logger.warning('Delete command malformed')
                 stat.objs[i].status_code = RepoStatCode.MALFORMED
                 global_succeeded = False
                 continue
 
-            logging.debug(f'Proc del cmd {request_no.hex()} w/'
+            self.logger.debug(f'Proc del cmd {request_no.hex()} w/'
                           f'name={Name.to_str(name)}, start={obj.start_block_id}, end={obj.end_block_id}')
 
             # Start data deleting process
@@ -124,7 +125,7 @@ class DeleteCommandHandle(CommandHandle):
                 delete_num = await self._perform_storage_delete(name, start_id, end_id)
             else:
                 delete_num = await self._delete_single_data(name)
-            logging.info(f'Deletion {request_no.hex()} name={Name.to_str(name)} finish:'
+            self.logger.info(f'Deletion {request_no.hex()} name={Name.to_str(name)} finish:'
                          f'{delete_num} deleted')
 
             # Delete complete, update process state
@@ -133,7 +134,7 @@ class DeleteCommandHandle(CommandHandle):
             global_deleted += delete_num
 
         # All fetches finished
-        logging.info(f'Deletion {request_no.hex()} done, total {global_deleted} deleted.')
+        self.logger.info(f'Deletion {request_no.hex()} done, total {global_deleted} deleted.')
         if global_succeeded:
             stat.status_code = RepoStatCode.COMPLETED
         else:
@@ -157,12 +158,12 @@ class DeleteCommandHandle(CommandHandle):
         for idx in range(start_block_id, end_block_id + 1):
             key = prefix + [Component.from_segment(idx)]
             if self.storage.get_data_packet(key) is not None:
-                logging.debug(f'Data for key {Name.to_str(key)} to be deleted.')
+                self.logger.debug(f'Data for key {Name.to_str(key)} to be deleted.')
                 self.storage.remove_data_packet(key)
                 delete_num += 1
             else:
                 # assume sequence numbers are continuous
-                logging.debug(f'Data for key {Name.to_str(key)} not found, break.')
+                self.logger.debug(f'Data for key {Name.to_str(key)} not found, break.')
                 break
             # Temporarily release control to make the process non-blocking
             await aio.sleep(0)
