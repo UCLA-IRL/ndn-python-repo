@@ -18,6 +18,7 @@ class TcpBulkInsertHandle(object):
             """
             TCP Bulk insertion client need to keep a reference to ReadHandle to register new prefixes.
             """
+            self.logger = logging.getLogger(__name__)
             self.reader = reader
             self.writer = writer
             self.storage = storage
@@ -28,7 +29,6 @@ class TcpBulkInsertHandle(object):
             self.reg_root = self.config['repo_config']['register_root']
             self.reg_prefix = self.config['tcp_bulk_insert']['register_prefix']
             self.prefixes = [Name.from_str(s) for s in prefix_strs]
-            self.logger = logging.getLogger(__name__)
             self.logger.info("New connection")
 
         async def handleReceive(self):
@@ -81,6 +81,8 @@ class TcpBulkInsertHandle(object):
         """
         TCP bulk insertion handle need to keep a reference to ReadHandle to register new prefixes.
         """
+        self.logger = logging.getLogger(__name__)
+
         async def run():
             self.server = await aio.start_server(self.startReceive, server_addr, server_port)
             addr = self.server.sockets[0].getsockname()
