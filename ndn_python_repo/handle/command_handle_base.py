@@ -1,9 +1,10 @@
 import asyncio as aio
 import logging
+import json
 from ndn.app import NDNApp
-from ndn.encoding import Name, NonStrictName, FormalName
+from ndn.encoding import Name, NonStrictName, FormalName, Component
 from ndn.encoding.tlv_model import DecodeError
-from typing import List
+from typing import List, Dict
 
 from ..command import RepoStatQuery, RepoCommandRes, RepoStatCode, RepeatedNames
 from ..storage import Storage
@@ -127,6 +128,23 @@ class CommandHandle(object):
         else:
             return False
 
+    # this will overwrite
+    @staticmethod
+    def add_dict_in_storage(dict_name: str, storage: Storage, dict: Dict) -> bool:
+        ret = storage._get(dict_name.encode('utf-8'))
+        dict_bytes = json.dumps(dict).encode('utf-8')
+        storage._put(dict_name.encode('utf-8'), dict_bytes)
+        return (ret is not None)
+
+    @staticmethod
+    def get_dict_in_storage(dict_name: str, storage: Storage) -> Dict:
+        res_bytes = storage._get(dict_name.encode('utf-8'))
+        return json.loads(res_bytes.decode('utf-8'))
+
+    @staticmethod
+    def remove_dict_in_storage(dict_name: str, storage: Storage) -> bool:
+        return storage._remove(dict_name.encode('utf-8'))
+
     # Wrapper for registered prefixes
     @staticmethod
     def add_registered_prefix_in_storage(storage: Storage, prefix):
@@ -163,4 +181,39 @@ class CommandHandle(object):
         ret = CommandHandle.remove_name_from_set_in_storage('inserted_filenames', storage, name)
         if ret:
             logging.info(f'Removed existing inserted filename from storage: {Name.to_str(name)}')
+        return ret
+
+    @staticmethod
+    def add_sync_states_in_storage(storage: Storage, sync_group: FormalName, states: Dict):
+        store_key = [Component.from_str('sync_states')] + sync_group
+        logging.info(f'Added new sync states to storage: {Name.to_str(sync_group)}')
+        return CommandHandle.add_dict_in_storage(Name.to_str(store_key), storage, states)
+
+    @staticmethod
+    def get_sync_states_in_storage(storage: Storage, sync_group: FormalName):
+        store_key = [Component.from_str('sync_states')] + sync_group
+        return CommandHandle.get_dict_in_storage(Name.to_str(store_key), storage)
+
+    @staticmethod
+    def remove_sync_states_in_storage(storage: Storage, sync_group: FormalName):
+        store_key = [Component.from_str('sync_states')] + sync_group
+        logging.info(f'Removed new sync states to storage: {Name.to_str(sync_group)}')
+        return CommandHandle.remove_dict_in_storage(Name.to_str(store_key), storage)
+    
+    @staticmethod
+    def add_sync_group_in_storage(storage: Storage, sync_group: FormalName):
+        ret = CommandHandle.add_name_to_set_in_storage('sync_groups', storage, sync_group)
+        if not ret:
+            logging.info(f'Added new sync group to storage: {Name.to_str(sync_group)}')
+        return ret
+
+    @staticmethod
+    def get_sync_groups_in_storage(storage: Storage):
+        return CommandHandle.get_name_from_set_in_storage('sync_groups', storage)
+
+    @staticmethod
+    def remove_sync_group_in_storage(storage: Storage, sync_group: FormalName):
+        ret = CommandHandle.remove_name_from_set_in_storage('sync_groups', storage, sync_group)
+        if ret:
+            logging.info(f'Removed existing sync_group from storage: {Name.to_str(sync_group)}')
         return ret

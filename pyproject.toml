@@ -15,7 +15,6 @@ classifiers = [
     "Topic :: Internet",
     "Topic :: System :: Networking",
     "License :: OSI Approved :: Apache Software License",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
 ]
 
@@ -23,8 +22,8 @@ packages = [{include = "ndn_python_repo"}]
 include = [{ path = "tests", format = "sdist" }]
 
 [tool.poetry.dependencies]
-python = "^3.9"
-python-ndn = "^0.3.post2"
+python = "^3.10"
+python-ndn = { git = "https://github.com/named-data/python-ndn"}
 pyyaml = "^6.0"
 
 # Extra dependencies [dev]

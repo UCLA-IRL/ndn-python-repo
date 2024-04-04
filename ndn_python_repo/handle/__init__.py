@@ -2,4 +2,5 @@ from .read_handle import ReadHandle
 from .command_handle_base import CommandHandle
 from .write_command_handle import WriteCommandHandle
 from .delete_command_handle import DeleteCommandHandle
+from .sync_command_handle import SyncCommandHandle
 from .tcp_bulk_insert_handle import TcpBulkInsertHandle

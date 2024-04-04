@@ -12,22 +12,32 @@ from ndn.types import InterestNack, InterestTimeout
 from ndn.encoding import Name, NonStrictName, Component
 from typing import Optional
 
+class IdNamingConv:
+    SEGMENT = 1
+    SEQUENCE = 2
+    NUMBER = 3
 
-async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_block_id: int,
-                             end_block_id: Optional[int], semaphore: aio.Semaphore, **kwargs):
+async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_id: int,
+                             end_id: Optional[int], semaphore: aio.Semaphore, **kwargs):
     """
-    An async-generator to fetch data packets between "`name`/`start_block_id`" and "`name`/`end_block_id`"\
+    An async-generator to fetch data packets between "`name`/`start_id`" and "`name`/`end_id`"\
         concurrently.
 
     :param app: NDNApp.
     :param name: NonStrictName. Name prefix of Data.
-    :param start_block_id: int. The start segment number.
-    :param end_block_id: Optional[int]. The end segment number. If not specified, continue fetching\
+    :param start_id: int. The start number.
+    :param end_id: Optional[int]. The end segment number. If not specified, continue fetching\
         until an interest receives timeout or nack or 3 times.
     :return: Yield ``(FormalName, MetaInfo, Content, RawPacket)`` tuples in order.
     """
-    cur_id = start_block_id
-    final_id = end_block_id if end_block_id is not None else 0x7fffffff
+    name_conv = IdNamingConv.SEGMENT
+    max_retries = 3
+    if 'name_conv' in kwargs:
+        name_conv = kwargs['name_conv']
+    if 'max_retries' in kwargs:
+        max_retries = kwargs['max_retries']
+    cur_id = start_id
+    final_id = end_id if end_id is not None else 0x7fffffff
     is_failed = False
     tasks = []
     recv_window = cur_id - 1
@@ -41,12 +51,20 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_block_id: i
         :param seq: block_id of data
         """
         nonlocal app, name, semaphore, is_failed, received_or_fail, final_id
-        int_name = name + [Component.from_segment(seq)]
-
+        if name_conv == IdNamingConv.SEGMENT:
+            int_name = name + [Component.from_segment(seq)]
+        elif name_conv == IdNamingConv.SEQUENCE:
+            int_name = name + [Component.from_sequence_num(seq)]
+        elif name_conv == IdNamingConv.NUMBER:
+            int_name = name + [Component.from_number(seq)]
+        else:
+            logging.error('Unrecognized naming convetion')
+            return
         trial_times = 0
         while True:
             trial_times += 1
-            if trial_times > 3:
+            # always retry when max_retries is -1
+            if max_retries >= 0 and trial_times > max_retries:
                 semaphore.release()
                 is_failed = True
                 received_or_fail.set()
@@ -59,7 +77,9 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_block_id: i
                 # Save data and update final_id
                 logging.info('Received data: {}'.format(Name.to_str(data_name)))
                 seq_to_data_packet[seq] = (data_name, meta_info, content, data_bytes)
-                if meta_info is not None and meta_info.final_block_id is not None:
+                if name_conv == IdNamingConv.SEGMENT and \
+                    meta_info is not None and \
+                    meta_info.final_block_id is not None:
                     final_id = Component.to_number(meta_info.final_block_id)
                 break
             except InterestNack as e:

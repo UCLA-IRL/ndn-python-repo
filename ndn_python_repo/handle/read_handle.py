@@ -18,6 +18,7 @@ class ReadHandle(object):
         self.app = app
         self.storage = storage
         self.register_root = config['repo_config']['register_root']
+        self.reply_to_must_be_fresh = config['repo_config']['reply_to_must_be_fresh']
         if self.register_root:
             self.listen(Name.from_str('/'))
 
@@ -40,7 +41,8 @@ class ReadHandle(object):
         """
         Repo should not respond to any interest with MustBeFresh flag set.
         """
-        if int_param.must_be_fresh:
+        if int_param.must_be_fresh and not self.reply_to_must_be_fresh:
+            logging.warn(f'Repo is configured to ignore Interests with MustBeFresh flag set: {Name.to_str(int_name)}')
             return
         data_bytes = self.storage.get_data_packet(int_name, int_param.can_be_prefix)
         if data_bytes == None:
