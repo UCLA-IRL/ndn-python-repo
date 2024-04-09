@@ -54,7 +54,7 @@ class SyncCommandHandle(CommandHandle):
         self.states_on_disk = states
         # recover sync
         for sync_group, group_states in self.states_on_disk.items():
-            new_svs = PassiveSvs(sync_group, lambda svs: aio.create_task(self.fetch_missing_data(svs)))
+            new_svs = PassiveSvs(sync_group, lambda svs: self.fetch_missing_data(svs))
             new_svs.decode_from_states(group_states['svs_client_states'])
             logging.info(f'Recover sync for {Name.to_str(sync_group)}')
             group_fetched_dict = group_states['fetched_dict']
