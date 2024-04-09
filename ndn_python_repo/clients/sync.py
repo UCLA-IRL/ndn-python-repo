@@ -45,7 +45,7 @@ class SyncClient(object):
             os.environ['OBJC_DISABLE_INITIALIZE_FORK_SAFETY'] = 'YES'
 
     async def join_sync(self, sync_prefix: NonStrictName, register_prefix: NonStrictName = None,
-                        data_name_dedupe: bool = False) -> bytes:
+                        data_name_dedupe: bool = False, reset: bool = False) -> bytes:
 
         # construct insert cmd msg
         cmd_param = RepoCommandParam()
@@ -53,6 +53,7 @@ class SyncClient(object):
         cmd_sync.sync_prefix = sync_prefix
         cmd_sync.register_prefix = register_prefix
         cmd_sync.data_name_dedupe = data_name_dedupe
+        cmd_sync.reset = reset
         
         cmd_param.sync_groups = [cmd_sync]
         cmd_param_bytes = bytes(cmd_param.encode())

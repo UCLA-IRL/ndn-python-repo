@@ -34,6 +34,9 @@ class SyncCommandHandle(CommandHandle):
         self.register_root = config['repo_config']['register_root']
         # sync specific states
         self.states_on_disk = {}
+        # runtime states
+        self.running_svs = {}
+        self.running_fetcher = {}
 
     async def listen(self, prefix: NonStrictName):
         """
@@ -57,6 +60,7 @@ class SyncCommandHandle(CommandHandle):
             group_fetched_dict = group_states['fetched_dict']
             logging.info(f'Sync progress: {group_fetched_dict}')
             new_svs.start(self.app)
+            self.running_svs[Name.to_str(sync_group)] = new_svs
 
     def _on_sync_msg(self, msg):
         try:
@@ -97,11 +101,31 @@ class SyncCommandHandle(CommandHandle):
         # start sync
         for idx, group in enumerate(groups):
             # check duplicate
-            if Name.to_str(group.sync_prefix) in self.states_on_disk:
-                logging.info(f'duplicate sync for : {Name.to_str(group.sync_prefix)}')
-                continue
-            new_svs = PassiveSvs(group.sync_prefix, lambda svs: aio.create_task(self.fetch_missing_data(svs)))
+            sync_prefix = Name.to_str(group.sync_prefix)
+            if sync_prefix in self.states_on_disk:
+                # if asking for reset
+                if group.reset:
+                    if sync_prefix in self.running_fetcher:
+                        for task in self.running_fetcher.pop(sync_prefix):
+                            task.cancel()
+                    if sync_prefix in self.running_svs:
+                        svs = self.running_svs[sync_prefix]
+                        # rebuild state vectors from actual storage
+                        group_states = self.states_on_disk[sync_prefix]
+                        svs.local_sv = group_states['fetched_dict']
+                        logging.info(f'Rebuild state vectors to: {svs.local_sv}')
+                        svs.inst_buffer = {}
+                        group_states['svs_client_states'] = svs.encode_into_states()
+                        CommandHandle.add_sync_states_in_storage(self.storage, group.sync_prefix, 
+                                                                 self.states_on_disk[sync_prefix])
+                    logging.info(f'Reset sync for: {sync_prefix}')
+                    continue
+                else:
+                    logging.info(f'Duplicate sync for: {sync_prefix}')
+                    continue
+            new_svs = PassiveSvs(group.sync_prefix, lambda svs: self.fetch_missing_data(svs))
             new_svs.start(self.app)
+            self.running_svs[sync_prefix] = new_svs
             # write states
             self.states_on_disk[Name.to_str(group.sync_prefix)] = {}
             new_states = self.states_on_disk[Name.to_str(group.sync_prefix)]
@@ -119,69 +143,53 @@ class SyncCommandHandle(CommandHandle):
             new_states['svs_client_states'] = new_svs.encode_into_states()
             CommandHandle.add_sync_states_in_storage(self.storage, group.sync_prefix, new_states)
             
-    async def fetch_missing_data(self, svs: PassiveSvs):
+    def fetch_missing_data(self, svs: PassiveSvs):
         local_sv = svs.local_sv.copy()
         for node_id, seq in local_sv.items():
-            group_states = self.states_on_disk[Name.to_str(svs.base_prefix)]
-            group_fetched_dict = group_states['fetched_dict']
-            group_data_name_dedupe = group_states['data_name_dedupe']
-            fetched_seq = group_fetched_dict.get(node_id, 0)
-            node_name = Name.from_str(node_id) + svs.base_prefix
-            if group_data_name_dedupe:
-                data_prefix = [i for n, i in enumerate(node_name) if i not in node_name[:n]]
-            else:
-                data_prefix = node_name
-            # I do not treat fetching failure as hard failure
-            if fetched_seq < seq:
-                async for (data_name, _, data_content, data_bytes) in (
-                    concurrent_fetcher(self.app, data_prefix,
-                                        start_id=fetched_seq+1, end_id=seq,
-                                        semaphore=aio.Semaphore(10),
-                                        name_conv = IdNamingConv.SEQUENCE,
-                                        max_retries = -1)):
-                    # put into storage asap
+            task = aio.create_task(self.node_fetcher(svs, node_id, seq))
+            self.running_fetcher[Name.to_str(svs.base_prefix)] = task
+
+    # this deals with specific producer. this function is blocking, until receiving all
+    # data (segments) from the producer
+    async def node_fetcher(self, svs, node_id, seq):
+        group_states = self.states_on_disk[Name.to_str(svs.base_prefix)]
+        group_fetched_dict = group_states['fetched_dict']
+        group_data_name_dedupe = group_states['data_name_dedupe']
+        fetched_seq = group_fetched_dict.get(node_id, 0)
+        node_name = Name.from_str(node_id) + svs.base_prefix
+        if group_data_name_dedupe:
+            data_prefix = [i for n, i in enumerate(node_name) if i not in node_name[:n]]
+        else:
+            data_prefix = node_name
+        # I do not treat fetching failure as hard failure
+        if fetched_seq < seq:
+            async for (data_name, _, data_content, data_bytes) in (
+                concurrent_fetcher(self.app, data_prefix,
+                                    start_id=fetched_seq+1, end_id=seq,
+                                    semaphore=aio.Semaphore(10),
+                                    name_conv = IdNamingConv.SEQUENCE,
+                                    max_retries = -1)):
+                # put into storage asap
+                self.storage.put_data_packet(data_name, data_bytes)
+                # not very sure the side effect
+                group_fetched_dict[node_id] = Component.to_number(data_name[-1])
+                logging.info(f'Sync progress: {group_fetched_dict}')
+                group_states['svs_client_states'] = svs.encode_into_states()
+                CommandHandle.add_sync_states_in_storage(self.storage, svs.base_prefix, group_states)
+                '''
+                Python-repo specific logic: if the data content contains a data name,
+                assuming the data object pointed by is segmented, and fetching all
+                data segments related to this object name
+                '''
+                try:
+                    _, _, inner_data_content, _ = parse_data(data_content)
+                    obj_pointer = Name.from_bytes(inner_data_content)
+                except (TypeError, IndexError, ValueError):
+                    logging.debug(f'Data does not include an object pointer, skip')
+                    continue
+                logging.info(f'Discovered a pointer, fetching data segments for {Name.to_str(obj_pointer)}')
+                async for (data_name, _, _, data_bytes) in (
+                    concurrent_fetcher(self.app, obj_pointer,
+                        start_id=0, end_id=None, semaphore=aio.Semaphore(10),
+                        max_retries = -1)):
                     self.storage.put_data_packet(data_name, data_bytes)
-                    # not very sure the side effect
-                    group_fetched_dict[node_id] = Component.to_number(data_name[-1])
-                    logging.info(f'Sync progress: {group_fetched_dict}')
-                    group_states['svs_client_states'] = svs.encode_into_states()
-                    CommandHandle.add_sync_states_in_storage(self.storage, svs.base_prefix, group_states)
-                    '''
-                    Python-repo specific logic: if the data content contains a data name,
-                    assuming the data object pointed by is a segmented, and fetching all
-                    data segments related to this object name
-                    '''
-                    try:
-                        _, _, inner_data_content, _ = parse_data(data_content)
-                        obj_pointer = Name.from_bytes(inner_data_content)
-                    except (TypeError, IndexError, ValueError):
-                        logging.debug(f'Data does not include an object pointer, skip')
-                        continue
-                    logging.info(f'Discovered a pointer, fetching data segments for {Name.to_str(obj_pointer)}')
-                    async for (data_name, _, _, data_bytes) in (
-                        concurrent_fetcher(self.app, obj_pointer,
-                            start_id=0, end_id=None, semaphore=aio.Semaphore(10))):
-                        self.storage.put_data_packet(data_name, data_bytes)
-    # async def fetch_single_data(self, pkt_name: NonStrictName,
-    #                             forwarding_hint: Optional[List[NonStrictName]] = None):
-    #     """
-    #     Fetch one Data packet.
-    #     :param name: NonStrictName.
-    #     :return:  Number of data packets fetched.
-    #     """
-    #     trial_times = 0
-    #     while True:
-    #         trial_times += 1
-    #         if trial_times > 30:
-    #             logging.info(f'Interest {Name.to_str(pkt_name)} running out of retries')
-    #             return None, None
-    #         try:
-    #             _, _, data_content, data_bytes = await self.app.express_interest(
-    #                 pkt_name, need_raw_packet=True, can_be_prefix=False, lifetime=500,
-    #                 forwarding_hint=forwarding_hint)
-    #             return data_content, data_bytes
-    #         except InterestNack as e:
-    #             logging.info(f'Interest {Name.to_str(pkt_name)} Nacked with reason={e.reason}')
-    #             return None, None
-    #         except InterestTimeout:
-    #             pass

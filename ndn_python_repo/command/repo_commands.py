@@ -25,6 +25,7 @@ class RepoTypeNumber:
     SYNC_PARAM = 401
     SYNC_RESULT = 402
     SYNC_DATA_NAME_DEDUPE = 403
+    SYNC_RESET = 404
 
 class RepoStatCode:
     # 100 has not been used by previous code, but defined and documented.
@@ -57,6 +58,7 @@ class SyncParam(enc.TlvModel):
     sync_prefix = enc.NameField()
     register_prefix = enc.NameField()
     data_name_dedupe = enc.BoolField(RepoTypeNumber.SYNC_DATA_NAME_DEDUPE)
+    reset = enc.BoolField(RepoTypeNumber.SYNC_RESET)
     # forwarding_hint = enc.ModelField(RepoTypeNumber.FORWARDING_HINT, enc.Links)
     # sync_prefix = enc.ModelField(RepoTypeNumber.REGISTER_PREFIX, EmbName)
 

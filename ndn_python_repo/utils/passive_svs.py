@@ -138,4 +138,8 @@ class PassiveSvs:
         self.running = True
         self.ndn_app = ndn_app
         self.ndn_app.route(self.base_prefix, need_raw_packet=True)(self.sync_handler)
-    
+    def stop(self):
+        if not self.running:
+            return
+        self.running = False
+        self.ndn_app.unregister(self.base_prefix)
