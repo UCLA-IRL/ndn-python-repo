@@ -58,11 +58,28 @@ class SyncClient(object):
         cmd_param.sync_groups = [cmd_sync]
         cmd_param_bytes = bytes(cmd_param.encode())
 
-        # publish msg to repo's insert topic
+        # publish msg to repo's join topic
         await self.pb.wait_for_ready()
-        is_success = await self.pb.publish(self.repo_name + Name.from_str('sync'), cmd_param_bytes)
+        is_success = await self.pb.publish(self.repo_name + Name.from_str('sync/join'), cmd_param_bytes)
         if is_success:
-            logging.info('Published an insert msg and was acknowledged by a subscriber')
+            logging.info('Published an join msg and was acknowledged by a subscriber')
         else:
-            logging.info('Published an insert msg but was not acknowledged by a subscriber')
+            logging.info('Published an join msg but was not acknowledged by a subscriber')
+        return sha256(cmd_param_bytes).digest()
+
+    async def leave_sync(self, sync_prefix: NonStrictName) -> bytes:
+        # construct insert cmd msg
+        cmd_param = RepoCommandParam()
+        cmd_sync = SyncParam()
+        cmd_sync.sync_prefix = sync_prefix
+        cmd_param.sync_groups = [cmd_sync]
+        cmd_param_bytes = bytes(cmd_param.encode())
+
+        # publish msg to repo's leave topic
+        await self.pb.wait_for_ready()
+        is_success = await self.pb.publish(self.repo_name + Name.from_str('sync/leave'), cmd_param_bytes)
+        if is_success:
+            logging.info('Published an leave msg and was acknowledged by a subscriber')
+        else:
+            logging.info('Published an leave msg but was not acknowledged by a subscriber')
         return sha256(cmd_param_bytes).digest()

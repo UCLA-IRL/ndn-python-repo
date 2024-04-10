@@ -48,7 +48,10 @@ class SyncCommandHandle(CommandHandle):
         self.prefix = Name.normalize(prefix)
 
         # subscribe to sync messages
-        self.pb.subscribe(self.prefix + Name.from_str('sync'), self._on_sync_msg)
+        self.pb.subscribe(self.prefix + Name.from_str('sync/join'), self._on_sync_msg)
+
+        # subscribe to leave messages
+        self.pb.subscribe(self.prefix + Name.from_str('sync/leave'), self._on_leave_msg)
 
     def recover_from_states(self, states: Dict):
         self.states_on_disk = states
@@ -71,10 +74,27 @@ class SyncCommandHandle(CommandHandle):
             for group in cmd_param.sync_groups:
                 if not group.sync_prefix:
                     raise DecodeError('Missing name for one or more sync groups')
+                if group.register_prefix:
+                    if Name.to_str(group.sync_prefix) == Name.to_str(group.register_prefix):
+                        raise DecodeError('Sync prefix and register prefix cannot be the same')
         except (DecodeError, IndexError) as exc:
             logging.warning(f'Parameter interest blob decoding failed w/ exception: {exc}')
             return
         aio.create_task(self._process_sync(cmd_param, request_no))
+
+    def _on_leave_msg(self, msg):
+        try:
+            cmd_param = RepoCommandParam.parse(msg)
+            request_no = sha256(bytes(msg)).digest()
+            if not cmd_param.sync_groups:
+                raise DecodeError('Missing sync groups')
+            for group in cmd_param.sync_groups:
+                if not group.sync_prefix:
+                    raise DecodeError('Missing name for one or more sync groups')
+        except (DecodeError, IndexError) as exc:
+            logging.warning(f'Parameter interest blob decoding failed w/ exception: {exc}')
+            return
+        aio.create_task(self._process_leave(cmd_param, request_no))
 
     async def _process_sync(self, cmd_param: RepoCommandParam, request_no: bytes):
         """
@@ -135,15 +155,52 @@ class SyncCommandHandle(CommandHandle):
             new_states['check_status'] = {}
             # Remember the prefixes to register
             if group.register_prefix:
+                new_states['register_prefix'] = Name.to_str(group.register_prefix)
                 is_existing = CommandHandle.add_registered_prefix_in_storage(self.storage, group.register_prefix)
                 # If repo does not register root prefix, the client tells repo what to register
                 if not self.register_root and not is_existing:
                     self.m_read_handle.listen(group.register_prefix)
+            else:
+                new_states['register_prefix'] = None
             CommandHandle.add_sync_group_in_storage(self.storage, group.sync_prefix)
             new_states['svs_client_states'] = new_svs.encode_into_states()
             CommandHandle.add_sync_states_in_storage(self.storage, group.sync_prefix, new_states)
-            
+
+    async def _process_leave(self, cmd_param: RepoCommandParam, request_no: bytes):
+        groups = cmd_param.sync_groups
+        logging.info(f'Recved leave command: {request_no.hex()}')
+
+        for idx, group in enumerate(groups):
+            sync_prefix = Name.to_str(group.sync_prefix)
+            if sync_prefix in self.states_on_disk:
+                states = self.states_on_disk[sync_prefix]
+                logging.info(f'Leaving sync for: {sync_prefix}')
+                if sync_prefix in self.running_fetcher:
+                    for task in self.running_fetcher.pop(sync_prefix):
+                        task.cancel()
+
+                if sync_prefix in self.running_svs:
+                    svs = self.running_svs.pop(sync_prefix)
+                    await svs.stop()
+
+                # Unregister prefix
+                if states['register_prefix']:
+                    register_prefix = Name.from_str(states['register_prefix'])
+                    CommandHandle.remove_registered_prefix_in_storage(self.storage, Name.from_str(states['register_prefix']))
+                    if not self.register_root:
+                        self.m_read_handle.unlisten(register_prefix)
+
+                CommandHandle.remove_sync_states_in_storage(self.storage, group.sync_prefix)
+                CommandHandle.remove_sync_group_in_storage(self.storage, group.sync_prefix)
+
+                self.states_on_disk.pop(sync_prefix)
+            else:
+                logging.info(f'Leaving sync group that does not exist: {sync_prefix}')
+
     def fetch_missing_data(self, svs: PassiveSvs):
+        if not svs.running:
+            return
+
         local_sv = svs.local_sv.copy()
         for node_id, seq in local_sv.items():
             task = aio.create_task(self.node_fetcher(svs, node_id, seq))

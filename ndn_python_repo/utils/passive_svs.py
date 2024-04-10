@@ -10,7 +10,8 @@ from base64 import b64decode, b64encode
 from typing import Dict, Callable
 from ndn.app import NDNApp
 from ndn.app_support.svs import StateVecWrapper, SvsState
-from ndn.encoding import Name, NonStrictName, DecodeError, FormalName, BinaryStr, InterestParam, parse_interest, parse_tl_num, UintField
+from ndn.encoding import Name, NonStrictName, DecodeError, FormalName, BinaryStr, InterestParam, parse_interest, \
+    parse_tl_num, UintField
 from ndn.encoding.ndn_format_0_3 import TypeNumber
 from ndn.utils import gen_nonce
 
@@ -20,6 +21,7 @@ Called when there is a missing event.
 MUST BE NON-BLOCKING. Therefore, it is not allowed to fetch the missing data in this callback.
 It can start a task or trigger a signal to fetch missing data.
 """
+
 
 class PassiveSvs:
     base_prefix: FormalName
@@ -49,14 +51,13 @@ class PassiveSvs:
         states['local_sv'] = self.local_sv
         states['inst_buffer'] = inst_buffer_enc
         return states
-        
+
     def decode_from_states(self, states: Dict):
         inst_buffer_dec = {}
         for nid, inst in states['inst_buffer'].items():
             inst_buffer_dec[nid] = b64decode(inst)
         self.local_sv = states['local_sv']
         self.inst_buffer = inst_buffer_dec
-
 
     def send_interest(self, interest_wire):
         final_name, interest_param, _, _ = parse_interest(interest_wire)
@@ -67,7 +68,7 @@ class PassiveSvs:
             typ, typ_len = parse_tl_num(interest_wire[wire_ptr:], 0)
             size, siz_len = parse_tl_num(interest_wire[wire_ptr:], typ_len)
             if typ != TypeNumber.NONCE or typ_len != 1 or \
-               size != 4 or siz_len != 1:
+                    size != 4 or siz_len != 1:
                 wire_ptr += 1
                 continue
             else:
@@ -132,14 +133,17 @@ class PassiveSvs:
                 self.send_interest(raw_inst)
         if need_fetch:
             self.on_missing_data(self)
+
     def start(self, ndn_app: NDNApp):
         if self.running:
             raise RuntimeError(f'Sync is already running @[{Name.to_str(self.base_prefix)}]')
         self.running = True
         self.ndn_app = ndn_app
         self.ndn_app.route(self.base_prefix, need_raw_packet=True)(self.sync_handler)
-    def stop(self):
+
+    async def stop(self):
         if not self.running:
             return
         self.running = False
-        self.ndn_app.unregister(self.base_prefix)
+        await self.ndn_app.unregister(self.base_prefix)
+        self.logger.info("Passive SVS stopped.")
