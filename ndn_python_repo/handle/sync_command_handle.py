@@ -175,7 +175,6 @@ class SyncCommandHandle(CommandHandle):
             if sync_prefix in self.states_on_disk:
                 states = self.states_on_disk[sync_prefix]
                 logging.info(f'Leaving sync for: {sync_prefix}')
-                logging.info(f'Dict: {states}')
                 if sync_prefix in self.running_fetcher:
                     for task in self.running_fetcher.pop(sync_prefix):
                         task.cancel()
