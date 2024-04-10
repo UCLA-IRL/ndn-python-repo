@@ -173,8 +173,28 @@ class SyncCommandHandle(CommandHandle):
         for idx, group in enumerate(groups):
             sync_prefix = Name.to_str(group.sync_prefix)
             if sync_prefix in self.states_on_disk:
+                states = self.states_on_disk[sync_prefix]
                 logging.info(f'Leaving sync for: {sync_prefix}')
-                logging.info(f'Dict: {self.states_on_disk[sync_prefix]}')
+                logging.info(f'Dict: {states}')
+                if sync_prefix in self.running_fetcher:
+                    for task in self.running_fetcher.pop(sync_prefix):
+                        task.cancel()
+
+                if sync_prefix in self.running_svs:
+                    svs = self.running_svs.pop(sync_prefix)
+                    svs.stop()
+
+                # Unregister prefix
+                if states['register_prefix']:
+                    register_prefix = Name.from_str(states['register_prefix'])
+                    CommandHandle.remove_registered_prefix_in_storage(self.storage, Name.from_str(states['register_prefix']))
+                    if not self.register_root:
+                        self.m_read_handle.unlisten(register_prefix)
+
+                CommandHandle.remove_sync_states_in_storage(self.storage, group.sync_prefix)
+                CommandHandle.remove_sync_group_in_storage(self.storage, group.sync_prefix)
+
+                self.states_on_disk.pop(sync_prefix)
             else:
                 logging.info(f'Leaving sync group that does not exist: {sync_prefix}')
 
