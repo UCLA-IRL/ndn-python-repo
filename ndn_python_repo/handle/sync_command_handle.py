@@ -182,7 +182,7 @@ class SyncCommandHandle(CommandHandle):
 
                 if sync_prefix in self.running_svs:
                     svs = self.running_svs.pop(sync_prefix)
-                    svs.stop()
+                    await svs.stop()
 
                 # Unregister prefix
                 if states['register_prefix']:
@@ -199,6 +199,9 @@ class SyncCommandHandle(CommandHandle):
                 logging.info(f'Leaving sync group that does not exist: {sync_prefix}')
 
     def fetch_missing_data(self, svs: PassiveSvs):
+        if not svs.running:
+            return
+
         local_sv = svs.local_sv.copy()
         for node_id, seq in local_sv.items():
             task = aio.create_task(self.node_fetcher(svs, node_id, seq))
