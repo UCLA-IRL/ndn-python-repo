@@ -13,3 +13,5 @@ about the sync group from repo storage.
 
 3. The repo leaves the sync group, removing sync information from disk. The repo no longer listens to the originally
    specified register prefix.
+
+  * Note that any already-stored data packets that were received prior to leaving the sync group are *not* deleted.
