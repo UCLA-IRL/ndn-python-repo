@@ -17,6 +17,7 @@ db_config:
   leveldb:
     'dir': '~/.ndn/ndn-python-repo/leveldb/'      # directory to leveldb database files
   mongodb:
+    'uri': 'mongodb://127.0.0.1:27017/'
     'db': 'repo'
     'collection': 'data'
 

@@ -37,7 +37,8 @@ def create_storage(config):
         elif db_type == 'mongodb':
             db_name = config[db_type]['db']
             db_collection = config[db_type]['collection']
-            ret = MongoDBStorage(db_name, db_collection)
+            db_uri = config[db_type]['uri']
+            ret = MongoDBStorage(db_name, db_collection, db_uri)
         else:
             raise NameError()
 

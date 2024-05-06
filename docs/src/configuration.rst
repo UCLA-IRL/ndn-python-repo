@@ -66,6 +66,7 @@ To use non-default databases, perform the following steps:
 
       # only the chosen db's config will be read
       mongodb:
+        'uri': 'mongodb://127.0.0.1:27017/'
         'db': 'repo'
         'collection': 'data'
 
