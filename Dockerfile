@@ -4,5 +4,9 @@ COPY . /repo
 
 RUN pip install --disable-pip-version-check -e /repo
 
+ENV HOME=/config
+VOLUME /config
+VOLUME /run/nfd
+
 ENTRYPOINT ["/usr/local/bin/ndn-python-repo"]
 CMD ["-c", "/config/repo.conf"]
