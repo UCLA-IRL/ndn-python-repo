@@ -9,6 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
+  attestations: write
   packages: write
   id-token: write
 
