@@ -110,6 +110,7 @@ class PassiveSvs:
 
         need_fetch = False
         for rsv_id, rsv_seq in rsv_dict.items():
+            already_sent = []
             lsv_seq = self.local_sv.get(rsv_id, 0)
             if lsv_seq < rsv_seq:
                 # Remote is latest
@@ -121,7 +122,10 @@ class PassiveSvs:
                 # Local is latest
                 self.logger.debug(f'Outdated remote on: [{Name.to_str(rsv_id)}]: {rsv_seq} < {lsv_seq}')
                 raw_inst = self.inst_buffer[rsv_id]
-                self.send_interest(raw_inst)
+                if raw_inst not in already_sent:
+                    already_sent.append(raw_inst)
+                    self.send_interest(raw_inst)
+                else: pass
 
         # Notify remote there are mising nodes
         diff = self.local_sv.keys() - rsv_dict.keys()
