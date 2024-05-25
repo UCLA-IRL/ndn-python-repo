@@ -1,14 +1,14 @@
 # -----------------------------------------------------------------------------
 # Concurrent segment fetcher.
 #
-# @Author jonnykong@cs.ucla.edu
-# @Date   2019-10-15
+# @Author jonnykong@cs.ucla.edu tianyuan@cs.ucla.edu
+# @Date   2024-05-24
 # -----------------------------------------------------------------------------
 
 import asyncio as aio
 import logging
 from ndn.app import NDNApp
-from ndn.types import InterestNack, InterestTimeout
+from ndn.types import InterestNack, InterestTimeout, InterestCanceled
 from ndn.encoding import Name, NonStrictName, Component
 from typing import Optional
 
@@ -76,16 +76,32 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_id: int,
 
                 # Save data and update final_id
                 logging.info('Received data: {}'.format(Name.to_str(data_name)))
-                seq_to_data_packet[seq] = (data_name, meta_info, content, data_bytes)
                 if name_conv == IdNamingConv.SEGMENT and \
                     meta_info is not None and \
                     meta_info.final_block_id is not None:
+                    # we need to change final block id before yielding packets,
+                    # preventing window moving beyond the final block id
                     final_id = Component.to_number(meta_info.final_block_id)
+
+                    # cancel the Interests for non-existing data
+                    for task in aio.all_tasks():
+                        task_name = task.get_name()
+                        task_num = None
+                        try:
+                            task_num = int(task_name)
+                        except: continue
+                        if task_num and task_num > final_id:
+                            tasks.remove(task)
+                            task.cancel()
+                seq_to_data_packet[seq] = (data_name, meta_info, content, data_bytes)
                 break
             except InterestNack as e:
-                logging.info(f'Nacked with reason={e.reason}')
+                logging.info(f'Interest {Name.to_str(int_name)} nacked with reason={e.reason}')
             except InterestTimeout:
-                logging.info(f'Timeout')
+                logging.info(f'Interest {Name.to_str(int_name)} timeout')
+            except InterestCanceled as e:
+                logging.info(f'Interest {Name.to_str(int_name)} (might legally) cancelled')
+                return
         semaphore.release()
         received_or_fail.set()
 
@@ -96,11 +112,19 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_id: int,
         nonlocal semaphore, tasks, cur_id, final_id, is_failed
         while cur_id <= final_id:
             await semaphore.acquire()
+            # in case final_id has been updated while waiting semaphore
+            # typically happened after the first round trip when we update 
+            # the actual final_id with the final block id obtained from data.
+            if cur_id > final_id:
+                # giving back the semaphore
+                semaphore.release()
+                break
             if is_failed:
                 received_or_fail.set()
                 semaphore.release()
                 break
             task = aio.get_event_loop().create_task(_retry(cur_id))
+            task.set_name(cur_id)
             tasks.append(task)
             cur_id += 1
 
