@@ -35,7 +35,7 @@ python = "^3.10"
 python-ndn = "^0.4.2"
 pyyaml = "^6.0"
 pendulum = "^3.0.0"
-setuptools = "^69.0.0"
+setuptools = ">=69,<71"
 
 # Extra dependencies [dev]
 pytest = { version = "^8.0.0", optional = true }
