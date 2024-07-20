@@ -118,38 +118,38 @@ class TestSqliteStorage(StorageTestFixture):
         StorageTestFixture.test_main(tmp_path)
 
 
-# Unit tests for optional DBs only if they can be successfully imported
-class TestLevelDBStorage(StorageTestFixture):
-    """
-    Test LevelDBStorage
-    """
-    @staticmethod
-    def test_main(tmp_path):
-        aio.run(TestLevelDBStorage.body(tmp_path))
+# # Unit tests for optional DBs only if they can be successfully imported
+# class TestLevelDBStorage(StorageTestFixture):
+#     """
+#     Test LevelDBStorage
+#     """
+#     @staticmethod
+#     def test_main(tmp_path):
+#         aio.run(TestLevelDBStorage.body(tmp_path))
 
-    @classmethod
-    async def body(cls, tmp_path):
-        try:
-            from ndn_python_repo.storage import LevelDBStorage
-        except ImportError as exc:
-            return
-        StorageTestFixture.storage = LevelDBStorage(tmp_path)
-        StorageTestFixture.test_main(tmp_path)
+#     @classmethod
+#     async def body(cls, tmp_path):
+#         try:
+#             from ndn_python_repo.storage import LevelDBStorage
+#         except ImportError as exc:
+#             return
+#         StorageTestFixture.storage = LevelDBStorage(tmp_path)
+#         StorageTestFixture.test_main(tmp_path)
 
 
-class TestMongoDBStorage(StorageTestFixture):
-    """
-    Test MongoDBStorage
-    """
-    @staticmethod
-    def test_main(tmp_path):
-        aio.run(TestMongoDBStorage.body(tmp_path))
+# class TestMongoDBStorage(StorageTestFixture):
+#     """
+#     Test MongoDBStorage
+#     """
+#     @staticmethod
+#     def test_main(tmp_path):
+#         aio.run(TestMongoDBStorage.body(tmp_path))
 
-    @classmethod
-    async def body(cls, tmp_path):
-        try:
-            from ndn_python_repo.storage import MongoDBStorage
-        except ImportError as exc:
-            return
-        StorageTestFixture.storage = MongoDBStorage('_test_db', '_test_collection')
-        StorageTestFixture.test_main(tmp_path)
+#     @classmethod
+#     async def body(cls, tmp_path):
+#         try:
+#             from ndn_python_repo.storage import MongoDBStorage
+#         except ImportError as exc:
+#             return
+#         StorageTestFixture.storage = MongoDBStorage('_test_db', '_test_collection')
+#         StorageTestFixture.test_main(tmp_path)

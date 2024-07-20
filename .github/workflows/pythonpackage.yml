@@ -8,39 +8,39 @@ on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     # The type of runner that the job will run on
     runs-on: ${{ matrix.os }}
-    
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-18.04, ubuntu-20.04]
-        python-version: ['3.9', '3.10', 'pypy-3.9']
+        os: [ubuntu-latest]
+        python-version: ['3.12', 'pypy-3.10']
+
+    services:
+      nfd:
+        image: ghcr.io/named-data/nfd:latest
+        volumes:
+        - /run/nfd:/run/nfd
 
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v3
-      
-      - name: Set up Python
-        uses: actions/setup-python@v3
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install libboost-all-dev python3-setuptools
-          git clone --depth=1 --recursive --branch ndn-cxx-0.8.0 https://github.com/named-data/ndn-cxx.git
-          cd ndn-cxx
-          sudo ./waf configure && sudo ./waf && sudo ./waf install && cd ..
-          git clone --depth=1 --recursive --branch NFD-22.02 https://github.com/named-data/NFD.git && cd NFD
-          sudo ./waf configure --without-libpcap --without-websocket && sudo ./waf && sudo ./waf install && cd ..
-          sudo ldconfig
-          ndnsec-key-gen test
-          sudo nfd start -c /usr/local/etc/ndn/nfd.conf.sample &
-          pip3 install pytest
-          pip3 install wheel
-          pip3 install .
+          python -m pip install --upgrade pip
+          pip3 install ".[dev]"
+      - name: Setup PIB and TPM
+        run: |
+          pyndnsec Init-Pib
+          pyndnsec New-Item /test
       - name: Run tests
-        run: pytest
+        run: pytest tests

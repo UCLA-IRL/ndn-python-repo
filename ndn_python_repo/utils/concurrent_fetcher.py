@@ -44,6 +44,7 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_id: int,
     seq_to_data_packet = dict()           # Buffer for out-of-order delivery
     received_or_fail = aio.Event()
     name = Name.normalize(name)
+    logger = logging.getLogger(__name__)
 
     async def _retry(seq: int):
         """
@@ -70,7 +71,7 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_id: int,
                 received_or_fail.set()
                 return
             try:
-                logging.info('Express Interest: {}'.format(Name.to_str(int_name)))
+                logger.info('Express Interest: {}'.format(Name.to_str(int_name)))
                 data_name, meta_info, content, data_bytes = await app.express_interest(
                     int_name, need_raw_packet=True, can_be_prefix=False, lifetime=1000, **kwargs)
 

@@ -24,6 +24,7 @@ class Repo(object):
 
         self.running = True
         self.register_root = config['repo_config']['register_root']
+        self.logger = logging.getLogger(__name__)
 
     async def listen(self):
         """
@@ -51,7 +52,7 @@ class Repo(object):
     def recover_registered_prefixes(self):
         prefixes = self.write_handle.get_registered_prefix_in_storage(self.storage)
         for prefix in prefixes:
-            logging.info(f'Existing Prefix Found: {Name.to_str(prefix)}')
+            self.logger.info(f'Existing Prefix Found: {Name.to_str(prefix)}')
             self.read_handle.listen(prefix)
 
     def recover_sync_states(self):

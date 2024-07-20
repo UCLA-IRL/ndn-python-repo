@@ -32,6 +32,7 @@ class WriteCommandHandle(CommandHandle):
         self.m_read_handle = read_handle
         self.prefix = None
         self.register_root = config['repo_config']['register_root']
+        self.logger = logging.getLogger(__name__)
 
     async def listen(self, prefix: NonStrictName):
         """
@@ -55,10 +56,10 @@ class WriteCommandHandle(CommandHandle):
             if not cmd_param.objs:
                 raise DecodeError('Missing objects')
             for obj in cmd_param.objs:
-                if not obj.name:
+                if obj.name is None:
                     raise DecodeError('Missing name for one or more objects')
         except (DecodeError, IndexError) as exc:
-            logging.warning(f'Parameter interest blob decoding failed w/ exception: {exc}')
+            self.logger.warning(f'Parameter interest blob decoding failed w/ exception: {exc}')
             return
         aio.create_task(self._process_insert(cmd_param, request_no))
 
@@ -68,7 +69,7 @@ class WriteCommandHandle(CommandHandle):
         Return to client with status code 100 immediately, and then start data fetching process.
         """
         objs = cmd_param.objs
-        logging.info(f'Recved insert command: {request_no.hex()}')
+        self.logger.info(f'Recved insert command: {request_no.hex()}')
 
         # Cached status response
         # Note: no coroutine switching here, so no multithread conflicts
@@ -100,18 +101,18 @@ class WriteCommandHandle(CommandHandle):
             else:
                 forwarding_hint = None
 
-            logging.debug(f'Proc ins cmd {request_no.hex()} w/'
+            self.logger.debug(f'Proc ins cmd {request_no.hex()} w/'
                           f'name={Name.to_str(name)}, start={obj.start_block_id}, end={obj.end_block_id}')
 
             # rejects any data that overlaps with repo's own namespace
             if Name.is_prefix(self.prefix, name) or Name.is_prefix(name, self.prefix):
-                logging.warning('Inserted data name overlaps with repo prefix, rejected')
+                self.logger.warning('Inserted data name overlaps with repo prefix, rejected')
                 stat.objs[i].status_code = RepoStatCode.MALFORMED
                 global_succeeded = False
                 continue
             valid, start_block_id, end_block_id = normalize_block_ids(obj)
             if not valid:
-                logging.warning('Insert command malformed')
+                self.logger.warning('Insert command malformed')
                 stat.objs[i].status_code = RepoStatCode.MALFORMED
                 global_succeeded = False
                 continue
@@ -124,7 +125,7 @@ class WriteCommandHandle(CommandHandle):
                     self.m_read_handle.listen(register_prefix)
 
             # Remember the files inserted, this is useful for enumerating all inserted files
-            CommandHandle.add_inserted_filename_in_storage(self.storage, name)
+            # CommandHandle.add_inserted_filename_in_storage(self.storage, name)
 
             # Start data fetching process
             stat.objs[i].status_code = RepoStatCode.IN_PROGRESS
@@ -140,18 +141,18 @@ class WriteCommandHandle(CommandHandle):
 
             if is_success:
                 stat.objs[i].status_code = RepoStatCode.COMPLETED
-                logging.info(f'Insertion {request_no.hex()} name={Name.to_str(name)} finish:'
+                self.logger.info(f'Insertion {request_no.hex()} name={Name.to_str(name)} finish:'
                              f'{insert_num} inserted')
             else:
                 global_succeeded = False
                 stat.objs[i].status_code = RepoStatCode.FAILED
-                logging.info(f'Insertion {request_no.hex()} name={Name.to_str(name)} fail:'
+                self.logger.info(f'Insertion {request_no.hex()} name={Name.to_str(name)} fail:'
                              f'{insert_num} inserted')
             stat.objs[i].insert_num = insert_num
             global_inserted += insert_num
 
         # All fetches finished
-        logging.info(f'Insertion {request_no.hex()} done, total {global_inserted} inserted.')
+        self.logger.info(f'Insertion {request_no.hex()} done, total {global_inserted} inserted.')
         if global_succeeded:
             stat.status_code = RepoStatCode.COMPLETED
         else:
@@ -171,10 +172,10 @@ class WriteCommandHandle(CommandHandle):
                 name, need_raw_packet=True, can_be_prefix=False, lifetime=1000,
                 forwarding_hint=forwarding_hint)
         except InterestNack as e:
-            logging.info(f'Nacked with reason={e.reason}')
+            self.logger.info(f'Nacked with reason={e.reason}')
             return 0
         except InterestTimeout:
-            logging.info(f'Timeout')
+            self.logger.info(f'Timeout')
             return 0
         self.storage.put_data_packet(data_name, data_bytes)
         return 1

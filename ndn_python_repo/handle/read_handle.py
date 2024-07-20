@@ -19,6 +19,7 @@ class ReadHandle(object):
         self.storage = storage
         self.register_root = config['repo_config']['register_root']
         self.reply_to_must_be_fresh = config['repo_config']['reply_to_must_be_fresh']
+        self.logger = logging.getLogger(__name__)
         if self.register_root:
             self.listen(Name.from_str('/'))
 
@@ -28,14 +29,14 @@ class ReadHandle(object):
         :param prefix: NonStrictName.
         """
         self.app.route(prefix)(self._on_interest)
-        logging.info(f'Read handle: listening to {Name.to_str(prefix)}')
+        self.logger.info(f'Read handle: listening to {Name.to_str(prefix)}')
     
     def unlisten(self, prefix):
         """
         :param name: NonStrictName.
         """
         aio.ensure_future(self.app.unregister(prefix))
-        logging.info(f'Read handle: stop listening to {Name.to_str(prefix)}')
+        self.logger.info(f'Read handle: stop listening to {Name.to_str(prefix)}')
 
     def _on_interest(self, int_name, int_param, _app_param):
         """
@@ -48,4 +49,4 @@ class ReadHandle(object):
         if data_bytes == None:
             return
         self.app.put_raw_packet(data_bytes)
-        logging.info(f'Read handle: serve data {Name.to_str(int_name)}')
+        self.logger.info(f'Read handle: serve data {Name.to_str(int_name)}')

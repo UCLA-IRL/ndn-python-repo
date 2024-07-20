@@ -1,7 +1,6 @@
 import asyncio as aio
 import io
 import logging
-import pickle
 import sys
 from . import ReadHandle, CommandHandle
 from ..storage import *
@@ -19,6 +18,7 @@ class TcpBulkInsertHandle(object):
             """
             TCP Bulk insertion client need to keep a reference to ReadHandle to register new prefixes.
             """
+            self.logger = logging.getLogger(__name__)
             self.reader = reader
             self.writer = writer
             self.storage = storage
@@ -29,7 +29,7 @@ class TcpBulkInsertHandle(object):
             self.reg_root = self.config['repo_config']['register_root']
             self.reg_prefix = self.config['tcp_bulk_insert']['register_prefix']
             self.prefixes = [Name.from_str(s) for s in prefix_strs]
-            logging.info("New connection")
+            self.logger.info("New connection")
 
         async def handleReceive(self):
             """
@@ -42,7 +42,7 @@ class TcpBulkInsertHandle(object):
                     ret = await read_tl_num_from_stream(self.reader, bio)
                     # only accept data packets
                     if ret != TypeNumber.DATA:
-                        logging.fatal('TCP handle received non-data type, closing connection ...')
+                        self.logger.fatal('TCP handle received non-data type, closing connection ...')
                         self.writer.close()
                         return
                     siz = await read_tl_num_from_stream(self.reader, bio)
@@ -50,7 +50,7 @@ class TcpBulkInsertHandle(object):
                     data_bytes = bio.getvalue()
                 except aio.IncompleteReadError as exc:
                     self.writer.close()
-                    logging.info('Closed TCP connection')
+                    self.logger.info('Closed TCP connection')
                     return
                 except Exception as exc:
                     print(exc)
@@ -58,15 +58,15 @@ class TcpBulkInsertHandle(object):
                 # Parse data again to obtain the name
                 data_name, _, _, _ = parse_data(data_bytes, with_tl=True)
                 self.storage.put_data_packet(data_name, data_bytes)
-                logging.info(f'Inserted data: {Name.to_str(data_name)}')
+                self.logger.info(f'Inserted data: {Name.to_str(data_name)}')
 
                 # Register prefix
                 if not self.reg_root and self.reg_prefix:
                     prefix = self.check_prefix(data_name)
-                    logging.info(f'Try to register prefix: {Name.to_str(prefix)}')
+                    self.logger.info(f'Try to register prefix: {Name.to_str(prefix)}')
                     is_existing = CommandHandle.add_registered_prefix_in_storage(self.storage, prefix)
                     if not is_existing:
-                        logging.info(f'Registered prefix: {Name.to_str(prefix)}')
+                        self.logger.info(f'Registered prefix: {Name.to_str(prefix)}')
                         self.read_handle.listen(prefix)
 
                 await aio.sleep(0)
@@ -81,10 +81,12 @@ class TcpBulkInsertHandle(object):
         """
         TCP bulk insertion handle need to keep a reference to ReadHandle to register new prefixes.
         """
+        self.logger = logging.getLogger(__name__)
+
         async def run():
             self.server = await aio.start_server(self.startReceive, server_addr, server_port)
             addr = self.server.sockets[0].getsockname()
-            logging.info(f'TCP insertion handle serving on {addr}')
+            self.logger.info(f'TCP insertion handle serving on {addr}')
             async with self.server:
                 await self.server.serve_forever()
 
@@ -102,13 +104,13 @@ class TcpBulkInsertHandle(object):
         else:
             coro = aio.start_server(self.startReceive, server_addr, server_port, loop=event_loop)
             server = event_loop.run_until_complete(coro)
-            logging.info('TCP insertion handle serving on {}'.format(server.sockets[0].getsockname()))
+            self.logger.info('TCP insertion handle serving on {}'.format(server.sockets[0].getsockname()))
 
     async def startReceive(self, reader, writer):
         """
         Create a new client for every new connection.
         """
-        logging.info("Accepted new TCP connection")
+        self.logger.info("Accepted new TCP connection")
         client = TcpBulkInsertHandle.TcpBulkInsertClient(reader, writer, self.storage, self.read_handle, self.config)
         event_loop = aio.get_event_loop()
         event_loop.create_task(client.handleReceive())

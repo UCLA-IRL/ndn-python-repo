@@ -7,7 +7,7 @@ from typing import List, Optional
 
 class MongoDBStorage(Storage):
 
-    def __init__(self, db: str, collection: str):
+    def __init__(self, db: str, collection: str, uri: str = 'mongodb://127.0.0.1:27017/'):
         """
         Init a MongoDB storage with unique index on key.
 
@@ -17,7 +17,7 @@ class MongoDBStorage(Storage):
         super().__init__()
         self._db = db
         self._collection = collection
-        self._uri = 'mongodb://127.0.0.1:27017/'
+        self._uri = uri
         self.client = MongoClient(self._uri)
         self.c_db = self.client[self._db]
         self.c_collection = self.c_db[self._collection]

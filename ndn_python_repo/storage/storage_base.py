@@ -17,6 +17,7 @@ class Storage:
         Interface for a unified key-value storage API.
         """
         self.write_back_task = aio.create_task(self._periodic_write_back())
+        self.logger = logging.getLogger(__name__)
 
     def __del__(self):
         self.write_back_task.cancel()
@@ -64,7 +65,7 @@ class Storage:
             expire_time_mss.append(expire_time_ms)
         if len(keys) > 0:
             self._put_batch(keys, values, expire_time_mss)
-            logging.info(f'Cache write back {len(keys)} items')
+            self.logger.info(f'Cache write back {len(keys)} items')
         self.cache = NameTrie()
 
     def put_data_packet(self, name: NonStrictName, data: bytes):
@@ -84,7 +85,7 @@ class Storage:
         # write data packet and freshness_period to cache
         name = Name.normalize(name)
         self.cache[name] = (data, expire_time_ms)
-        logging.info(f'Cache save: {Name.to_str(name)}')
+        self.logger.info(f'Cache save: {Name.to_str(name)}')
 
     def get_data_packet(self, name: NonStrictName, can_be_prefix: bool=False,
                         must_be_fresh: bool=False) -> Optional[bytes]:
@@ -100,7 +101,7 @@ class Storage:
         if Component.get_type(name[-1]) == Component.TYPE_IMPLICIT_SHA256:
             data = self.get_data_packet(name[:-1], can_be_prefix, must_be_fresh)
             if sha256(data).digest() == Component.get_value(name[-1]):
-                logging.info('Data digest matches the ImplicitSha256Digest')
+                self.logger.info('Data digest matches the ImplicitSha256Digest')
                 return data
             else:
                 raise ValueError("Data digest does not match ImplicitSha256Digest")
@@ -110,14 +111,14 @@ class Storage:
                 if not can_be_prefix:
                     data, expire_time_ms = self.cache[name]
                     if not must_be_fresh or expire_time_ms > self._time_ms():
-                        logging.info('get from cache')
+                        self.logger.info('get from cache')
                         return data
                 else:
                     it = self.cache.itervalues(prefix=name, shallow=True)
                     while True:
                         data, expire_time_ms = next(it)
                         if not must_be_fresh or expire_time_ms > self._time_ms():
-                            logging.info('get from cache')
+                            self.logger.info('get from cache')
                             return data
             # not in cache, lookup in storage
             except (KeyError, StopIteration):

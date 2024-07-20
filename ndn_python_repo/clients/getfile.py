@@ -29,6 +29,7 @@ class GetfileClient(object):
         """
         self.app = app
         self.repo_name = repo_name
+        self.logger = logging.getLogger(__name__)
 
     async def fetch_file(self, name_at_repo: NonStrictName, local_filename: str = None, overwrite=False):
         """
@@ -58,7 +59,7 @@ class GetfileClient(object):
 
         if len(b_array) > 0:
 
-            logging.info(f'Fetching completed, writing to file {local_filename}')
+            self.logger.info(f'Fetching completed, writing to file {local_filename}')
 
             # Create folder hierarchy
             local_folder = os.path.dirname(local_filename)

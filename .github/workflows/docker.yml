@@ -1,0 +1,21 @@
+name: Docker
+on:
+  push:
+    tags:
+      - '*'
+  schedule:
+    # twice a month
+    - cron: '20 8 5,20 * *'
+  workflow_dispatch:
+
+permissions:
+  attestations: write
+  packages: write
+  id-token: write
+
+jobs:
+  ndn-python-repo:
+    uses: named-data/actions/.github/workflows/docker-image.yml@v1
+    with:
+      name: ndn-python-repo
+      target: ndn-python-repo

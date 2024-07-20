@@ -33,6 +33,7 @@ class DeleteClient(object):
         self.prefix = prefix
         self.repo_name = Name.normalize(repo_name)
         self.pb = PubSub(self.app, self.prefix)
+        self.logger = logging.getLogger(__name__)
 
     async def delete_file(self, prefix: NonStrictName, start_block_id: int = 0,
                           end_block_id: int = None,
@@ -72,9 +73,9 @@ class DeleteClient(object):
         await self.pb.wait_for_ready()
         is_success = await self.pb.publish(self.repo_name + Name.from_str('delete'), cmd_param_bytes)
         if is_success:
-            logging.info('Published an delete msg and was acknowledged by a subscriber')
+            self.logger.info('Published an delete msg and was acknowledged by a subscriber')
         else:
-            logging.info('Published an delete msg but was not acknowledged by a subscriber')
+            self.logger.info('Published an delete msg but was not acknowledged by a subscriber')
 
         # wait until repo delete all data
         delete_num = 0
@@ -96,24 +97,24 @@ class DeleteClient(object):
         while n_retries > 0:
             response = await checker.check_delete(self.repo_name, request_no)
             if response is None:
-                logging.info(f'No response')
+                self.logger.info(f'No response')
                 await aio.sleep(1)
             # might receive 404 if repo has not yet processed delete command msg
             elif response.status_code == RepoStatCode.NOT_FOUND:
                 n_retries -= 1
-                # logging.info(f'Deletion {request_no} not handled yet')
+                # self.logger.info(f'Deletion {request_no} not handled yet')
                 await aio.sleep(1)
             elif response.status_code == RepoStatCode.IN_PROGRESS:
-                logging.info(f'Deletion {request_no} in progress')
+                self.logger.info(f'Deletion {request_no} in progress')
                 await aio.sleep(1)
             elif response.status_code == RepoStatCode.COMPLETED:
                 delete_num = 0
                 for obj in response.objs:
                     delete_num += obj.delete_num
-                logging.info(f'Deletion request {request_no} complete, delete_num: {delete_num}')
+                self.logger.info(f'Deletion request {request_no} complete, delete_num: {delete_num}')
                 return delete_num
             elif response.status_code == RepoStatCode.FAILED:
-                logging.info(f'Deletion request {request_no} failed')
+                self.logger.info(f'Deletion request {request_no} failed')
             else:
                 # Shouldn't get here
-                logging.error(f'Received unrecognized status code {response.status_code}')
+                self.logger.error(f'Received unrecognized status code {response.status_code}')

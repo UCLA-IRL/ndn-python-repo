@@ -1,7 +1,8 @@
 import argparse
 import asyncio as aio
 import logging
-import pkg_resources
+# import pkg_resources
+import importlib.metadata
 import sys
 from ndn.app import NDNApp
 from ndn.encoding import Name
@@ -14,7 +15,8 @@ def process_cmd_opts():
     """
     def print_version():
         pkg_name = 'ndn-python-repo'
-        version = pkg_resources.require(pkg_name)[0].version
+        # version = pkg_resources.require(pkg_name)[0].version
+        version = importlib.metadata.version(pkg_name)
         print(pkg_name + ' ' + version)
 
     def parse_cmd_opts():
