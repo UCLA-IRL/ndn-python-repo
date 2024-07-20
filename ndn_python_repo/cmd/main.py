@@ -83,10 +83,11 @@ async def async_main(app: NDNApp, config):
     pb = PubSub(app)
     read_handle = ReadHandle(app, storage, config)
     write_handle = WriteCommandHandle(app, storage, pb, read_handle, config)
+    sync_handle = SyncCommandHandle(app, storage, pb, read_handle, config)
     delete_handle = DeleteCommandHandle(app, storage, pb, read_handle, config)
     tcp_bulk_insert_handle = TcpBulkInsertHandle(storage, read_handle, config)
 
-    repo = Repo(app, storage, read_handle, write_handle, delete_handle, tcp_bulk_insert_handle, config)
+    repo = Repo(app, storage, read_handle, write_handle, delete_handle, sync_handle, tcp_bulk_insert_handle, config)
     await repo.listen()
 
 

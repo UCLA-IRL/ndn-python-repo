@@ -42,6 +42,7 @@ class ReadHandle(object):
         Repo should not respond to any interest with MustBeFresh flag set.
         """
         if int_param.must_be_fresh:
+            logging.warn(f'Repo is configured to ignore Interests with MustBeFresh flag set: {Name.to_str(int_name)}')
             return
         data_bytes = self.storage.get_data_packet(int_name, int_param.can_be_prefix)
         if data_bytes == None:

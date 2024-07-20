@@ -5,6 +5,7 @@ description = "An NDN Repo implementation using Python"
 authors = ["Zhaoning Kong <jonnykong@cs.ucla.edu>"]
 maintainers = [
     "Xinyu Ma <ma.xinyu.26a@kyoto-u.jp>",
+    "Tianyuan Yu <tianyuan@cs.ucla.edu>",
 ]
 license = "Apache-2.0"
 readme = "README.rst"
