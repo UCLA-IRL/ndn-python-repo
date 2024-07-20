@@ -5,9 +5,6 @@ repo_config:
   # if true, the repo registers the root prefix. If false, client needs to tell repo
   # which prefix to register/unregister
   register_root: False
-  # if true, the repo replies to MustBeFresh Interest. If false, repo ignores the interests
-  # with MustBeFresh flag
-  reply_to_must_be_fresh: True
 
 db_config:
   # choose one among sqlite3, leveldb, and mongodb

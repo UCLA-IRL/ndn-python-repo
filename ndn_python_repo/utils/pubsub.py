@@ -89,7 +89,7 @@ class PubSub(object):
             if self.base_prefix != None and Name.is_prefix(self.base_prefix, self.publisher_prefix + ['msg']):
                 self.app.set_interest_filter(self.publisher_prefix + ['msg'], self._on_msg_interest)
             else:
-                    await self.app.register(self.publisher_prefix + ['msg'], self._on_msg_interest)
+                await self.app.register(self.publisher_prefix + ['msg'], self._on_msg_interest)
         except ValueError as esc:
             # duplicate registration
             pass

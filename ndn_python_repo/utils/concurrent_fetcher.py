@@ -91,7 +91,8 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_id: int,
                         try:
                             task_num = int(task_name)
                         except: continue
-                        if task_num and task_num > final_id:
+                        if task_num and task_num > final_id \
+                            and task in tasks:
                             tasks.remove(task)
                             task.cancel()
                 seq_to_data_packet[seq] = (data_name, meta_info, content, data_bytes)
