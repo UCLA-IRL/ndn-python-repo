@@ -234,7 +234,7 @@ class SyncCommandHandle(CommandHandle):
                 group_states['svs_client_states'] = svs.encode_into_states()
                 CommandHandle.add_sync_states_in_storage(self.storage, svs.base_prefix, group_states)
                 '''
-                Python-repo specific logic: if the data content contains a data name,
+                Python-repo specific logic: if the inner data content contains a data name,
                 assuming the data object pointed by is segmented, and fetching all
                 data segments related to this object name
                 '''
