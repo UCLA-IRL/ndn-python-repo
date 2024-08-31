@@ -224,8 +224,7 @@ class SyncCommandHandle(CommandHandle):
                 concurrent_fetcher(self.app, data_prefix,
                                     start_id=fetched_seq+1, end_id=seq,
                                     semaphore=aio.Semaphore(10),
-                                    name_conv = IdNamingConv.SEQUENCE,
-                                    max_retries = -1)):
+                                    name_conv = IdNamingConv.SEQUENCE)):
                 # put into storage asap
                 self.storage.put_data_packet(data_name, data_bytes)
                 # not very sure the side effect
@@ -247,6 +246,5 @@ class SyncCommandHandle(CommandHandle):
                 logging.info(f'Discovered a pointer, fetching data segments for {Name.to_str(obj_pointer)}')
                 async for (data_name, _, _, data_bytes) in (
                     concurrent_fetcher(self.app, obj_pointer,
-                        start_id=0, end_id=None, semaphore=aio.Semaphore(10),
-                        max_retries = -1)):
+                        start_id=0, end_id=None, semaphore=aio.Semaphore(10))):
                     self.storage.put_data_packet(data_name, data_bytes)
