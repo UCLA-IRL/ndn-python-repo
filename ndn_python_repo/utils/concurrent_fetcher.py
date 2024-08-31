@@ -31,7 +31,7 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_id: int,
     :return: Yield ``(FormalName, MetaInfo, Content, RawPacket)`` tuples in order.
     """
     name_conv = IdNamingConv.SEGMENT
-    max_retries = 3
+    max_retries = 15
     if 'name_conv' in kwargs:
         name_conv = kwargs['name_conv']
     if 'max_retries' in kwargs:
