@@ -132,9 +132,13 @@ class PassiveSvs:
         if len(diff) > 0:
             self.logger.info(f'Remote missing nodes: {list(diff)}')
             # Missing nodes may only exist in other nodes' sync interest,
-            # therefore we have to send all buffered sync interest out
+            # therefore we have to send all buffered sync interest out,
+            # unless they were sent before.
+            already_sent = []
             for _, raw_inst in self.inst_buffer.items():
-                self.send_interest(raw_inst)
+                if raw_inst not in already_sent:
+                    already_sent.append(raw_inst)
+                    self.send_interest(raw_inst)
         if need_fetch:
             self.on_missing_data(self)
 
