@@ -94,7 +94,8 @@ class PassiveSvs:
         except (DecodeError, IndexError) as e:
             logging.error(f'Unable to decode state vector [{Name.to_str(name)}]: {e}')
             return
-        if remote_sv_pkt is None or not remote_sv_pkt.entries:
+        if remote_sv_pkt is None:
+            logging.error(f'Sync Interest does not contain state vectors')
             return
         remote_sv = remote_sv_pkt.entries
 
