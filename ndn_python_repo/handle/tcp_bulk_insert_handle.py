@@ -31,7 +31,7 @@ class TcpBulkInsertHandle(object):
             self.prefixes = [Name.from_str(s) for s in prefix_strs]
             self.logger.info("New connection")
 
-        async def handleReceive(self):
+        async def handle_receive(self):
             """
             Handle one incoming TCP connection.
             Multiple data packets may be transferred over a single connection.
@@ -48,7 +48,7 @@ class TcpBulkInsertHandle(object):
                     siz = await read_tl_num_from_stream(self.reader, bio)
                     bio.write(await self.reader.readexactly(siz))
                     data_bytes = bio.getvalue()
-                except aio.IncompleteReadError as exc:
+                except aio.IncompleteReadError:
                     self.writer.close()
                     self.logger.info('Closed TCP connection')
                     return
@@ -84,7 +84,7 @@ class TcpBulkInsertHandle(object):
         self.logger = logging.getLogger(__name__)
 
         async def run():
-            self.server = await aio.start_server(self.startReceive, server_addr, server_port)
+            self.server = await aio.start_server(self.start_receive, server_addr, server_port)
             addr = self.server.sockets[0].getsockname()
             self.logger.info(f'TCP insertion handle serving on {addr}')
             async with self.server:
@@ -102,18 +102,18 @@ class TcpBulkInsertHandle(object):
             # python 3.7+
             event_loop.create_task(run())
         else:
-            coro = aio.start_server(self.startReceive, server_addr, server_port, loop=event_loop)
+            coro = aio.start_server(self.start_receive, server_addr, server_port, loop=event_loop)
             server = event_loop.run_until_complete(coro)
             self.logger.info('TCP insertion handle serving on {}'.format(server.sockets[0].getsockname()))
 
-    async def startReceive(self, reader, writer):
+    async def start_receive(self, reader, writer):
         """
         Create a new client for every new connection.
         """
         self.logger.info("Accepted new TCP connection")
         client = TcpBulkInsertHandle.TcpBulkInsertClient(reader, writer, self.storage, self.read_handle, self.config)
         event_loop = aio.get_event_loop()
-        event_loop.create_task(client.handleReceive())
+        event_loop.create_task(client.handle_receive())
 
 
 if __name__ == "__main__":
@@ -121,8 +121,8 @@ if __name__ == "__main__":
                         datefmt='%Y-%m-%d %H:%M:%S',
                         level=logging.INFO)
 
-    storage = LevelDBStorage()
-    handle = TcpBulkInsertHandle(storage)
+    storage = LevelDBStorage() # fixme: this should have a parameter for the location of the db
+    handle = TcpBulkInsertHandle(storage) # fixme: read_handle and config parameters are unfilled
 
     event_loop = aio.get_event_loop()
     event_loop.run_forever()

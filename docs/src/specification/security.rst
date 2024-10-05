@@ -20,7 +20,7 @@ Required Settings
 
 .. warning::
   Unfortunately current implementation does not follow these requirements by default.
-  This may cause some potential vulnerbilities. Will be fixed in future versions.
+  This may cause some potential vulnerabilities. Will be fixed in future versions.
 
 
 Recommended Settings
@@ -31,7 +31,7 @@ Recommended Settings
 
   - Since there is no replay attack, the Repo does not have to remember the list of ``SignatureNonce``.
 
-- If the Repo is provided as a network service, the certifcate obtained from the network provider should be used.
+- If the Repo is provided as a network service, the certificate obtained from the network provider should be used.
   In this case, the prefix registration command and repo's publication data are signed using the same key.
 
   - For example, if one employs a Repo as a public service of NDN testbed,

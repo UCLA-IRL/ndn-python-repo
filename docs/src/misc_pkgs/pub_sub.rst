@@ -21,7 +21,7 @@ Process
 
 Under the hood the ``PubSub`` module transmits a series of Interest and Data packets:
 
-1. The subscriber calls ``subscribe(topic, cb)``. This makes the subcriber listen on
+1. The subscriber calls ``subscribe(topic, cb)``. This makes the subscriber listen on
 ``"/<topic>/notify"``.
 
 2. The publisher invokes ``publish(topic, msg)``. This method sends an Interest with name

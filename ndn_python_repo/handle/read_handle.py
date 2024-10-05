@@ -32,7 +32,7 @@ class ReadHandle(object):
     
     def unlisten(self, prefix):
         """
-        :param name: NonStrictName.
+        :param prefix: NonStrictName.
         """
         aio.ensure_future(self.app.unregister(prefix))
         self.logger.info(f'Read handle: stop listening to {Name.to_str(prefix)}')
@@ -44,7 +44,7 @@ class ReadHandle(object):
         logging.debug(f'Repo got Interest with{"out" if not int_param.must_be_fresh else ""} '
                       f'MustBeFresh flag set for name {Name.to_str(int_name)}')
         data_bytes = self.storage.get_data_packet(int_name, int_param.can_be_prefix, int_param.must_be_fresh)
-        if data_bytes == None:
+        if data_bytes is None:
             return
         self.app.put_raw_packet(data_bytes)
         self.logger.info(f'Read handle: serve data {Name.to_str(int_name)}')

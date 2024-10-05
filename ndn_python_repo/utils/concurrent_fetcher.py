@@ -28,6 +28,7 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_id: int,
     :param start_id: int. The start number.
     :param end_id: Optional[int]. The end segment number. If not specified, continue fetching\
         until an interest receives timeout or nack or 3 times.
+    :param semaphore: aio.Semaphore. Semaphore used to fetch data.
     :return: Yield ``(FormalName, MetaInfo, Content, RawPacket)`` tuples in order.
     """
     name_conv = IdNamingConv.SEGMENT
@@ -57,15 +58,16 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_id: int,
         elif name_conv == IdNamingConv.SEQUENCE:
             int_name = name + [Component.from_sequence_num(seq)]
         elif name_conv == IdNamingConv.NUMBER:
+            # fixme: .from_number apparently requires a second parameter for "type"
             int_name = name + [Component.from_number(seq)]
         else:
-            logging.error('Unrecognized naming convetion')
+            logging.error('Unrecognized naming convention')
             return
         trial_times = 0
         while True:
             trial_times += 1
             # always retry when max_retries is -1
-            if max_retries >= 0 and trial_times > max_retries:
+            if 0 <= max_retries < trial_times:
                 semaphore.release()
                 is_failed = True
                 received_or_fail.set()
@@ -87,10 +89,10 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_id: int,
                     # cancel the Interests for non-existing data
                     for task in aio.all_tasks():
                         task_name = task.get_name()
-                        task_num = None
                         try:
                             task_num = int(task_name)
-                        except: continue
+                        except: # fixme: what specific error does this catch?
+                            continue
                         if task_num and task_num > final_id \
                             and task in tasks:
                             tasks.remove(task)
@@ -101,7 +103,7 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_id: int,
                 logging.info(f'Interest {Name.to_str(int_name)} nacked with reason={e.reason}')
             except InterestTimeout:
                 logging.info(f'Interest {Name.to_str(int_name)} timeout')
-            except InterestCanceled as e:
+            except InterestCanceled:
                 logging.info(f'Interest {Name.to_str(int_name)} (might legally) cancelled')
                 return
         semaphore.release()

@@ -6,7 +6,6 @@
     @Date   2020-05-10
 """
 
-import asyncio as aio
 import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name, NonStrictName

@@ -52,7 +52,7 @@ class RepoTestSuite(object):
     def startup(self):
         self.files_to_cleanup = []
 
-        tmp_cfg_path = self.create_tmp_cfg()
+        tmp_cfg_path = self.create_tmp_cfg(self)
         self.files_to_cleanup.append(tmp_cfg_path)
         self.files_to_cleanup.append(sqlite3_path)
         self.repo_proc = subprocess.Popen(['ndn-python-repo', '-c', tmp_cfg_path])
@@ -67,12 +67,14 @@ class RepoTestSuite(object):
                 print('Cleaning up tmp file:', file)
                 os.remove(file)
 
-    def create_tmp_file(self, size_bytes=4096):
+    @staticmethod
+    def create_tmp_file(size_bytes=4096):
         tmp_file_path = os.path.join(tempfile.mkdtemp(), 'tempfile')
         with open(tmp_file_path, 'wb') as f:
             f.write(os.urandom(size_bytes))
         return tmp_file_path
 
+    @staticmethod
     def create_tmp_cfg(self):
         tmp_cfg_path = os.path.join(tempfile.mkdtemp(), 'ndn-python-repo.cfg')
         with open(tmp_cfg_path, 'w') as f:
@@ -306,11 +308,11 @@ class TestNoneMetaInfo(RepoTestSuite):
         self.app.shutdown()
 
 
-# Notes: The Github Actions failed this test case because of InterestNack.
-#        However we could not reproduce the failure.
+# Notes: The GitHub Actions failed this test case because of InterestNack.
+#        However, we could not reproduce the failure.
 #        Since we do not have sufficient understanding of the behavior, let
 #        us temporarily abandon this test case.
-#        We need to gain better knowledge on this in future.
+#        We need to gain better knowledge on this in the future.
 #
 # class TestTcpBulkInsert(RepoTestSuite):
 #     async def run(self):

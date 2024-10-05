@@ -128,7 +128,7 @@ class PassiveSvs:
                     self.send_interest(raw_inst)
                 else: pass
 
-        # Notify remote there are mising nodes
+        # Notify remote there are missing nodes
         diff = self.local_sv.keys() - rsv_dict.keys()
         if len(diff) > 0:
             self.logger.info(f'Remote missing nodes: {list(diff)}')

@@ -52,7 +52,7 @@ class PubSub(object):
     # prefix has wrong type notation. do not call with unnormalized name.
     def set_publisher_prefix(self, prefix: NonStrictName):
         """
-        Set the identify of the publisher after initialization.
+        Set the identity of the publisher after initialization.
         Need to be called before ``_wait_for_ready()``.
 
         :param prefix: NonStrictName. The identity of this ``PubSub`` instance.
@@ -79,18 +79,18 @@ class PubSub(object):
         while not self.app.face.running:
             await aio.sleep(0.1)
 
-        if self.base_prefix != None:
+        if self.base_prefix is not None:
             try:
                 await self.app.register(self.base_prefix, func=None)
-            except ValueError as esc:
+            except ValueError:
                 pass
         
         try:
-            if self.base_prefix != None and Name.is_prefix(self.base_prefix, self.publisher_prefix + ['msg']):
+            if self.base_prefix is not None and Name.is_prefix(self.base_prefix, self.publisher_prefix + ['msg']):
                 self.app.set_interest_filter(self.publisher_prefix + ['msg'], self._on_msg_interest)
             else:
                 await self.app.register(self.publisher_prefix + ['msg'], self._on_msg_interest)
-        except ValueError as esc:
+        except ValueError:
             # duplicate registration
             pass
 
@@ -176,7 +176,7 @@ class PubSub(object):
         topic = Name.normalize(topic)
         self.topic_to_cb[topic] = cb
         to_register = topic + ['notify']
-        if self.base_prefix != None and Name.is_prefix(self.base_prefix, to_register):
+        if self.base_prefix is not None and Name.is_prefix(self.base_prefix, to_register):
             self.app.set_interest_filter(to_register, self._on_notify_interest)
             self.logger.info(f'Subscribing to topic (with interest filter): {Name.to_str(topic)}')
         else:
@@ -190,6 +190,7 @@ class PubSub(object):
         """
         Async helper for ``_on_notify_interest()``.
         """
+        # fixme: why isn't int_param used?
         self.logger.debug(f'received notify interest: {Name.to_str(int_name)}')
         topic = int_name[:-2]   # remove digest and `notify`
 
@@ -212,7 +213,7 @@ class PubSub(object):
             self.logger.info(f'Received duplicate notify interest for nonce {notify_nonce}')
             return
         self.nonce_processed.add(notify_nonce)
-        aio.ensure_future(self._erase_subsciber_state_after(notify_nonce, 60))
+        aio.ensure_future(self._erase_subscriber_state_after(notify_nonce, 60))
 
         msg = None
         while n_retries > 0:
@@ -228,7 +229,7 @@ class PubSub(object):
             except InterestTimeout:
                 self.logger.debug(f'Timeout')
                 n_retries -= 1
-        if msg == None:
+        if msg is None:
             return
 
         # pass msg to application
@@ -247,6 +248,7 @@ class PubSub(object):
         Async helper for ``_on_msg_interest()``.
         The msg interest has the format of ``/<publisher_prefix>/msg/<topic>/<nonce>``.
         """
+        # fixme: neither int_param nor app_param are used here
         self.logger.debug(f'received msg interest: {Name.to_str(int_name)}')
         if int_name in self.published_data:
             self.app.put_raw_packet(self.published_data[int_name])
@@ -263,7 +265,7 @@ class PubSub(object):
             del self.published_data[name]
             self.logger.debug(f'erased state for data {Name.to_str(name)}')
 
-    async def _erase_subsciber_state_after(self, notify_nonce: bytes, timeout: int):
+    async def _erase_subscriber_state_after(self, notify_nonce: bytes, timeout: int):
         """
         Erase state associated with nonce ``nonce`` after ``timeout``.
         """

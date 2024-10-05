@@ -38,7 +38,7 @@ class DeleteCommandHandle(CommandHandle):
         Register routes for command interests.
         This function needs to be called explicitly after initialization.
 
-        :param name: NonStrictName. The name prefix to listen on.
+        :param prefix: NonStrictName. The name prefix to listen on.
         """
         self.prefix = Name.normalize(prefix)
 
@@ -67,7 +67,7 @@ class DeleteCommandHandle(CommandHandle):
         Process delete command.
         """
         objs = cmd_param.objs
-        self.logger.info(f'Recved delete command: {request_no.hex()}')
+        self.logger.info(f'Received delete command: {request_no.hex()}')
 
         # Note that this function still has chance to switch coroutine in _perform_storage_delete.
         # So status is required to be defined before actual deletion

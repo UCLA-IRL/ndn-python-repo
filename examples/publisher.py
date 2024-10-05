@@ -22,7 +22,7 @@ async def run_publisher(app: NDNApp, publisher_prefix: NonStrictName):
     msg = f'pubsub message generated at {str(datetime.datetime.now())}'.encode()
     await pb.publish(topic, msg)
 
-    # wait for msg to be fetched by subsciber
+    # wait for msg to be fetched by subscriber
     await aio.sleep(10)
     app.shutdown()
 

@@ -941,7 +941,7 @@ files = [
 [[package]]
 name = "pymongo"
 version = "4.7.1"
-description = "Python driver for MongoDB <http://www.mongodb.org>"
+description = "Python driver for MongoDB <https://www.mongodb.com>"
 optional = true
 python-versions = ">=3.7"
 files = [

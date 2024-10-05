@@ -106,7 +106,7 @@ class PutfileClient(object):
         self.logger.info(f'On interest: {Name.to_str(int_name)}')
         seq = Component.to_number(int_name[-1])
         name_wo_seq = Name.to_str(int_name[:-1])
-        if name_wo_seq in self.encoded_packets and seq >= 0 and seq < len(self.encoded_packets[name_wo_seq]):
+        if name_wo_seq in self.encoded_packets and 0 <= seq < len(self.encoded_packets[name_wo_seq]):
             encoded_packets = self.encoded_packets[name_wo_seq]
             self.app.put_raw_packet(encoded_packets[seq])
             self.logger.info(f'Serve data: {Name.to_str(int_name)}')
@@ -188,9 +188,10 @@ class PutfileClient(object):
 
         :param check_prefix: NonStrictName. The prefix under which the check message will be\
             published.
-        :param process_id: int. The process id to check.
+        :param request_no: int. The request number to check.
         :return: number of inserted packets.
         """
+        # fixme: why is check_prefix not used?
         checker = CommandChecker(self.app)
         n_retries = 5
         while n_retries > 0:
