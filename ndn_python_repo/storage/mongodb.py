@@ -1,5 +1,4 @@
 import base64
-import pymongo
 from pymongo import MongoClient, ReplaceOne
 from .storage_base import Storage
 from typing import List, Optional
@@ -51,9 +50,9 @@ class MongoDBStorage(Storage):
         """
         Batch insert.
 
-        :param key: List[bytes].
-        :param value: List[bytes].
-        :param expire_time_ms: List[Optional[int]]. The expiration time for each data in ``value``.
+        :param keys: List[bytes].
+        :param values: List[bytes].
+        :param expire_time_mss: List[Optional[int]]. The expiration time for each data in ``value``.
         """
         keys = [base64.b16encode(key).decode() for key in keys]
         replaces = []

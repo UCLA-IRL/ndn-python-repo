@@ -1,11 +1,9 @@
-#!/usr/bin/env python3
 import argparse
 import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name
 from ndn.security import KeychainDigest
 from ndn_python_repo.clients import SyncClient
-import uuid
 
 async def run_leave_sync_client(app: NDNApp, **kwargs):
     client = SyncClient(app=app, prefix=kwargs['client_prefix'], repo_name=kwargs['repo_name'])

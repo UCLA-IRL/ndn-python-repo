@@ -1,6 +1,7 @@
+# noinspection GrazieInspection
 """
     This script ports sqlite db file from repo-ng to ndn-python-repo.
-    It takes as input a repo-ng sqlite database file, traverse the database and inserts data to
+    It takes as input a repo-ng sqlite database file, traverses the database, and inserts data into
     an ndn-python-repo using TCP bulk insertion.
 
     @Author jonnykong@cs.ucla.edu
@@ -12,7 +13,7 @@ import asyncio as aio
 import os
 import sqlite3
 import sys
-from ndn.encoding import Name, Component, ndn_format_0_3, tlv_var
+from ndn.encoding import Name, ndn_format_0_3, tlv_var
 
 
 def create_sqlite3_connection(db_file):
@@ -71,9 +72,9 @@ def main() -> int:
                         required=True, help='Port of python repo')
     args = parser.parse_args()
 
-    if args.addr == None:
+    if args.addr is None:
         args.addr = '127.0.0.1'
-    if args.port == None:
+    if args.port is None:
         args.addr = '7376'
     
     src_db_file = os.path.expanduser(args.dbfile)

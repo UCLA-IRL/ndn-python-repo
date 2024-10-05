@@ -1,11 +1,8 @@
 import argparse
-import asyncio as aio
 import logging
-# import pkg_resources
 import importlib.metadata
 import sys
 from ndn.app import NDNApp
-from ndn.encoding import Name
 from ndn_python_repo import *
 
 
@@ -43,7 +40,7 @@ def process_config(cmdline_args):
     Read and process config file. Some config options are overridden by cmdline args.
     """
     config = get_yaml(cmdline_args.config)
-    if cmdline_args.repo_name != None:
+    if cmdline_args.repo_name is not None:
         config['repo_config']['repo_name'] = cmdline_args.repo_name
     return config
 

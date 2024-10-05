@@ -135,7 +135,7 @@ class CommandHandle(object):
         ret = storage._get(dict_name.encode('utf-8'))
         dict_bytes = json.dumps(dict).encode('utf-8')
         storage._put(dict_name.encode('utf-8'), dict_bytes)
-        return (ret is not None)
+        return ret is not None
 
     @staticmethod
     def get_dict_in_storage(dict_name: str, storage: Storage) -> Dict:

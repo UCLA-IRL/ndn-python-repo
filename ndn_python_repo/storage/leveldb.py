@@ -2,7 +2,7 @@ import os
 import pickle
 import plyvel
 from .storage_base import Storage
-from typing import List, Optional
+from typing import List, Optional, Any
 
 
 class LevelDBStorage(Storage):
@@ -19,7 +19,7 @@ class LevelDBStorage(Storage):
             try:
                 os.makedirs(db_dir)
             except PermissionError:
-                raise PermissionError(f'Could not create database directory: {db_path}') from None
+                raise PermissionError(f'Could not create database directory: {db_dir}') from None
         self.db = plyvel.DB(db_dir, create_if_missing=True)
 
     def _put(self, key: bytes, value: bytes, expire_time_ms: int=None):
@@ -37,15 +37,15 @@ class LevelDBStorage(Storage):
         """
         Batch insert.
 
-        :param key: List[bytes].
-        :param value: List[bytes].
-        :param expire_time_ms: List[Optional[int]]. The expiration time for each data in ``value``.
+        :param keys: List[bytes].
+        :param values: List[bytes].
+        :param expire_time_mss: List[Optional[int]]. The expiration time for each data in ``value``.
         """
         with self.db.write_batch() as b:
             for key, value, expire_time_ms in zip(keys, values, expire_time_mss):
                 b.put(key, pickle.dumps((value, expire_time_ms)))
 
-    def _get(self, key: bytes, can_be_prefix=False, must_be_fresh=False) -> bytes:
+    def _get(self, key: bytes, can_be_prefix=False, must_be_fresh=False) -> Any | None:
         """
         Get value from levelDB.
 
@@ -56,7 +56,7 @@ class LevelDBStorage(Storage):
         """
         if not can_be_prefix:
             record = self.db.get(key)
-            if record == None:
+            if record is None:
                 return None
             value, expire_time_ms = pickle.loads(record)
             if not must_be_fresh or expire_time_ms is not None and expire_time_ms > self._time_ms():
@@ -77,7 +77,7 @@ class LevelDBStorage(Storage):
         :param key: bytes.
         :return: True if a data packet is being removed.
         """
-        if self._get(key) != None:
+        if self._get(key) is not None:
             self.db.delete(key)
             return True
         else:

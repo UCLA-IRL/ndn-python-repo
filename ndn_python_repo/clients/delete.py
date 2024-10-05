@@ -9,14 +9,13 @@ import os
 import sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
-import argparse
 import asyncio as aio
 from ..command import RepoCommandParam, ObjParam, EmbName, RepoStatCode
 from .command_checker import CommandChecker
 from ..utils import PubSub
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name, Component, DecodeError, NonStrictName
+from ndn.encoding import Name, NonStrictName
 from typing import Optional
 from hashlib import sha256
 
@@ -46,7 +45,7 @@ class DeleteClient(object):
         :param prefix: NonStrictName. The name of the file stored in the remote repo.
         :param start_block_id: int. Default value is 0.
         :param end_block_id: int. If not specified, repo will attempt to delete all data packets\
-            with segment number starting from `start_block_id` continously.
+            with segment number starting from `start_block_id` continuously.
         :param register_prefix: If repo is configured with ``register_root=False``, it unregisters\
             ``register_prefix`` after receiving the deletion command.
         :param check_prefix: NonStrictName. The repo will publish process check messages under\
@@ -89,9 +88,10 @@ class DeleteClient(object):
 
         :param check_prefix: NonStrictName. The prefix under which the check message will be\
             published.
-        :param process_id: int. The process id to check for delete process
+        :param request_no: int. The request number to check for delete process (formerly process id)
         :return: Number of deleted packets.
         """
+        # fixme: why is check_prefix never used?
         checker = CommandChecker(self.app)
         n_retries = 3
         while n_retries > 0:

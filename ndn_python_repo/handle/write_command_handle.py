@@ -7,7 +7,7 @@ from . import ReadHandle, CommandHandle
 from ..command import RepoCommandRes, RepoCommandParam, ObjParam, ObjStatus, RepoStatCode
 from ..utils import concurrent_fetcher, PubSub
 from ..storage import Storage
-from typing import Optional, Tuple, List
+from typing import Optional, List
 from hashlib import sha256
 from .utils import normalize_block_ids
 
@@ -165,6 +165,7 @@ class WriteCommandHandle(CommandHandle):
         """
         Fetch one Data packet.
         :param name: NonStrictName.
+        :param forwarding_hint: Optional[List[NonStrictName]]
         :return:  Number of data packets fetched.
         """
         try:
@@ -185,6 +186,9 @@ class WriteCommandHandle(CommandHandle):
         """
         Fetch segmented Data packets.
         :param name: NonStrictName.
+        :param start_block_id: int
+        :param end_block_id: Optional[int]
+        :param forwarding_hint: Optional[List[NonStrictName]]
         :return: Number of data packets fetched.
         """
         semaphore = aio.Semaphore(10)

@@ -6,7 +6,6 @@
 """
 
 import argparse
-import asyncio as aio
 import logging
 import multiprocessing
 from ndn.app import NDNApp
@@ -72,7 +71,7 @@ def main():
                         level=logging.INFO)
 
     # ``register_prefix`` is by default identical to ``name_at_repo``
-    if args.register_prefix == None:
+    if args.register_prefix is None:
         args.register_prefix = args.name_at_repo
     args.register_prefix = Name.from_str(args.register_prefix)
     if args.forwarding_hint:

@@ -49,9 +49,9 @@ class SqliteStorage(Storage):
         """
         Batch insert.
 
-        :param key: List[bytes].
-        :param value: List[bytes].
-        :param expire_time_ms: List[Optional[int]]. The expiration time for each data in ``value``.
+        :param keys: List[bytes].
+        :param values: List[bytes].
+        :param expire_time_mss: List[Optional[int]]. The expiration time for each data in ``value``.
         """
         c = self.conn.cursor()
         c.executemany('INSERT OR REPLACE INTO data (key, value, expire_time_ms) VALUES (?, ?, ?)',

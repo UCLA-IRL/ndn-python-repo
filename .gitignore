@@ -112,7 +112,6 @@ venv.bak/
 **/.DS_Store
 .vscode/
 .leveldb/
-.pytest_cache/
 repo.db
 NDN_Repo.egg-info/
 

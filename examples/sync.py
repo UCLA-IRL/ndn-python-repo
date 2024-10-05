@@ -5,7 +5,6 @@ from ndn.app import NDNApp
 from ndn.encoding import Name
 from ndn.security import KeychainDigest
 from ndn_python_repo.clients import SyncClient
-import uuid
 
 
 async def run_sync_client(app: NDNApp, **kwargs):

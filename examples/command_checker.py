@@ -6,11 +6,9 @@
 """
 
 import argparse
-import asyncio as aio
 import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name
-from ndn.security import KeychainDigest
 from ndn_python_repo.clients import CommandChecker
 
 
