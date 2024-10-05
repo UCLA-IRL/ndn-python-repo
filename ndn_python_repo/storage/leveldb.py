@@ -59,14 +59,14 @@ class LevelDBStorage(Storage):
             if record == None:
                 return None
             value, expire_time_ms = pickle.loads(record)
-            if not must_be_fresh or expire_time_ms != None and expire_time_ms > int(time.time() * 1000):
+            if not must_be_fresh or expire_time_ms is not None and expire_time_ms > self._time_ms():
                 return value
             else:
                 return None
         else:
             for _, v_e in self.db.iterator(prefix=key):
                 value, expire_time_ms = pickle.loads(v_e)
-                if not must_be_fresh or expire_time_ms != None and expire_time_ms > self.time_ms():
+                if not must_be_fresh or expire_time_ms is not None and expire_time_ms > self._time_ms():
                     return value
             return None
 
