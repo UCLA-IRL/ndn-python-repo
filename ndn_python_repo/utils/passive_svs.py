@@ -122,8 +122,10 @@ class PassiveSvs:
             elif lsv_seq > rsv_seq:
                 # Local is latest
                 self.logger.debug(f'Outdated remote on: [{Name.to_str(rsv_id)}]: {rsv_seq} < {lsv_seq}')
-                raw_inst = self.inst_buffer[rsv_id]
-                if raw_inst not in already_sent:
+                if rsv_id in self.inst_buffer:
+                    raw_inst = self.inst_buffer[rsv_id]
+                else: raw_inst = None
+                if raw_inst and raw_inst not in already_sent:
                     already_sent.append(raw_inst)
                     self.send_interest(raw_inst)
                 else: pass
