@@ -119,3 +119,6 @@ NDN_Repo.egg-info/
 # tianyuan's helper
 feature.*
 testrepo.*
+
+# Temporary file
+pib.db
