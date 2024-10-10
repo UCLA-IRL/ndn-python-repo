@@ -97,6 +97,8 @@ class Storage:
         :param must_be_fresh: bool. If true, ignore expired data.
         :return: The value of the data packet.
         """
+        # can_be_prefix must be set to False by default because _delete_single_data would not otherwise be specific enough.
+        # must_be_fresh must be set to False by default because we want the delete commands to find data we want deleted, regardless of whether it is fresh or not.
         name = Name.normalize(name)
         if Component.get_type(name[-1]) == Component.TYPE_IMPLICIT_SHA256:
             data = self.get_data_packet(name[:-1], can_be_prefix, must_be_fresh)
