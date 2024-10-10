@@ -6,7 +6,7 @@ from ndn.encoding.tlv_var import parse_tl_num
 from ndn.encoding import Name, Component, parse_data, NonStrictName
 from ndn.name_tree import NameTrie
 import time
-from typing import List, Optional
+from typing import Optional
 
 
 class Storage:
@@ -25,7 +25,7 @@ class Storage:
     def _put(self, key: bytes, data: bytes, expire_time_ms: int=None):
         raise NotImplementedError
 
-    def _put_batch(self, keys: List[bytes], values: List[bytes], expire_time_mss:List[Optional[int]]):
+    def _put_batch(self, keys: list[bytes], values: list[bytes], expire_time_mss:list[Optional[int]]):
         raise NotImplementedError
 
     def _get(self, key: bytes, can_be_prefix: bool=False, must_be_fresh: bool=False) -> bytes:

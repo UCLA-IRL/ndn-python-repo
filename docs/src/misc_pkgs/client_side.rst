@@ -10,7 +10,7 @@ There are four parts:
 
 #. **PutfileClient**: insert files into the repo.
 #. **GetfileClient**: get files from the repo.
-#. **DeleteClient**: detele data packets from the repo.
+#. **DeleteClient**: delete data packets from the repo.
 #. **CommandChecker**: check process status from the repo.
 
 The example programs in :mod:`examples/` illustrate how to use these packages.

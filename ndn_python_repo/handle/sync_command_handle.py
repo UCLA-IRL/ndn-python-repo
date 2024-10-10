@@ -2,14 +2,11 @@ import asyncio as aio
 import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name, NonStrictName, DecodeError, Component, parse_data
-from ndn.types import InterestNack, InterestTimeout
 from . import ReadHandle, CommandHandle
 from ..command import RepoCommandRes, RepoCommandParam, SyncParam, SyncStatus, RepoStatCode
 from ..utils import concurrent_fetcher, PubSub, PassiveSvs, IdNamingConv
 from ..storage import Storage
-from typing import Optional, Tuple, List, Dict
 from hashlib import sha256
-from .utils import normalize_block_ids
 
 
 class SyncCommandHandle(CommandHandle):
@@ -53,7 +50,7 @@ class SyncCommandHandle(CommandHandle):
         # subscribe to leave messages
         self.pb.subscribe(self.prefix + Name.from_str('sync/leave'), self._on_leave_msg)
 
-    def recover_from_states(self, states: Dict):
+    def recover_from_states(self, states: dict):
         self.states_on_disk = states
         # recover sync
         for sync_group, group_states in self.states_on_disk.items():
@@ -102,7 +99,7 @@ class SyncCommandHandle(CommandHandle):
         Return to client with status code 100 immediately, and then start sync process.
         """
         groups = cmd_param.sync_groups
-        logging.info(f'Recved sync command: {request_no.hex()}')
+        logging.info(f'Received sync command: {request_no.hex()}')
 
         # Cached status response
         # Note: no coroutine switching here, so no multithread conflicts
@@ -168,7 +165,7 @@ class SyncCommandHandle(CommandHandle):
 
     async def _process_leave(self, cmd_param: RepoCommandParam, request_no: bytes):
         groups = cmd_param.sync_groups
-        logging.info(f'Recved leave command: {request_no.hex()}')
+        logging.info(f'Received leave command: {request_no.hex()}')
 
         for idx, group in enumerate(groups):
             sync_prefix = Name.to_str(group.sync_prefix)
@@ -244,7 +241,7 @@ class SyncCommandHandle(CommandHandle):
                     logging.debug(f'Data does not include an object pointer, skip')
                     continue
                 logging.info(f'Discovered a pointer, fetching data segments for {Name.to_str(obj_pointer)}')
-                async for (data_name, _, _, data_bytes) in (
+                async for (loop_data_name, _, _, loop_data_bytes) in (
                     concurrent_fetcher(self.app, obj_pointer,
                         start_id=0, end_id=None, semaphore=aio.Semaphore(10))):
-                    self.storage.put_data_packet(data_name, data_bytes)
+                    self.storage.put_data_packet(loop_data_name, loop_data_bytes)

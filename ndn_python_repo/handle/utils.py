@@ -1,8 +1,8 @@
-from typing import Tuple, Optional
+from typing import Optional
 from ..command import ObjParam
 
 
-def normalize_block_ids(obj: ObjParam) -> Tuple[bool, Optional[int], Optional[int]]:
+def normalize_block_ids(obj: ObjParam) -> tuple[bool, Optional[int], Optional[int]]:
     """
     Normalize insert parameter, or reject the param if it's invalid.
     :param obj: The object to fetch.
@@ -11,7 +11,7 @@ def normalize_block_ids(obj: ObjParam) -> Tuple[bool, Optional[int], Optional[in
     start_id = obj.start_block_id
     end_id = obj.end_block_id
 
-    # Valid if neither start_block_id or end_block_id is given, fetch single data without seg number
+    # Valid if neither start_block_id nor end_block_id is given, fetch single data without seg number
     if start_id is None and end_id is None:
         return True, None, None
 

@@ -1,8 +1,7 @@
 import asyncio as aio
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name, NonStrictName, Component, DecodeError
-from hashlib import sha256
+from ndn.encoding import Name, NonStrictName, Component
 from typing import Optional
 from . import ReadHandle, CommandHandle
 from ..command import RepoCommandRes, RepoCommandParam, ObjParam, ObjStatus, RepoStatCode
@@ -38,7 +37,7 @@ class DeleteCommandHandle(CommandHandle):
         Register routes for command interests.
         This function needs to be called explicitly after initialization.
 
-        :param name: NonStrictName. The name prefix to listen on.
+        :param prefix: NonStrictName. The name prefix to listen on.
         """
         self.prefix = Name.normalize(prefix)
 
@@ -49,17 +48,7 @@ class DeleteCommandHandle(CommandHandle):
         self.app.set_interest_filter(self.prefix + Name.from_str('delete check'), self._on_check_interest)
 
     def _on_delete_msg(self, msg):
-        try:
-            cmd_param = RepoCommandParam.parse(msg)
-            request_no = sha256(bytes(msg)).digest()
-            if not cmd_param.objs:
-                raise DecodeError('Missing objects')
-            for obj in cmd_param.objs:
-                if obj.name is None:
-                    raise DecodeError('Missing name for one or more objects')
-        except (DecodeError, IndexError) as exc:
-            self.logger.warning(f'Parameter interest blob decoding failed w/ exception: {exc}')
-            return
+        cmd_param, request_no = self.parse_msg(msg)
         aio.create_task(self._process_delete(cmd_param, request_no))
 
     async def _process_delete(self, cmd_param: RepoCommandParam, request_no: bytes):
@@ -67,7 +56,7 @@ class DeleteCommandHandle(CommandHandle):
         Process delete command.
         """
         objs = cmd_param.objs
-        self.logger.info(f'Recved delete command: {request_no.hex()}')
+        self.logger.info(f'Received delete command: {request_no.hex()}')
 
         # Note that this function still has chance to switch coroutine in _perform_storage_delete.
         # So status is required to be defined before actual deletion

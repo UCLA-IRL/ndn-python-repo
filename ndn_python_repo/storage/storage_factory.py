@@ -42,7 +42,7 @@ def create_storage(config):
         else:
             raise NameError()
 
-    except NameError as exc:
+    except NameError:
         raise NotImplementedError(f'Unsupported database backend: {db_type}')
     
     return ret

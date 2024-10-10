@@ -4,12 +4,12 @@ import json
 from ndn.app import NDNApp
 from ndn.encoding import Name, NonStrictName, FormalName, Component
 from ndn.encoding.tlv_model import DecodeError
-from typing import List, Dict
 
-from ..command import RepoStatQuery, RepoCommandRes, RepoStatCode, RepeatedNames
+from ..command import RepoStatQuery, RepoCommandRes, RepoStatCode, RepeatedNames, RepoCommandParam
 from ..storage import Storage
 from ..utils import PubSub
 
+from hashlib import sha256
 
 class CommandHandle(object):
     """
@@ -65,6 +65,21 @@ class CommandHandle(object):
         if process_id in self.m_processes:
             del self.m_processes[process_id]
 
+    def parse_msg(self, msg):
+        try:
+            cmd_param = RepoCommandParam.parse(msg)
+            request_no = sha256(bytes(msg)).digest()
+            if not cmd_param.objs:
+                raise DecodeError('Missing objects')
+            for obj in cmd_param.objs:
+                if obj.name is None:
+                    raise DecodeError('Missing name for one or more objects')
+        except (DecodeError, IndexError) as exc:
+            self.logger.warning(f'Parameter interest blob decoding failed w/ exception: {exc}')
+            return
+
+        return cmd_param, request_no
+
     @staticmethod
     def add_name_to_set_in_storage(set_name: str, storage: Storage, name: NonStrictName) -> bool:
         """
@@ -91,7 +106,7 @@ class CommandHandle(object):
             return False
     
     @staticmethod
-    def get_name_from_set_in_storage(set_name: str, storage: Storage) -> List[FormalName]:
+    def get_name_from_set_in_storage(set_name: str, storage: Storage) -> list[FormalName]:
         """
         Get all names from set ``set_name`` in the storage.
         :param set_name: str
@@ -131,14 +146,14 @@ class CommandHandle(object):
 
     # this will overwrite
     @staticmethod
-    def add_dict_in_storage(dict_name: str, storage: Storage, dict: Dict) -> bool:
+    def add_dict_in_storage(dict_name: str, storage: Storage, s_dict: dict) -> bool:
         ret = storage._get(dict_name.encode('utf-8'))
-        dict_bytes = json.dumps(dict).encode('utf-8')
+        dict_bytes = json.dumps(s_dict).encode('utf-8')
         storage._put(dict_name.encode('utf-8'), dict_bytes)
-        return (ret is not None)
+        return ret is not None
 
     @staticmethod
-    def get_dict_in_storage(dict_name: str, storage: Storage) -> Dict:
+    def get_dict_in_storage(dict_name: str, storage: Storage) -> dict:
         res_bytes = storage._get(dict_name.encode('utf-8'))
         return json.loads(res_bytes.decode('utf-8'))
 
@@ -166,7 +181,7 @@ class CommandHandle(object):
         return ret
 
     @staticmethod
-    def add_sync_states_in_storage(storage: Storage, sync_group: FormalName, states: Dict):
+    def add_sync_states_in_storage(storage: Storage, sync_group: FormalName, states: dict):
         store_key = [Component.from_str('sync_states')] + sync_group
         logging.info(f'Added new sync states to storage: {Name.to_str(sync_group)}')
         return CommandHandle.add_dict_in_storage(Name.to_str(store_key), storage, states)

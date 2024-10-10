@@ -6,11 +6,9 @@
 """
 
 import argparse
-import asyncio as aio
 import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name
-from ndn.security import KeychainDigest
 from ndn_python_repo.clients import DeleteClient
 
 
@@ -61,7 +59,7 @@ def main():
     # process default values
     start_block_id = int(args.start_block_id) if args.start_block_id else None
     end_block_id = int(args.end_block_id) if args.end_block_id else None
-    if args.register_prefix == None:
+    if args.register_prefix is None:
         args.register_prefix = args.name_at_repo
     args.register_prefix = Name.from_str(args.register_prefix)
 
