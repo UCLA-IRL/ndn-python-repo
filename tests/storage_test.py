@@ -5,6 +5,7 @@ import asyncio as aio
 from ndn.encoding import Name
 from ndn_python_repo.storage import *
 import pytest
+import time
 
 
 class StorageTestFixture(object):
@@ -20,6 +21,7 @@ class StorageTestFixture(object):
         StorageTestFixture._test_remove()
         StorageTestFixture._test_get_data_packet()
         StorageTestFixture._test_freshness_period()
+        StorageTestFixture._test_freshness_period_again()
         StorageTestFixture._test_get_prefix()
         StorageTestFixture._test_put_batch()
         StorageTestFixture._test_write_back()
@@ -64,7 +66,21 @@ class StorageTestFixture(object):
         data_bytes_out = StorageTestFixture.storage.get_data_packet(Name.from_str('/test_freshness_period/1'), 
             must_be_fresh=True)
         assert data_bytes_out == None
-    
+
+    @staticmethod
+    def _test_freshness_period_again():
+        # /test_get_data_packet/0, freshnessPeriod = 3000ms
+        data_bytes_in = b'\x06\xc3\x07\x1d\x08\x15test_freshness_period\x08\x0122\x01\x00\x14\x0c\x18\x01\x00\x19\x02\x0b\xb8\x1a\x032\x01\x00\x15\x0eHello, World!\n\x16;\x1b\x01\x03\x1c6\x074\x08\tlocalhost\x08\x08operator\x08\x03KEY\x08\x08\xd3\xe9x\xe9\x9cDR0\x08\x04self6\x08\x00\x00\x01\x92T\xa3\xa4\x01\x17G0E\x02!\x00\xcbUrj\xea.\x94\x98\xb5\xe5hG\x14\xad{\xdc|\x9c\xeb\xde\x83,YB?\x83\x1efA\xb8.\xde\x02 k\xd5N\xa0\xef\xa3\xcc~\xfe\xcc\x08,\x08]\tL\xeem\xeff\x9a\x9eoB\xbe\xe1\xae\x8c\x95M\xdb\x00'
+        StorageTestFixture.storage.put_data_packet(Name.from_str('/test_freshness_period/2'), data_bytes_in)
+        data_bytes_out = StorageTestFixture.storage.get_data_packet(Name.from_str('/test_freshness_period/2'),
+                                                                    must_be_fresh=True)
+        assert data_bytes_in == data_bytes_out
+        time.sleep(3)
+        data_bytes_out = StorageTestFixture.storage.get_data_packet(Name.from_str('/test_freshness_period/2'),
+                                                                    must_be_fresh=True)
+        assert data_bytes_out is None
+
+
     @staticmethod
     def _test_get_prefix():
         # /test_get_prefix/0, freshnessPeriod = 10000ms

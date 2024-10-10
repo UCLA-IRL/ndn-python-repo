@@ -70,7 +70,7 @@ class SqliteStorage(Storage):
         c = self.conn.cursor()
         query = 'SELECT value FROM data WHERE '
         if must_be_fresh:
-            query += f'(expire_time_ms > {time_ms()}) AND '
+            query += f'(expire_time_ms > {self._time_ms()}) AND '
         if can_be_prefix:
             query += 'hex(key) LIKE ?'
             c.execute(query, (key.hex() + '%', ))

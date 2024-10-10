@@ -81,7 +81,7 @@ class MongoDBStorage(Storage):
         else:
             query.update({'key': {'$regex': '^' + key}})
         if must_be_fresh:
-            query.update({'expire_time_ms': {'$gt': self.time_ms()}})
+            query.update({'expire_time_ms': {'$gt': self._time_ms()}})
         ret = self.c_collection.find_one(query)
         if ret:
             return ret['value']

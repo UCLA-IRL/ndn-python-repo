@@ -39,12 +39,11 @@ class ReadHandle(object):
 
     def _on_interest(self, int_name, int_param, _app_param):
         """
-        Repo should not respond to any interest with MustBeFresh flag set.
+        Repo responds to Interests with mustBeFresh flag, following the same logic as the Content Store in NFD
         """
-        if int_param.must_be_fresh:
-            logging.warn(f'Repo is configured to ignore Interests with MustBeFresh flag set: {Name.to_str(int_name)}')
-            return
-        data_bytes = self.storage.get_data_packet(int_name, int_param.can_be_prefix)
+        logging.debug(f'Repo got Interest with{"out" if not int_param.must_be_fresh else ""} '
+                      f'MustBeFresh flag set for name {Name.to_str(int_name)}')
+        data_bytes = self.storage.get_data_packet(int_name, int_param.can_be_prefix, int_param.must_be_fresh)
         if data_bytes == None:
             return
         self.app.put_raw_packet(data_bytes)
