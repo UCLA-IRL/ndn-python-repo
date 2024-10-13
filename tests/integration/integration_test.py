@@ -26,7 +26,7 @@ repo_config:
   repo_name: {repo_name}
   register_root: {register_root}
 db_config:
-  db_type: leveldb
+  db_type: sqlite3
   sqlite3:
     path: {sqlite3_path}
   leveldb: 
