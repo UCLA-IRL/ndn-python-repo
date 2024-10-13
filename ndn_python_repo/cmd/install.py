@@ -1,8 +1,6 @@
-import os
 import platform
 import shutil
 import sys
-# from pkg_resources import resource_filename
 import importlib.resources
 
 

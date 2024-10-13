@@ -10,18 +10,14 @@ import os
 import sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
-import asyncio as aio
-from .command_checker import CommandChecker
-from ..command import RepoCommandParam, SyncParam, EmbName, RepoStatCode
+from ..command import RepoCommandParam, SyncParam
 from ..utils import PubSub
 import logging
-import multiprocessing
 from ndn.app import NDNApp
-from ndn.encoding import Name, NonStrictName, Component, Links
+from ndn.encoding import Name, NonStrictName
 import os
 import platform
 from hashlib import sha256
-from typing import Optional, List
 
 class SyncClient(object):
 

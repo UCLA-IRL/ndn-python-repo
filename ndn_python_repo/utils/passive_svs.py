@@ -7,7 +7,7 @@
 
 import logging
 from base64 import b64decode, b64encode
-from typing import Dict, Callable
+from typing import Callable
 from ndn.app import NDNApp
 from ndn.app_support.svs import StateVecWrapper, SvsState
 from ndn.encoding import Name, NonStrictName, DecodeError, FormalName, BinaryStr, InterestParam, parse_interest, \
@@ -52,7 +52,7 @@ class PassiveSvs:
         states['inst_buffer'] = inst_buffer_enc
         return states
 
-    def decode_from_states(self, states: Dict):
+    def decode_from_states(self, states: dict):
         inst_buffer_dec = {}
         for nid, inst in states['inst_buffer'].items():
             inst_buffer_dec[nid] = b64decode(inst)
@@ -130,7 +130,7 @@ class PassiveSvs:
                     self.send_interest(raw_inst)
                 else: pass
 
-        # Notify remote there are mising nodes
+        # Notify remote there are missing nodes
         diff = self.local_sv.keys() - rsv_dict.keys()
         if len(diff) > 0:
             self.logger.info(f'Remote missing nodes: {list(diff)}')

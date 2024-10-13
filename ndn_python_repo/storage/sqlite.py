@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from typing import List, Optional
+from typing import Optional
 from .storage_base import Storage
 
 
@@ -45,13 +45,13 @@ class SqliteStorage(Storage):
             (key, value, expire_time_ms))
         self.conn.commit()
 
-    def _put_batch(self, keys: List[bytes], values: List[bytes], expire_time_mss:List[Optional[int]]):
+    def _put_batch(self, keys: list[bytes], values: list[bytes], expire_time_mss:list[Optional[int]]):
         """
         Batch insert.
 
-        :param key: List[bytes].
-        :param value: List[bytes].
-        :param expire_time_ms: List[Optional[int]]. The expiration time for each data in ``value``.
+        :param keys: list[bytes].
+        :param values: list[bytes].
+        :param expire_time_mss: list[Optional[int]]. The expiration time for each data in ``value``.
         """
         c = self.conn.cursor()
         c.executemany('INSERT OR REPLACE INTO data (key, value, expire_time_ms) VALUES (?, ?, ?)',

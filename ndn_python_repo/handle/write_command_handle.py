@@ -1,14 +1,13 @@
 import asyncio as aio
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name, NonStrictName, DecodeError
+from ndn.encoding import Name, NonStrictName
 from ndn.types import InterestNack, InterestTimeout
 from . import ReadHandle, CommandHandle
 from ..command import RepoCommandRes, RepoCommandParam, ObjParam, ObjStatus, RepoStatCode
 from ..utils import concurrent_fetcher, PubSub
 from ..storage import Storage
-from typing import Optional, Tuple, List
-from hashlib import sha256
+from typing import Optional
 from .utils import normalize_block_ids
 
 
@@ -50,17 +49,7 @@ class WriteCommandHandle(CommandHandle):
         self.app.set_interest_filter(self.prefix + Name.from_str('insert check'), self._on_check_interest)
 
     def _on_insert_msg(self, msg):
-        try:
-            cmd_param = RepoCommandParam.parse(msg)
-            request_no = sha256(bytes(msg)).digest()
-            if not cmd_param.objs:
-                raise DecodeError('Missing objects')
-            for obj in cmd_param.objs:
-                if obj.name is None:
-                    raise DecodeError('Missing name for one or more objects')
-        except (DecodeError, IndexError) as exc:
-            self.logger.warning(f'Parameter interest blob decoding failed w/ exception: {exc}')
-            return
+        cmd_param, request_no = self.parse_msg(msg)
         aio.create_task(self._process_insert(cmd_param, request_no))
 
     async def _process_insert(self, cmd_param: RepoCommandParam, request_no: bytes):
@@ -161,10 +150,11 @@ class WriteCommandHandle(CommandHandle):
         # Delete process state after some time
         await self._delete_process_state_after(request_no, 60)
 
-    async def fetch_single_data(self, name: NonStrictName, forwarding_hint: Optional[List[NonStrictName]]):
+    async def fetch_single_data(self, name: NonStrictName, forwarding_hint: Optional[list[NonStrictName]]):
         """
         Fetch one Data packet.
         :param name: NonStrictName.
+        :param forwarding_hint: Optional[list[NonStrictName]]
         :return:  Number of data packets fetched.
         """
         try:
@@ -181,10 +171,13 @@ class WriteCommandHandle(CommandHandle):
         return 1
 
     async def fetch_segmented_data(self, name, start_block_id: int, end_block_id: Optional[int],
-                                   forwarding_hint: Optional[List[NonStrictName]]):
+                                   forwarding_hint: Optional[list[NonStrictName]]):
         """
         Fetch segmented Data packets.
         :param name: NonStrictName.
+        :param start_block_id: int
+        :param end_block_id: Optional[int]
+        :param forwarding_hint: Optional[list[NonStrictName]]
         :return: Number of data packets fetched.
         """
         semaphore = aio.Semaphore(10)

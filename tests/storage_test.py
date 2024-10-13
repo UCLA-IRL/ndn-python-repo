@@ -1,10 +1,6 @@
-import abc
-import os
-import sys
 import asyncio as aio
 from ndn.encoding import Name
-from ndn_python_repo.storage import *
-import pytest
+from ndn_python_repo.storage import SqliteStorage
 import time
 
 
@@ -65,7 +61,7 @@ class StorageTestFixture(object):
         StorageTestFixture.storage.put_data_packet(Name.from_str('/test_freshness_period/1'), data_bytes_in)
         data_bytes_out = StorageTestFixture.storage.get_data_packet(Name.from_str('/test_freshness_period/1'), 
             must_be_fresh=True)
-        assert data_bytes_out == None
+        assert data_bytes_out is None
 
     @staticmethod
     def _test_freshness_period_again():
@@ -91,9 +87,9 @@ class StorageTestFixture(object):
             can_be_prefix=True)
         data_bytes_out3 = StorageTestFixture.storage.get_data_packet(Name.from_str('/test_get_prefi'),
             can_be_prefix=True)
-        assert data_bytes_out1 == None
+        assert data_bytes_out1 is None
         assert data_bytes_out2 == data_bytes_in
-        assert data_bytes_out3 == None  # should be None because the last name component doesn't match
+        assert data_bytes_out3 is None  # should be None because the last name component doesn't match
     
     @staticmethod
     def _test_put_batch():

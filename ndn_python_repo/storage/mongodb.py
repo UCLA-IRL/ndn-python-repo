@@ -1,8 +1,7 @@
 import base64
-import pymongo
 from pymongo import MongoClient, ReplaceOne
 from .storage_base import Storage
-from typing import List, Optional
+from typing import Optional
 
 
 class MongoDBStorage(Storage):
@@ -47,13 +46,13 @@ class MongoDBStorage(Storage):
         }
         self.c_collection.replace_one({'key': key}, replace, upsert=True)
 
-    def _put_batch(self, keys: List[bytes], values: List[bytes], expire_time_mss:List[Optional[int]]):
+    def _put_batch(self, keys: list[bytes], values: list[bytes], expire_time_mss:list[Optional[int]]):
         """
         Batch insert.
 
-        :param key: List[bytes].
-        :param value: List[bytes].
-        :param expire_time_ms: List[Optional[int]]. The expiration time for each data in ``value``.
+        :param keys: list[bytes].
+        :param values: list[bytes].
+        :param expire_time_mss: list[Optional[int]]. The expiration time for each data in ``value``.
         """
         keys = [base64.b16encode(key).decode() for key in keys]
         replaces = []

@@ -23,20 +23,26 @@ port = 7377
 inline_cfg = f"""
 ---
 repo_config:
-  repo_name: '{repo_name}'
+  repo_name: {repo_name}
   register_root: {register_root}
 db_config:
-  db_type: 'sqlite3'
+  db_type: sqlite3
   sqlite3:
-    'path': '{sqlite3_path}'
+    path: {sqlite3_path}
+  leveldb: 
+    dir: ~/.ndn/ndn-python-repo/leveldb/
+  mongodb:
+    db: test_python_repo
+    collection: ndn_data
+    uri: mongodb://127.0.0.1:27017/
 tcp_bulk_insert:
-  addr: '0.0.0.0'
-  port: '{port}'
+  addr: 0.0.0.0
+  port: {port}
   register_prefix: True
   prefixes:
   - /test
 logging_config:
-  level: 'INFO' 
+  level: INFO 
 """
 
 
@@ -67,13 +73,15 @@ class RepoTestSuite(object):
                 print('Cleaning up tmp file:', file)
                 os.remove(file)
 
-    def create_tmp_file(self, size_bytes=4096):
+    @staticmethod
+    def create_tmp_file(size_bytes=4096):
         tmp_file_path = os.path.join(tempfile.mkdtemp(), 'tempfile')
         with open(tmp_file_path, 'wb') as f:
             f.write(os.urandom(size_bytes))
         return tmp_file_path
 
-    def create_tmp_cfg(self):
+    @staticmethod
+    def create_tmp_cfg():
         tmp_cfg_path = os.path.join(tempfile.mkdtemp(), 'ndn-python-repo.cfg')
         with open(tmp_cfg_path, 'w') as f:
             f.write(inline_cfg)
@@ -306,24 +314,24 @@ class TestNoneMetaInfo(RepoTestSuite):
         self.app.shutdown()
 
 
-# Notes: The Github Actions failed this test case because of InterestNack.
-#        However we could not reproduce the failure.
+# Notes: The GitHub Actions failed this test case because of InterestNack.
+#        However, we could not reproduce the failure.
 #        Since we do not have sufficient understanding of the behavior, let
 #        us temporarily abandon this test case.
-#        We need to gain better knowledge on this in future.
+#        We need to gain better knowledge on this in the future.
 #
 # class TestTcpBulkInsert(RepoTestSuite):
 #     async def run(self):
 #         await aio.sleep(2)  # wait for repo to startup
-
+#
 #         reader, writer = await aio.open_connection('127.0.0.1', port)
-
+#
 #         # insert data '/test/0'
 #         writer.write(b'\x06?\x07\t\x08\x04test\x08\x010\x14\x03\x18\x01\x00\x15\x06foobar'
 #                      b'\x16\x03\x1b\x01\x00\x17 \x94?\\\xae\x99\xd5\xd6\xa5\x18\xac\x00'
 #                      b'\xe3\xcaX\x82\x972,\xf1\xebUQ\xa5I%\xb3\xd5\xac\xcc\xc6\x80Q')
 #         writer.close()
-
+#
 #         # content should be 'foobar'
 #         _, _, content = await self.app.express_interest(Name.from_str('/test/0'))
 #         assert content.tobytes().decode() == 'foobar'
