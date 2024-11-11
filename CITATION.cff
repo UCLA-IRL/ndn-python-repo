@@ -1,0 +1,51 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Yu"
+  given-names: "Tianyuan"
+  orcid: "https://orcid.org/0000-0002-6722-1938"
+- family-names: "Kong"
+  given-names: "Zhaoning"
+  orcid: "https://orcid.org/0009-0009-8887-1698"
+- family-names: "Ma"
+  given-names: "Xinyu"
+  orcid: "https://orcid.org/0000-0002-7575-1058"
+- family-names: "Wang"
+  given-names: "Lan"
+  orcid: "https://orcid.org/0000-0001-7925-7957"
+- family-names: "Zhang"
+  given-names: "Lixia"
+  orcid: "https://orcid.org/0000-0003-0701-757X"
+title: "YaNFD"
+version: 0.4
+doi: 10.1109/ICNC59896.2024.10556243
+date-released: 2024-02-19
+url: "https://github.com/UCLA-IRL/ndn-python-repo"
+preferred-citation:
+  type: conference-paper
+  authors:
+  - family-names: "Yu"
+    given-names: "Tianyuan"
+    orcid: "https://orcid.org/0000-0002-6722-1938"
+  - family-names: "Kong"
+    given-names: "Zhaoning"
+    orcid: "https://orcid.org/0009-0009-8887-1698"
+  - family-names: "Ma"
+    given-names: "Xinyu"
+    orcid: "https://orcid.org/0000-0002-7575-1058"
+  - family-names: "Wang"
+    given-names: "Lan"
+    orcid: "https://orcid.org/0000-0001-7925-7957"
+  - family-names: "Zhang"
+    given-names: "Lixia"
+    orcid: "https://orcid.org/0000-0003-0701-757X"
+  doi: "10.1109/ICNC59896.2024.10556243"
+  conference:
+    name: "2024 International Conference on Computing, Networking and Communications (ICNC)"
+  month: 2
+  start: 927 # First page number
+  end: 931 # Last page number
+  title: "PythonRepo: Persistent In-Network Storage for Named Data Networking"
+  year: 2024
+  publisher: "IEEE"
+  url: "https://doi.org/10.1109/ICNC59896.2024.10556243"
