@@ -88,7 +88,13 @@ class PassiveSvs:
         if len(name) != len(self.base_prefix) + 2:
             logging.error(f'Received invalid Sync Interest: {Name.to_str(name)}')
             return
-        logging.info(f'Received Sync Interest: {Name.to_str(name)}')
+        _, _, _, sig_ptrs = parse_interest(raw_packet)
+        sig_info = sig_ptrs.signature_info
+        if sig_info and sig_info.key_locator and sig_info.key_locator.name:
+            logging.info(f'Received Sync Interest: {Name.to_str(sig_info.key_locator.name)}')
+        else:
+            logging.info(f'Drop unsigned or improperly signed Sync Snterests')
+            return
         try:
             remote_sv_pkt = StateVecWrapper.parse(name[-2]).val
         except (DecodeError, IndexError) as e:
