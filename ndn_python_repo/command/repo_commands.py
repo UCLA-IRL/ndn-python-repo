@@ -4,10 +4,23 @@
     @Author jonnykong@cs.ucla.edu
     @Date   2019-11-01
 """
+
+from typing import TypeVar
 import ndn.encoding as enc
 
-__all__ = ['RepoTypeNumber', 'EmbName', 'ObjParam', 'SyncParam', 'SyncStatus', 'RepoCommandParam', 'ObjStatus', 'RepoCommandRes',
-           'RepeatedNames', 'RepoStatCode', 'RepoStatQuery']
+__all__ = [
+    "RepoTypeNumber",
+    "EmbName",
+    "ObjParam",
+    "SyncParam",
+    "SyncStatus",
+    "RepoCommandParam",
+    "ObjStatus",
+    "RepoCommandRes",
+    "RepeatedNames",
+    "RepoStatCode",
+    "RepoStatQuery",
+]
 
 
 class RepoTypeNumber:
@@ -26,6 +39,8 @@ class RepoTypeNumber:
     SYNC_RESULT = 402
     SYNC_DATA_NAME_DEDUPE = 403
     SYNC_RESET = 404
+    SYNC_PREFIX = 405
+
 
 class RepoStatCode:
     # 100 has not been used by previous code, but defined and documented.
@@ -43,8 +58,17 @@ class RepoStatCode:
     NOT_FOUND = 404
 
 
+TEmbName = TypeVar('TEmbName', bound='EmbName')
+
+
 class EmbName(enc.TlvModel):
     name = enc.NameField()
+
+    @staticmethod
+    def from_name(name: enc.NonStrictName) -> TEmbName:
+        ret = EmbName()
+        ret.name = name
+        return ret
 
 
 class ObjParam(enc.TlvModel):
@@ -54,17 +78,21 @@ class ObjParam(enc.TlvModel):
     end_block_id = enc.UintField(RepoTypeNumber.END_BLOCK_ID)
     register_prefix = enc.ModelField(RepoTypeNumber.REGISTER_PREFIX, EmbName)
 
+
 class SyncParam(enc.TlvModel):
-    sync_prefix = enc.NameField()
-    register_prefix = enc.NameField()
+    sync_prefix = enc.ModelField(RepoTypeNumber.SYNC_PREFIX, EmbName)
+    register_prefix = enc.ModelField(RepoTypeNumber.REGISTER_PREFIX, EmbName)
     data_name_dedupe = enc.BoolField(RepoTypeNumber.SYNC_DATA_NAME_DEDUPE)
     reset = enc.BoolField(RepoTypeNumber.SYNC_RESET)
     # forwarding_hint = enc.ModelField(RepoTypeNumber.FORWARDING_HINT, enc.Links)
     # sync_prefix = enc.ModelField(RepoTypeNumber.REGISTER_PREFIX, EmbName)
 
+
 class RepoCommandParam(enc.TlvModel):
     objs = enc.RepeatedField(enc.ModelField(RepoTypeNumber.OBJECT_PARAM, ObjParam))
-    sync_groups = enc.RepeatedField(enc.ModelField(RepoTypeNumber.SYNC_PARAM, SyncParam))
+    sync_groups = enc.RepeatedField(
+        enc.ModelField(RepoTypeNumber.SYNC_PARAM, SyncParam)
+    )
 
 
 class RepoStatQuery(enc.TlvModel):
@@ -81,12 +109,14 @@ class ObjStatus(enc.TlvModel):
 class SyncStatus(enc.TlvModel):
     name = enc.NameField()
     status_code = enc.UintField(RepoTypeNumber.STATUS_CODE)
-    insert_num = enc.UintField(RepoTypeNumber.INSERT_NUM)
+
 
 class RepoCommandRes(enc.TlvModel):
     status_code = enc.UintField(RepoTypeNumber.STATUS_CODE)
     objs = enc.RepeatedField(enc.ModelField(RepoTypeNumber.OBJECT_RESULT, ObjStatus))
-    sync_groups = enc.RepeatedField(enc.ModelField(RepoTypeNumber.SYNC_RESULT, ObjStatus))
+    sync_groups = enc.RepeatedField(
+        enc.ModelField(RepoTypeNumber.SYNC_RESULT, SyncStatus)
+    )
 
 
 class RepeatedNames(enc.TlvModel):

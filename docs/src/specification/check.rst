@@ -30,7 +30,7 @@ RepoCommandRes
     However, fetched objects or segments are still inserted into the repo.
     Only the objects with ``insert_num=0`` are not inserted.
 
-* For each ``ObjectResult`` contained in the ``RepoCommandRes``, the status code can be one of the following:
+* For each ``ObjStatus`` contained in the ``RepoCommandRes``, the status code can be one of the following:
 
   * ``ROGER``: The whole command is received and the operation on this object will be started in the future.
   * ``MALFORMED``: If the object has wrong parameter.

@@ -10,7 +10,7 @@ import os
 import sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
-from ..command import RepoCommandParam, SyncParam
+from ..command import RepoCommandParam, SyncParam, EmbName
 from ..utils import PubSub
 import logging
 from ndn.app import NDNApp
@@ -46,8 +46,8 @@ class SyncClient(object):
         # construct insert cmd msg
         cmd_param = RepoCommandParam()
         cmd_sync = SyncParam()
-        cmd_sync.sync_prefix = sync_prefix
-        cmd_sync.register_prefix = register_prefix
+        cmd_sync.sync_prefix = EmbName.from_name(sync_prefix)
+        cmd_sync.register_prefix = EmbName.from_name(register_prefix)
         cmd_sync.data_name_dedupe = data_name_dedupe
         cmd_sync.reset = reset
         
@@ -67,7 +67,7 @@ class SyncClient(object):
         # construct insert cmd msg
         cmd_param = RepoCommandParam()
         cmd_sync = SyncParam()
-        cmd_sync.sync_prefix = sync_prefix
+        cmd_sync.sync_prefix = EmbName.from_name(sync_prefix)
         cmd_param.sync_groups = [cmd_sync]
         cmd_param_bytes = bytes(cmd_param.encode())
 

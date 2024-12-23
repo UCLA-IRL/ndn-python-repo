@@ -8,7 +8,7 @@ Repo insertion process makes use of the :doc:`../misc_pkgs/pub_sub`.
 1. The repo subscribes to the topic ``/<repo_name>/insert``.
 
 2. The client publishes a message to the topic ``/<repo_name>/insert``.
-   The message payload is ``RepoCommandParam`` containing one or more ``ObjectParam`` with the following fields:
+   The message payload is ``RepoCommandParam`` containing one or more ``ObjParam`` with the following fields:
 
       * ``name``: either a Data packet name, or a name prefix of segmented Data packets.
       * ``start_block_id`` (Optional): inclusive start segment number.
@@ -37,12 +37,12 @@ Insert status check
 
 The client can use the :doc:`check` protocol to check the progress of an insertion process.
 The insertion check response message payload is ``RepoCommandRes`` containing zero or more
-``ObjectResult`` with the following fields:
+``ObjStatus`` with the following fields:
 
 * ``status_code``: status code, as defined on :doc:`check`.
   Both the command itself and objects has a status code.
 * ``name``: the name of object to insert.
 * ``insert_num``: number of Data packets received by the repo so far.
-* The number of ``ObjectResult`` in the result should be either:
+* The number of ``ObjStatus`` in the result should be either:
   * =0, which means the command is malformed or not allowed.
-  * equals to the number of ``ObjectParam`` in the insertion command.
+  * equals to the number of ``ObjParam`` in the insertion command.
