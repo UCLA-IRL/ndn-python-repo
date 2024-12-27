@@ -6,6 +6,9 @@ Most repo commands and status reports are Data packets whose Content contains
 These Data are issued via Pub-Sub protocol.
 Each ``RepoCommandParam`` and ``RepoCommandRes`` contains
 multiple ``ObjParam`` and ``ObjStatus``, resp.
+
+Current protocol does not support compatibility among different versions. All TLV-TYPE numbers are critical.
+
 These structures are defined as follows:
 
 .. code-block:: abnf
