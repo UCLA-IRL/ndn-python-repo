@@ -1,11 +1,11 @@
 import asyncio as aio
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name, NonStrictName
+from ndn.encoding import Name, NonStrictName, Component
 from ndn.types import InterestNack, InterestTimeout
 from . import ReadHandle, CommandHandle
 from ..command import RepoCommandRes, RepoCommandParam, ObjParam, ObjStatus, RepoStatCode
-from ..utils import concurrent_fetcher, PubSub
+from ..utils import concurrent_fetcher, PubSub, DirectIngestHandle
 from ..storage import Storage
 from typing import Optional
 from .utils import normalize_block_ids
@@ -17,7 +17,7 @@ class WriteCommandHandle(CommandHandle):
     store them into the database.
     TODO: Add validator
     """
-    def __init__(self, app: NDNApp, storage: Storage, pb: PubSub, read_handle: ReadHandle,
+    def __init__(self, app: NDNApp, storage: Storage, pb: PubSub, pb: PubSub, ingest_handle: Optional[DirectIngestHandle], read_handle: ReadHandle,
                  config: dict):
         """
         Write handle need to keep a reference to write handle to register new prefixes.
@@ -26,9 +26,12 @@ class WriteCommandHandle(CommandHandle):
         :param storage: Storage.
         :param read_handle: ReadHandle. This param is necessary, because WriteCommandHandle need to
             call ReadHandle.listen() to register new prefixes.
+        :param ingest_handle: DirectIngestHandle or None. If provided, registers the direct ingest
+            protocol alongside the legacy pub-sub insert protocol.
         """
         super(WriteCommandHandle, self).__init__(app, storage, pb, config)
         self.m_read_handle = read_handle
+        self.m_ingest_handle = ingest_handle
         self.prefix = None
         self.register_root = config['repo_config']['register_root']
         self.logger = logging.getLogger(__name__)
@@ -47,7 +50,11 @@ class WriteCommandHandle(CommandHandle):
 
         # listen on insert check interests
         self.app.set_interest_filter(self.prefix + Name.from_str('insert check'), self._on_check_interest)
-
+        
+        # direct ingest protocol
+        if self.ingest_handle is not None:
+            await self.ingest_handle.listen(prefix)
+            
     def _on_insert_msg(self, msg):
         cmd_param, request_no = self.parse_msg(msg)
         aio.create_task(self._process_insert(cmd_param, request_no))
@@ -157,18 +164,22 @@ class WriteCommandHandle(CommandHandle):
         :param forwarding_hint: Optional[list[NonStrictName]]
         :return:  Number of data packets fetched.
         """
-        try:
-            data_name, _, _, data_bytes = await self.app.express_interest(
-                name, need_raw_packet=True, can_be_prefix=False, lifetime=1000,
-                forwarding_hint=forwarding_hint)
-        except InterestNack as e:
-            self.logger.info(f'Nacked with reason={e.reason}')
-            return 0
-        except InterestTimeout:
-            self.logger.info(f'Timeout')
-            return 0
-        self.storage.put_data_packet(data_name, data_bytes)
-        return 1
+        n_retries = 3
+        while n_retries > 0:
+            try:
+                data_name, _, _, data_bytes = await self.app.express_interest(
+                    name, need_raw_packet=True, can_be_prefix=False, lifetime=2000,
+                    forwarding_hint=forwarding_hint)
+                self.storage.put_data_packet(data_name, data_bytes)
+                return 1
+            except InterestNack as e:
+                logging.info(f'Nacked with reason={e.reason}')
+                await aio.sleep(1)
+                n_retries -= 1
+            except InterestTimeout:
+                logging.info(f'Timeout')
+                n_retries -= 1
+        return 0
 
     async def fetch_segmented_data(self, name, start_block_id: int, end_block_id: Optional[int],
                                    forwarding_hint: Optional[list[NonStrictName]]):

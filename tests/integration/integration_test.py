@@ -5,7 +5,7 @@ from ndn.app import NDNApp
 from ndn.encoding import Name
 from ndn.security import KeychainDigest
 from ndn.types import InterestNack, InterestTimeout
-from ndn_python_repo.clients import GetfileClient, PutfileClient, DeleteClient, CommandChecker
+from ndn_python_repo.clients import GetfileClient, PutfileClient, DeleteClient, CommandChecker, IngestClient
 from ndn_python_repo.command import RepoCommandParam, ObjParam, RepoStatCode
 from ndn_python_repo.utils import PubSub
 import os
@@ -114,6 +114,25 @@ class TestBasic(RepoTestSuite):
         # cleanup
         self.files_to_cleanup.append(filepath1)
         self.files_to_cleanup.append(filepath2)
+        self.app.shutdown()
+
+
+class TestIngest(RepoTestSuite):
+    async def run(self):
+        await aio.sleep(2)  # wait for repo to startup
+        data_name = uuid.uuid4().hex.upper()[0:6]
+        content = b'foobar'
+
+        # ingest a single Data packet
+        ic = IngestClient(self.app, Name.from_str('/ingest_client'), Name.from_str(repo_name))
+        success = await ic.ingest_data(Name.from_str(data_name), content,
+                                       register_prefix=Name.from_str(data_name))
+        assert success
+
+        # fetch it back from the repo and check content
+        _, _, fetched_content = await self.app.express_interest(Name.from_str(data_name))
+        assert bytes(fetched_content) == content
+
         self.app.shutdown()
 
 

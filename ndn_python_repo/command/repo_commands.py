@@ -20,6 +20,7 @@ __all__ = [
     "RepeatedNames",
     "RepoStatCode",
     "RepoStatQuery",
+    "IngestCmdParam",
 ]
 
 
@@ -121,3 +122,11 @@ class RepoCommandRes(enc.TlvModel):
 
 class RepeatedNames(enc.TlvModel):
     names = enc.RepeatedField(enc.NameField())
+
+class IngestCmdParam(enc.TlvModel):
+    data_name       = enc.NameField()
+    forwarding_hint = enc.ModelField(RepoTypeNumber.FORWARDING_HINT, enc.Links)
+    start_block_id  = enc.UintField(RepoTypeNumber.START_BLOCK_ID)
+    end_block_id    = enc.UintField(RepoTypeNumber.END_BLOCK_ID)
+    register_prefix = enc.ModelField(RepoTypeNumber.REGISTER_PREFIX, EmbName)
+    ingest_nonce    = enc.BytesField(214)
