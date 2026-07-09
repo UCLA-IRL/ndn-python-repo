@@ -5,9 +5,9 @@
 # the Data to be stored; the repo fetches and stores that Data, then replies
 # to the same Interest with an empty Data packet as acknowledgement.
 #
-# The params-sha256 digest that NDN appends to the Interest name makes each
-# ingest command uniquely named, so concurrent in-flight commands are
-# disambiguated at the PIT level without any extra state.
+# NDN appends a params-sha256 digest of the command parameters to the
+# Interest name, so commands with different parameters are disambiguated
+# at the PIT level without any extra state.
 #
 # @Author regmisuravi@gmail.com
 # @Date   2026-06-30
@@ -17,11 +17,8 @@ import asyncio as aio
 import logging
 
 from ndn.app import NDNApp
-from ndn.encoding import (
-    TlvModel, NameField, ModelField,
-    Name, NonStrictName, Component, InterestParam
-)
-from ..handle import ReadHandle
+from ndn.encoding import Name, NonStrictName
+from ..handle.read_handle import ReadHandle
 from ndn.types import InterestNack, InterestTimeout
 from ..command import IngestCmdParam
 from ..storage import Storage

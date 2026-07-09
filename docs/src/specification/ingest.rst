@@ -11,7 +11,8 @@ for Interests directly, and each command is a single Interest/Data exchange.
 
 2. The producer sends an Interest under ``/<repo_name>/ingest`` carrying an application
    parameter ``IngestCmdParam``. NDN appends a ``params-sha256=<digest>`` component computed
-   over the parameter, making the Interest name unique per command, with the following fields:
+   over the parameter, so the Interest name reflects its command parameters, with the
+   following fields:
 
    * ``data_name``: either a Data packet name, or a name prefix of segmented Data packets.
    * ``forwarding_hint`` (Optional): forwarding hint used to fetch ``data_name``, same
@@ -20,7 +21,8 @@ for Interests directly, and each command is a single Interest/Data exchange.
    * ``end_block_id`` (Optional): inclusive end segment number.
    * ``register_prefix`` (Optional): tell the repo to start serving reads under this prefix
      once the data is stored.
-   * ``ingest_nonce`` (Optional): reserved for future use; currently ignored by the repo.
+
+   See :doc:`encoding` for the ``IngestCmdParam`` ABNF and TLV-TYPE assignments.
 
 3. The repo fetches and stores Data following the same rules as :doc:`insert`:
 
@@ -29,8 +31,8 @@ for Interests directly, and each command is a single Interest/Data exchange.
    * If only ``end_block_id`` is given, ``start_block_id`` is considered 0.
    * If only ``start_block_id`` is given, ``end_block_id`` is auto-detected, i.e. infinity.
    * If both are given, the command is valid only when ``end_block_id >= start_block_id``.
-   * Segment numbers follow `NDN naming conventions rev2
-     <https://named-data.net/publications/techreports/ndn-tr-22-2-ndn-memo-naming-conventions/>`_.
+   * Segment numbers follow `NDN naming conventions rev3
+     <https://named-data.net/publications/techreports/ndn-tr-22-3-ndn-memo-naming-conventions/>`_.
 
 4. Once all requested packets are fetched and stored, the repo acks by replying to the
    original ingest Interest with an empty Data packet.

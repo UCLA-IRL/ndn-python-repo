@@ -1,7 +1,7 @@
 import asyncio as aio
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name, NonStrictName, Component
+from ndn.encoding import Name, NonStrictName
 from ndn.types import InterestNack, InterestTimeout
 from . import ReadHandle, CommandHandle
 from ..command import RepoCommandRes, RepoCommandParam, ObjParam, ObjStatus, RepoStatCode
@@ -17,7 +17,7 @@ class WriteCommandHandle(CommandHandle):
     store them into the database.
     TODO: Add validator
     """
-    def __init__(self, app: NDNApp, storage: Storage, pb: PubSub, pb: PubSub, ingest_handle: Optional[DirectIngestHandle], read_handle: ReadHandle,
+    def __init__(self, app: NDNApp, storage: Storage, pb: PubSub, ingest_handle: Optional[DirectIngestHandle], read_handle: ReadHandle,
                  config: dict):
         """
         Write handle need to keep a reference to write handle to register new prefixes.
@@ -52,8 +52,8 @@ class WriteCommandHandle(CommandHandle):
         self.app.set_interest_filter(self.prefix + Name.from_str('insert check'), self._on_check_interest)
         
         # direct ingest protocol
-        if self.ingest_handle is not None:
-            await self.ingest_handle.listen(prefix)
+        if self.m_ingest_handle is not None:
+            await self.m_ingest_handle.listen(prefix)
             
     def _on_insert_msg(self, msg):
         cmd_param, request_no = self.parse_msg(msg)
