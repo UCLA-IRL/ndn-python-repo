@@ -22,6 +22,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 
 packages = [{include = "ndn_python_repo"}]
@@ -33,7 +34,7 @@ include = [
 
 [tool.poetry.dependencies]
 python = "^3.10"
-python-ndn = "^0.4.2"
+python-ndn = "^0.5.1"
 pyyaml = "^6.0"
 setuptools = ">=75,<79"
 

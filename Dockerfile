@@ -1,4 +1,4 @@
-FROM python:3.10-alpine AS ndn-python-repo
+FROM python:3.13-alpine AS ndn-python-repo
 
 COPY . /repo
 
