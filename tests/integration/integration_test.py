@@ -2,11 +2,11 @@ import asyncio as aio
 import filecmp
 import multiprocessing
 from ndn.app import NDNApp
-from ndn.encoding import Name
+from ndn.encoding import Name, Component
 from ndn.security import KeychainDigest
 from ndn.types import InterestNack, InterestTimeout
-from ndn_python_repo.clients import GetfileClient, PutfileClient, DeleteClient, CommandChecker
-from ndn_python_repo.command import RepoCommandParam, ObjParam, RepoStatCode
+from ndn_python_repo.clients import GetfileClient, PutfileClient, DeleteClient, CommandChecker, IngestClient
+from ndn_python_repo.command import RepoCommandParam, ObjParam, RepoStatCode, IngestCmdParam, EmbName
 from ndn_python_repo.utils import PubSub
 import os
 import platform
@@ -114,6 +114,63 @@ class TestBasic(RepoTestSuite):
         # cleanup
         self.files_to_cleanup.append(filepath1)
         self.files_to_cleanup.append(filepath2)
+        self.app.shutdown()
+
+
+class TestIngest(RepoTestSuite):
+    async def run(self):
+        await aio.sleep(2)  # wait for repo to startup
+        data_name = uuid.uuid4().hex.upper()[0:6]
+        content = b'foobar'
+
+        # ingest a single Data packet
+        ic = IngestClient(self.app, Name.from_str('/ingest_client'), Name.from_str(repo_name))
+        success = await ic.ingest_data(Name.from_str(data_name), content,
+                                       register_prefix=Name.from_str(data_name))
+        assert success
+
+        # fetch it back from the repo and check content
+        _, _, fetched_content = await self.app.express_interest(Name.from_str(data_name))
+        assert bytes(fetched_content) == content
+
+        self.app.shutdown()
+
+
+class TestIngestSegmented(RepoTestSuite):
+    async def run(self):
+        await aio.sleep(2)  # wait for repo to startup
+        data_name = Name.from_str(uuid.uuid4().hex.upper()[0:6])
+        segments = [b'segment-zero', b'segment-one', b'segment-two']
+        final_block_id = Component.from_segment(len(segments) - 1)
+
+        encoded_segments = {}
+        for seq, content in enumerate(segments):
+            seg_name = data_name + [Component.from_segment(seq)]
+            encoded_segments[Name.to_str(seg_name)] = self.app.prepare_data(
+                seg_name, content, final_block_id=final_block_id)
+
+        def on_interest(int_name, _int_param, _app_param):
+            name_str = Name.to_str(int_name)
+            if name_str in encoded_segments:
+                self.app.put_raw_packet(encoded_segments[name_str])
+
+        await self.app.register(data_name, on_interest)
+
+        # ingest a segmented object, letting end_block_id auto-detect from final_block_id
+        cmd_param = IngestCmdParam()
+        cmd_param.data_name = data_name
+        cmd_param.start_block_id = 0
+        cmd_param.register_prefix = EmbName.from_name(data_name)
+
+        int_name = Name.from_str(repo_name) + Name.from_str('ingest')
+        await self.app.express_interest(
+            int_name, cmd_param.encode(), must_be_fresh=False, can_be_prefix=False, lifetime=10000)
+
+        # fetch each segment back from the repo and check content
+        for seq, content in enumerate(segments):
+            _, _, fetched_content = await self.app.express_interest(data_name + [Component.from_segment(seq)])
+            assert bytes(fetched_content) == content
+
         self.app.shutdown()
 
 
