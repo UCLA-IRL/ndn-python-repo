@@ -1,5 +1,4 @@
-name: test
-
+name: Test
 on:
   push:
   pull_request:
@@ -9,8 +8,8 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    # The type of runner that the job will run on
+  test:
+    name: Test with Python ${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -22,19 +21,19 @@ jobs:
       nfd:
         image: ghcr.io/named-data/nfd:latest
         volumes:
-        - /run/nfd:/run/nfd
+          - /run/nfd:/run/nfd
 
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v7
+      - name: Checkout repository
+        uses: actions/checkout@v7
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip3 install ".[dev]"
+          python -m pip install ".[dev]"
       - name: Setup PIB and TPM
         run: |
           pyndnsec Init-Pib
