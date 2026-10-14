@@ -12,11 +12,32 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 import asyncio as aio
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name, NonStrictName, Links, ContentType
-from ndn.security import DigestSha256Signer
+from ndn.encoding import Name, NonStrictName, Links, ContentType, Signer
 from ndn.types import InterestNack, InterestTimeout
+from ndn.utils import timestamp, gen_nonce_64
 from ..command import ObjParam, EmbName
 from typing import Optional
+
+
+class _CommandSigner(Signer):
+    """
+    Wraps a Signer and adds SignatureTime and SignatureNonce, which the repo
+    requires on ingest command Interests.
+    """
+
+    def __init__(self, signer: Signer):
+        self.signer = signer
+
+    def write_signature_info(self, signature_info):
+        self.signer.write_signature_info(signature_info)
+        signature_info.signature_time = timestamp()
+        signature_info.signature_nonce = gen_nonce_64()
+
+    def get_signature_value_size(self):
+        return self.signer.get_signature_value_size()
+
+    def write_signature_value(self, wire, contents):
+        return self.signer.write_signature_value(wire, contents)
 
 
 class IngestClient(object):
@@ -50,7 +71,8 @@ class IngestClient(object):
 
     async def ingest_data(self, data_name: NonStrictName, content: bytes, freshness_period: int = 0,
                           forwarding_hint: Optional[NonStrictName] = None,
-                          register_prefix: Optional[NonStrictName] = None) -> bool:
+                          register_prefix: Optional[NonStrictName] = None,
+                          signer: Optional[Signer] = None) -> bool:
         """
         Ingest a single Data packet into the remote repo.
 
@@ -60,6 +82,8 @@ class IngestClient(object):
         :param forwarding_hint: NonStrictName. The forwarding hint the repo uses when fetching data.
         :param register_prefix: NonStrictName. If given, the repo starts serving reads under this\
             prefix once the data is stored.
+        :param signer: Signer whose certificate is authorized by the repo's trust schema.\
+            If omitted, the app keychain's default signer is used.
         :return: True if the repo acknowledged the ingest command, False if every attempt\
             was NACKed by the repo or timed out.
         """
@@ -83,6 +107,9 @@ class IngestClient(object):
             cmd_param.register_prefix.name = register_prefix
 
         int_name = self.repo_name + Name.from_str('ingest')
+        if signer is None:
+            signer = self.app.keychain.get_signer({})
+        signer = _CommandSigner(signer)
         n_retries = 3
         while n_retries > 0:
             try:
@@ -90,7 +117,7 @@ class IngestClient(object):
                 # covered by params-sha256, so a resend never reuses a name the repo replied to.
                 _, meta_info, _ = await self.app.express_interest(
                     int_name, cmd_param.encode(), can_be_prefix=False, lifetime=10000,
-                    signer=DigestSha256Signer(for_interest=True))
+                    signer=signer)
                 if meta_info is not None and meta_info.content_type == ContentType.NACK:
                     self.logger.info(f'Ingest of {Name.to_str(data_name)} rejected by repo')
                     n_retries -= 1

@@ -40,8 +40,63 @@ The repo must reply before the ingest Interest expires, so fetching is bounded b
 ``InterestLifetime``; if fetching does not finish in time, the repo replies with a NACK.
 Ingest commands are idempotent, so resending a command is safe.
 
+Ingest commands are authorized with a trust schema. The repo is configured with a trust
+anchor certificate and a `Light VerSec (LVS)
+<https://python-ndn.readthedocs.io/en/latest/src/lvs/lvs.html>`_ trust schema in the
+``ingest_security`` section of its configuration file. For each ingest Interest, the repo:
+
+* replies with a NACK if the Interest is unsigned, or if its InterestSignatureInfo lacks
+  ``SignatureTime`` or ``SignatureNonce``;
+* checks the full Interest name, including the ``params-sha256`` component, and the
+  KeyLocator against the trust schema;
+* fetches the certificate named by the KeyLocator, and each issuer certificate in turn, until
+  it reaches the trust anchor, checking every certificate against the trust schema;
+* verifies each signature along the chain.
+
+Interests that fail validation are dropped without a reply, before the repo fetches or stores
+any Data. The KeyLocator must therefore name a certificate (not a key) that the repo can
+fetch. If ``ingest_security`` is not configured, the repo does not register
+``/<repo_name>/ingest`` and the protocol is disabled. Other repo protocols are not affected
+by this configuration.
+
+The trust anchor is the CA certificate at the root of the producer certificate chains; it is
+not a pin for one producer. Multiple producers can use the same repo when their certificates
+chain to this anchor and the LVS schema authorizes their certificate names. Producers issued
+by different, unrelated roots require separate repo configurations or additional validator
+support, which this implementation does not provide.
+
+Configure the trust anchor and schema paths in the repo YAML file. The anchor may be an NDN
+certificate in wire format or base64-encoded wire format. ``~`` and environment variables in
+both paths are expanded::
+
+    ingest_security:
+      trust_anchor: '~/.ndn/trust/trust-anchor.ndncert'
+      trust_schema: '/etc/ndn-python-repo/ingest.lvs'
+
+The repo reads and compiles the text schema at startup, so the configured schema file must be
+readable and valid LVS. A sample schema is provided at ``ndn_python_repo/ingest.lvs.sample``.
+
+For example, this schema authorizes two producer namespaces issued by the same root to send
+ingest commands to ``/repo``::
+
+    #KEY: "KEY"/_/_/_
+    #root: "example"/#KEY
+    #producer_a: "example"/"producer-a"/#KEY <= #root
+    #producer_b: "example"/"producer-b"/#KEY <= #root
+    #ingest: "repo"/"ingest"/_ <= #producer_a | #producer_b
+
+Replace the example names and component patterns with the names in the actual NDN certificates.
+``#root`` must match the configured trust-anchor certificate, each producer rule must match
+the corresponding producer certificate name, and each producer rule must be listed as an
+allowed signer of ``#ingest``. The final ``_`` in ``#ingest`` matches the
+``params-sha256`` component. A producer certificate may be fetched only if its certificate
+name is routable from the repo.
+
 .. note::
    ``register_prefix`` registrations are kept only in memory, not persisted like
    :doc:`insert`, and are lost on repo restart. Also, unlike :doc:`insert`, the repo does not
-   check whether ``name`` overlaps with its own ``/<repo_name>`` namespace.
-   The repo does not yet validate the command Interest's signature against a trust schema.
+   check whether ``name`` overlaps with its own ``/<repo_name>`` namespace. The trust schema
+   authorizes the command Interest signer only; it does not restrict which ``name`` an
+   authorized producer may ingest. ``SignatureTime`` and ``SignatureNonce`` are currently
+   required to be present, but the repo does not enforce a time window or detect nonce
+   replays. Certificate validity periods are also not checked by python-ndn's chain validator.

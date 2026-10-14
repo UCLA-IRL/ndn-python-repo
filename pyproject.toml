@@ -29,6 +29,7 @@ include = [
     { path = "tests", format = "sdist" },
     { path = "ndn_python_repo/ndn-python-repo.service", format = ["sdist", "wheel"] },
     { path = "ndn_python_repo/ndn-python-repo.conf.sample", format = ["sdist", "wheel"] },
+    { path = "ndn_python_repo/ingest.lvs.sample", format = ["sdist", "wheel"] },
 ]
 
 [tool.poetry.dependencies]
