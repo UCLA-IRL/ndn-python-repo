@@ -13,7 +13,7 @@ import asyncio as aio
 import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name, NonStrictName, Links, ContentType, Signer
-from ndn.types import InterestNack, InterestTimeout
+from ndn.types import InterestNack, InterestTimeout, ValidationFailure, Validator
 from ndn.utils import timestamp, gen_nonce_64
 from ..command import ObjParam, EmbName
 from typing import Optional
@@ -72,7 +72,8 @@ class IngestClient(object):
     async def ingest_data(self, data_name: NonStrictName, content: bytes, freshness_period: int = 0,
                           forwarding_hint: Optional[NonStrictName] = None,
                           register_prefix: Optional[NonStrictName] = None,
-                          signer: Optional[Signer] = None) -> bool:
+                          signer: Optional[Signer] = None,
+                          validator: Optional[Validator] = None) -> bool:
         """
         Ingest a single Data packet into the remote repo.
 
@@ -84,6 +85,8 @@ class IngestClient(object):
             prefix once the data is stored.
         :param signer: Signer whose certificate is authorized by the repo's trust schema.\
             If omitted, the app keychain's default signer is used.
+        :param validator: Validator for the repo's signed reply. If omitted, the app's default\
+            Data validator is used.
         :return: True if the repo acknowledged the ingest command, False if every attempt\
             was NACKed by the repo or timed out.
         """
@@ -117,7 +120,7 @@ class IngestClient(object):
                 # covered by params-sha256, so a resend never reuses a name the repo replied to.
                 _, meta_info, _ = await self.app.express_interest(
                     int_name, cmd_param.encode(), can_be_prefix=False, lifetime=10000,
-                    signer=signer)
+                    signer=signer, validator=validator)
                 if meta_info is not None and meta_info.content_type == ContentType.NACK:
                     self.logger.info(f'Ingest of {Name.to_str(data_name)} rejected by repo')
                     n_retries -= 1
@@ -130,5 +133,8 @@ class IngestClient(object):
                 await aio.sleep(1)
             except InterestTimeout:
                 self.logger.info('Timeout waiting for ingest ack')
+                n_retries -= 1
+            except ValidationFailure:
+                self.logger.info('Reply to ingest command failed validation')
                 n_retries -= 1
         return False

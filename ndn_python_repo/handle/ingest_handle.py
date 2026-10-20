@@ -4,7 +4,8 @@
 # One Interest, one Data: the producer sends a single ingest Interest naming
 # the Data to be stored; the repo fetches and stores that Data, then replies
 # to the same Interest with an empty Data packet as acknowledgement, or with
-# an application-level NACK if the command failed.
+# an application-level NACK if the command failed. Both replies are signed
+# by the repo.
 #
 # The ingest Interest is a signed Interest carrying SignatureTime and
 # SignatureNonce. Its params-sha256 name component covers the parameters and
@@ -22,14 +23,14 @@ import os
 from pathlib import Path
 
 from ndn.app import NDNApp
-from ndn.app_support.light_versec import Checker, compile_lvs, lvs_validator
+from ndn.app_support.light_versec import Checker, LvsModel, TypeNumber, compile_lvs, lvs_validator
 from ndn.encoding import Name, NonStrictName, ContentType
 from ndn.security.validator.cascade_validator import MemoryKeyStorage
-from ..handle.read_handle import ReadHandle
-from ndn.types import InterestNack, InterestTimeout, Validator
-from ..command import ObjParam
+from ndn.types import Validator
+from .read_handle import ReadHandle
+from .utils import fetch_object
+from ..command import ObjParam, RepoStatCode
 from ..storage import Storage
-from .concurrent_fetcher import concurrent_fetcher
 from typing import Optional
 
 
@@ -59,7 +60,12 @@ def create_ingest_validator(app: NDNApp, security_config: Optional[dict]) -> Opt
     else:
         trust_anchor = base64.b64decode(b''.join(anchor_file.split()), validate=True)
     resolved_schema = Path(os.path.expanduser(os.path.expandvars(schema_path)))
-    lvs_model = compile_lvs(resolved_schema.read_text())
+    schema_file = resolved_schema.read_bytes()
+    if schema_file.startswith(bytes([TypeNumber.VERSION])):
+        # LVS binary format, compiled from the trust schema elsewhere
+        lvs_model = LvsModel.parse(schema_file)
+    else:
+        lvs_model = compile_lvs(schema_file.decode())
 
     return lvs_validator(Checker(lvs_model, {}), app, trust_anchor, MemoryKeyStorage())
 
@@ -71,14 +77,11 @@ class DirectIngestHandle:
 
     1. Producer sends a signed Interest to <repo_name>/ingest/params-sha256=<digest>,
        with AppParam = ObjParam { name, forwarding_hint, ... }.
-    2. Repo fetches data_name from the producer, using forwarding_hint if given.
-    3. Repo stores the fetched Data.
-    4. Repo replies to the original ingest Interest with an empty Data packet,
+    2. Repo fetches and stores the requested Data, as in insert.
+    3. Repo replies to the original ingest Interest with an empty signed Data packet,
        or with an application-level NACK (ContentType=NACK) if the command failed.
     """
 
-    FETCH_RETRIES   = 3
-    RETRY_BACKOFF_S = 0.5  # multiplied by attempt number
     DEFAULT_INTEREST_LIFETIME_MS = 4000  # NDN default when InterestLifetime is absent
     REPLY_MARGIN_MS = 500  # reply this long before the ingest Interest expires
 
@@ -91,6 +94,8 @@ class DirectIngestHandle:
         self._registered_prefixes = set()
         self.m_read_handle = read_handle
         self.interest_validator = interest_validator
+        # Replies are signed with the repo's default key, so the producer can validate them
+        self.signer = app.keychain.get_signer({}) if interest_validator is not None else None
 
     async def listen(self, prefix: NonStrictName):
         """
@@ -116,13 +121,9 @@ class DirectIngestHandle:
     # Ingest Interest entry point.
 
     def _on_insert_interest(self, int_name, int_param, app_param, sig_ptrs=None):
-        aio.create_task(self._process_insert(int_name, int_param, app_param, sig_ptrs))
-
-    async def _process_insert(self, int_name, int_param, app_param, sig_ptrs=None):
         """
-        Parse the command, fetch and store the requested Data, then reply to
-        int_name with an empty Data packet as acknowledgement, or with an
-        application-level NACK (ContentType=NACK) on failure.
+        Check the command, and start fetching only if it is well-formed.
+        Rejected commands are answered here, without creating a task.
         """
         if sig_ptrs is None or sig_ptrs.signature_info is None:
             logging.warning(f'ingest.reject.unsigned {Name.to_str(int_name)}')
@@ -137,9 +138,6 @@ class DirectIngestHandle:
             self._reply_nack(int_name)
             return
 
-        logging.info(f'ingest.received {Name.to_str(int_name)}')
-
-        # Parse
         try:
             param = ObjParam.parse(app_param)
         except Exception as e:
@@ -147,49 +145,39 @@ class DirectIngestHandle:
             self._reply_nack(int_name)
             return
 
-        data_name = param.name
-        fwd_hint  = (param.forwarding_hint.names[0]
-                     if param.forwarding_hint and param.forwarding_hint.names
-                     else None)
+        logging.info(f'ingest.received {Name.to_str(int_name)}')
+        aio.create_task(self._process_insert(int_name, int_param, param))
 
-        if not data_name:
-            logging.warning(f'ingest.no.data_name {Name.to_str(int_name)}')
-            self._reply_nack(int_name)
-            return
-
-        # Normalize block ids (mirrors write_command_handle logic)
-        start_block_id = param.start_block_id
-        end_block_id   = param.end_block_id
-        if start_block_id is None and end_block_id is not None:
-            start_block_id = 0
-        if end_block_id is not None and end_block_id < (start_block_id or 0):
-            logging.warning(f'ingest.malformed end_block_id < start_block_id {Name.to_str(int_name)}')
-            self._reply_nack(int_name)
-            return
-
-        logging.info(f'ingest.data.requested {Name.to_str(data_name)} '
-                     f'start={start_block_id} end={end_block_id}')
-
+    async def _process_insert(self, int_name, int_param, param: ObjParam):
+        """
+        Fetch and store the requested Data, then reply to int_name with an empty
+        Data packet as acknowledgement, or with an application-level NACK
+        (ContentType=NACK) on failure.
+        """
         # Fetch, bounded by the ingest Interest's lifetime so that the reply
         # (ack or NACK) still reaches the producer before its PIT entry expires.
         lifetime = (int_param.lifetime if int_param and int_param.lifetime is not None
                     else self.DEFAULT_INTEREST_LIFETIME_MS)
         deadline_s = max(lifetime - self.REPLY_MARGIN_MS, 0) / 1000.0
         try:
-            insert_num, is_success = await aio.wait_for(
-                self._fetch_and_store(data_name, start_block_id, end_block_id, fwd_hint),
-                timeout=deadline_s)
+            status_code, insert_num = await aio.wait_for(
+                fetch_object(self.app, self.storage, param), timeout=deadline_s)
         except aio.TimeoutError:
-            logging.error(f'ingest.fetch.deadline {Name.to_str(data_name)} deadline={deadline_s}s')
+            logging.error(f'ingest.fetch.deadline {Name.to_str(int_name)} deadline={deadline_s}s')
             self._reply_nack(int_name)
             return
 
-        if not is_success:
-            logging.error(f'ingest.fetch.fail {Name.to_str(data_name)} inserted={insert_num}')
+        if status_code == RepoStatCode.MALFORMED:
+            logging.warning(f'ingest.malformed {Name.to_str(int_name)}')
+            self._reply_nack(int_name)
+            return
+        data_name = Name.to_str(param.name)
+        if status_code != RepoStatCode.COMPLETED:
+            logging.error(f'ingest.fetch.fail {data_name} inserted={insert_num}')
             self._reply_nack(int_name)
             return
 
-        logging.info(f'ingest.data.saved {Name.to_str(data_name)} count={insert_num}')
+        logging.info(f'ingest.data.saved {data_name} count={insert_num}')
 
         register_prefix = param.register_prefix.name if param.register_prefix else None
         if register_prefix:
@@ -200,98 +188,13 @@ class DirectIngestHandle:
                 logging.info(f'ingest.prefix.registered {prefix_str}')
 
         # Ack
-        self.app.put_data(int_name, None)
-        logging.info(f'ingest.ack.sent data={Name.to_str(data_name)}')
+        self.app.put_data(int_name, None, signer=self.signer)
+        logging.info(f'ingest.ack.sent data={data_name}')
 
     def _reply_nack(self, int_name):
         """
         Reply to the ingest Interest with an application-level NACK, so the
         producer learns about the failure without waiting for its Interest to time out.
         """
-        self.app.put_data(int_name, None, content_type=ContentType.NACK)
+        self.app.put_data(int_name, None, content_type=ContentType.NACK, signer=self.signer)
         logging.info(f'ingest.nack.sent {Name.to_str(int_name)}')
-
-    async def _fetch_and_store(self, data_name: NonStrictName, start_block_id: Optional[int],
-                               end_block_id: Optional[int], fwd_hint: NonStrictName):
-        """
-        Fetch and store the requested Data.
-
-        :return: (insert_num, is_success).
-        """
-        if start_block_id is not None:
-            insert_num = await self._fetch_segmented_data(data_name, start_block_id, end_block_id, fwd_hint)
-            if end_block_id is None:
-                # end auto-detected: success only if at least one segment was stored
-                return insert_num, insert_num > 0
-            return insert_num, start_block_id + insert_num - 1 == end_block_id
-
-        fetched_name, data_bytes = await self._fetch_data(data_name, fwd_hint)
-        if fetched_name is None:
-            return 0, False
-        self.storage.put_data_packet(fetched_name, data_bytes)
-        logging.info(f'ingest.data.saved {Name.to_str(fetched_name)}')
-        return 1, True
-
-    # Fetch helpers.
-
-    async def _fetch_segmented_data(self, data_name: NonStrictName, start_block_id: int,
-                                    end_block_id: Optional[int], fwd_hint: NonStrictName) -> int:
-        """
-        Fetch segmented Data packets and store each one.
-
-        :param data_name: NonStrictName. Name prefix of segmented Data.
-        :param start_block_id: int. Inclusive start segment number.
-        :param end_block_id: Optional[int]. Inclusive end segment number.
-        :param fwd_hint: NonStrictName. Forwarding hint used to fetch the Data.
-        :return: Number of Data packets fetched.
-        """
-        forwarding_hint = [fwd_hint] if fwd_hint else None
-        semaphore = aio.Semaphore(10)
-        block_id = start_block_id
-        async for (fetched_name, _, _, data_bytes) in (
-                concurrent_fetcher(self.app, data_name, start_block_id, end_block_id,
-                                   semaphore, forwarding_hint=forwarding_hint)):
-            logging.info(f'concurrent fetching {Name.to_str(fetched_name)}')
-            self.storage.put_data_packet(fetched_name, data_bytes)
-            block_id += 1
-        return block_id - start_block_id
-
-    async def _fetch_data(self, data_name: NonStrictName, fwd_hint: NonStrictName):
-        """
-        Fetch a single Data packet, retrying on Nack or timeout.
-
-        :param data_name: NonStrictName. Name of the Data packet.
-        :param fwd_hint: NonStrictName. Forwarding hint used to fetch the Data.
-        :return: (FormalName, bytes) of the fetched Data, or (None, None) on failure.
-        """
-        forwarding_hint = [fwd_hint] if fwd_hint else None
-
-        for attempt in range(1, self.FETCH_RETRIES + 1):
-            try:
-                fetched_name, _, _, data_bytes = await self.app.express_interest(
-                    data_name,
-                    need_raw_packet=True,
-                    can_be_prefix=False,
-                    lifetime=4000,
-                    forwarding_hint=forwarding_hint
-                )
-
-                logging.info(f'ingest.data.received {Name.to_str(fetched_name)}')
-                return fetched_name, data_bytes
-
-            except InterestNack as e:
-                logging.warning(
-                    f'ingest.fetch.nack attempt={attempt} '
-                    f'reason={e.reason} data={Name.to_str(data_name)}'
-                )
-                await aio.sleep(self.RETRY_BACKOFF_S * attempt)
-
-            except InterestTimeout:
-                logging.warning(
-                    f'ingest.fetch.timeout attempt={attempt} '
-                    f'data={Name.to_str(data_name)}'
-                )
-                await aio.sleep(self.RETRY_BACKOFF_S * attempt)
-
-        logging.error(f'ingest.fetch.exhausted data={Name.to_str(data_name)}')
-        return None, None

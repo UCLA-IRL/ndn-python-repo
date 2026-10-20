@@ -6,12 +6,14 @@ from unittest.mock import AsyncMock, Mock
 
 import pytest
 from Cryptodome.PublicKey import ECC
+from ndn.app_support.light_versec import compile_lvs
 from ndn.app_support.security_v2 import self_sign, derive_cert
 from ndn.encoding import Name, Component, ContentType, InterestParam, make_interest, parse_interest, parse_data
 from ndn.security import Sha256WithEcdsaSigner, DigestSha256Signer
 from ndn.types import ValidationFailure, InterestTimeout
 from ndn_python_repo.clients.ingest import _CommandSigner
-from ndn_python_repo.utils.ingest import DirectIngestHandle, create_ingest_validator
+from ndn_python_repo.command import ObjParam
+from ndn_python_repo.handle.ingest_handle import DirectIngestHandle, create_ingest_validator
 
 
 SCHEMA = '''
@@ -117,6 +119,18 @@ def test_ingest_validator_fetches_chain_and_accepts_authorized_producer(pki):
     assert app.express_interest.await_count == 2
 
 
+def test_ingest_security_accepts_lvs_binary_schema(pki, tmp_path):
+    app, config, producer_signer, _, _ = pki
+    schema_path = tmp_path / 'ingest.lvsb'
+    schema_path.write_bytes(compile_lvs(SCHEMA).encode())
+    validator = create_ingest_validator(app, {**config, 'trust_schema': str(schema_path)})
+
+    int_name, sig_ptrs = signed_command('/repo/ingest', _CommandSigner(producer_signer))
+    assert aio.run(validator(int_name, sig_ptrs))
+    int_name, sig_ptrs = signed_command('/other-repo/ingest', _CommandSigner(producer_signer))
+    assert not aio.run(validator(int_name, sig_ptrs))
+
+
 def test_ingest_validator_rejects_name_outside_schema(pki):
     app, config, producer_signer, _, _ = pki
     validator = create_ingest_validator(app, config)
@@ -145,18 +159,45 @@ def test_ingest_validator_rejects_untrusted_signer(pki):
     assert not aio.run(validator(int_name, sig_ptrs))
 
 
-def test_ingest_rejects_command_without_signature_time_or_nonce(pki):
+def test_ingest_rejects_command_without_signature_time_or_nonce(pki, monkeypatch):
     _, _, producer_signer, _, _ = pki
     app = Mock()
     handle = DirectIngestHandle(app, Mock(), {}, Mock(), interest_validator=Mock())
+    # Rejected commands are answered synchronously, without creating a task
+    create_task = Mock()
+    monkeypatch.setattr(aio, 'create_task', create_task)
 
     int_name, sig_ptrs = signed_command('/repo/ingest', producer_signer)
-    aio.run(handle._process_insert(int_name, InterestParam(), b'', sig_ptrs))
-    app.put_data.assert_called_once_with(int_name, None, content_type=ContentType.NACK)
+    handle._on_insert_interest(int_name, InterestParam(), b'', sig_ptrs)
+    app.put_data.assert_called_once_with(int_name, None, content_type=ContentType.NACK, signer=handle.signer)
 
-    app.reset_mock()
-    aio.run(handle._process_insert(int_name, InterestParam(), b'', None))
-    app.put_data.assert_called_once_with(int_name, None, content_type=ContentType.NACK)
+    app.put_data.reset_mock()
+    handle._on_insert_interest(int_name, InterestParam(), b'', None)
+    app.put_data.assert_called_once_with(int_name, None, content_type=ContentType.NACK, signer=handle.signer)
+
+    app.put_data.reset_mock()
+    int_name, sig_ptrs = signed_command('/repo/ingest', _CommandSigner(producer_signer))
+    handle._on_insert_interest(int_name, InterestParam(), b'\xff\xff', sig_ptrs)
+    app.put_data.assert_called_once_with(int_name, None, content_type=ContentType.NACK, signer=handle.signer)
+    create_task.assert_not_called()
+
+
+def test_ingest_replies_are_signed_by_repo():
+    app = Mock()
+    repo_signer = Mock()
+    app.keychain.get_signer.return_value = repo_signer
+    handle = DirectIngestHandle(app, Mock(), {}, Mock(), interest_validator=Mock())
+    assert handle.signer is repo_signer
+
+    # end_block_id < start_block_id is malformed: NACK without fetching
+    param = ObjParam()
+    param.name = Name.from_str('/data')
+    param.start_block_id = 2
+    param.end_block_id = 1
+    int_name = Name.from_str('/repo/ingest')
+    aio.run(handle._process_insert(int_name, InterestParam(lifetime=10000), param))
+    app.express_interest.assert_not_called()
+    app.put_data.assert_called_once_with(int_name, None, content_type=ContentType.NACK, signer=repo_signer)
 
 
 def test_ingest_route_is_not_registered_without_validator():

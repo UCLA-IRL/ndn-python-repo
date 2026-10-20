@@ -36,6 +36,11 @@ for Interests directly, and each command is a single Interest/Data exchange.
    protocol for ingest (contrast with :doc:`check`, available for :doc:`insert` and
    :doc:`delete`).
 
+Both the ack and the NACK are signed with the key of the repo's default identity, and the
+KeyLocator names its certificate. The producer should validate the reply with its own trust
+schema before treating the command as acknowledged or rejected; an unsigned or invalid reply
+must be ignored.
+
 The repo must reply before the ingest Interest expires, so fetching is bounded by its
 ``InterestLifetime``; if fetching does not finish in time, the repo replies with a NACK.
 Ingest commands are idempotent, so resending a command is safe.
@@ -71,10 +76,16 @@ both paths are expanded::
 
     ingest_security:
       trust_anchor: '~/.ndn/trust/trust-anchor.ndncert'
-      trust_schema: '/etc/ndn-python-repo/ingest.lvs'
+      trust_schema: '/etc/ndn-python-repo/ingest.lvsb'
 
-The repo reads and compiles the text schema at startup, so the configured schema file must be
-readable and valid LVS. A sample schema is provided at ``ndn_python_repo/ingest.lvs.sample``.
+``trust_schema`` is normally the LVS binary format, compiled from the trust schema at a
+central location and distributed to each repo. As an alternative, it may be LVS text, which
+the repo compiles at startup. The repo tells the two formats apart by the first TLV-TYPE of
+the binary format. To compile a text schema into the binary format with python-ndn::
+
+    python3 -c 'import sys; from ndn.app_support.light_versec import compile_lvs; sys.stdout.buffer.write(compile_lvs(sys.stdin.read()).encode())' < ingest.lvs > ingest.lvsb
+
+In either format, the configured schema file must be readable and valid LVS. A sample schema is provided at ``ndn_python_repo/ingest.lvs.sample``.
 
 For example, this schema authorizes two producer namespaces issued by the same root to send
 ingest commands to ``/repo``::
