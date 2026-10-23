@@ -2,13 +2,13 @@ import asyncio as aio
 import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name, NonStrictName
-from ndn.types import InterestNack, InterestTimeout
 from . import ReadHandle, CommandHandle
+from .ingest_handle import DirectIngestHandle
 from ..command import RepoCommandRes, RepoCommandParam, ObjParam, ObjStatus, RepoStatCode
-from ..utils import concurrent_fetcher, PubSub
+from ..utils import PubSub
 from ..storage import Storage
 from typing import Optional
-from .utils import normalize_block_ids
+from .utils import normalize_block_ids, fetch_object
 
 
 class WriteCommandHandle(CommandHandle):
@@ -17,7 +17,7 @@ class WriteCommandHandle(CommandHandle):
     store them into the database.
     TODO: Add validator
     """
-    def __init__(self, app: NDNApp, storage: Storage, pb: PubSub, read_handle: ReadHandle,
+    def __init__(self, app: NDNApp, storage: Storage, pb: PubSub, ingest_handle: Optional[DirectIngestHandle], read_handle: ReadHandle,
                  config: dict):
         """
         Write handle need to keep a reference to write handle to register new prefixes.
@@ -26,9 +26,12 @@ class WriteCommandHandle(CommandHandle):
         :param storage: Storage.
         :param read_handle: ReadHandle. This param is necessary, because WriteCommandHandle need to
             call ReadHandle.listen() to register new prefixes.
+        :param ingest_handle: DirectIngestHandle or None. If provided, registers the direct ingest
+            protocol alongside the legacy pub-sub insert protocol.
         """
         super(WriteCommandHandle, self).__init__(app, storage, pb, config)
         self.m_read_handle = read_handle
+        self.m_ingest_handle = ingest_handle
         self.prefix = None
         self.register_root = config['repo_config']['register_root']
         self.logger = logging.getLogger(__name__)
@@ -47,7 +50,11 @@ class WriteCommandHandle(CommandHandle):
 
         # listen on insert check interests
         self.app.set_interest_filter(self.prefix + Name.from_str('insert check'), self._on_check_interest)
-
+        
+        # direct ingest protocol
+        if self.m_ingest_handle is not None:
+            await self.m_ingest_handle.listen(prefix)
+            
     def _on_insert_msg(self, msg):
         cmd_param, request_no = self.parse_msg(msg)
         aio.create_task(self._process_insert(cmd_param, request_no))
@@ -85,10 +92,6 @@ class WriteCommandHandle(CommandHandle):
                 register_prefix = obj.register_prefix.name
             else:
                 register_prefix = None
-            if obj.forwarding_hint and obj.forwarding_hint.names:
-                forwarding_hint = obj.forwarding_hint.names
-            else:
-                forwarding_hint = None
 
             self.logger.debug(f'Proc ins cmd {request_no.hex()} w/'
                           f'name={Name.to_str(name)}, start={obj.start_block_id}, end={obj.end_block_id}')
@@ -99,7 +102,7 @@ class WriteCommandHandle(CommandHandle):
                 stat.objs[i].status_code = RepoStatCode.MALFORMED
                 global_succeeded = False
                 continue
-            valid, start_block_id, end_block_id = normalize_block_ids(obj)
+            valid, _, _ = normalize_block_ids(obj)
             if not valid:
                 self.logger.warning('Insert command malformed')
                 stat.objs[i].status_code = RepoStatCode.MALFORMED
@@ -118,23 +121,14 @@ class WriteCommandHandle(CommandHandle):
 
             # Start data fetching process
             stat.objs[i].status_code = RepoStatCode.IN_PROGRESS
+            status_code, insert_num = await fetch_object(self.app, self.storage, obj)
+            stat.objs[i].status_code = status_code
 
-            if start_block_id is not None:
-                # Fetch data packets with block ids appended to the end
-                insert_num = await self.fetch_segmented_data(name, start_block_id, end_block_id, forwarding_hint)
-                is_success = end_block_id is None or start_block_id + insert_num - 1 == end_block_id
-            else:
-                # Both start_block_id and end_block_id are None, fetch a single data packet
-                insert_num = await self.fetch_single_data(name, forwarding_hint)
-                is_success = insert_num == 1
-
-            if is_success:
-                stat.objs[i].status_code = RepoStatCode.COMPLETED
+            if status_code == RepoStatCode.COMPLETED:
                 self.logger.info(f'Insertion {request_no.hex()} name={Name.to_str(name)} finish:'
                              f'{insert_num} inserted')
             else:
                 global_succeeded = False
-                stat.objs[i].status_code = RepoStatCode.FAILED
                 self.logger.info(f'Insertion {request_no.hex()} name={Name.to_str(name)} fail:'
                              f'{insert_num} inserted')
             stat.objs[i].insert_num = insert_num
@@ -149,43 +143,3 @@ class WriteCommandHandle(CommandHandle):
 
         # Delete process state after some time
         await self._delete_process_state_after(request_no, 60)
-
-    async def fetch_single_data(self, name: NonStrictName, forwarding_hint: Optional[list[NonStrictName]]):
-        """
-        Fetch one Data packet.
-        :param name: NonStrictName.
-        :param forwarding_hint: Optional[list[NonStrictName]]
-        :return:  Number of data packets fetched.
-        """
-        try:
-            data_name, _, _, data_bytes = await self.app.express_interest(
-                name, need_raw_packet=True, can_be_prefix=False, lifetime=1000,
-                forwarding_hint=forwarding_hint)
-        except InterestNack as e:
-            self.logger.info(f'Nacked with reason={e.reason}')
-            return 0
-        except InterestTimeout:
-            self.logger.info(f'Timeout')
-            return 0
-        self.storage.put_data_packet(data_name, data_bytes)
-        return 1
-
-    async def fetch_segmented_data(self, name, start_block_id: int, end_block_id: Optional[int],
-                                   forwarding_hint: Optional[list[NonStrictName]]):
-        """
-        Fetch segmented Data packets.
-        :param name: NonStrictName.
-        :param start_block_id: int
-        :param end_block_id: Optional[int]
-        :param forwarding_hint: Optional[list[NonStrictName]]
-        :return: Number of data packets fetched.
-        """
-        semaphore = aio.Semaphore(10)
-        block_id = start_block_id
-        async for (data_name, _, _, data_bytes) in (
-                concurrent_fetcher(self.app, name, start_block_id, end_block_id,
-                                   semaphore, forwarding_hint=forwarding_hint)):
-            self.storage.put_data_packet(data_name, data_bytes)
-            block_id += 1
-        insert_num = block_id - start_block_id
-        return insert_num

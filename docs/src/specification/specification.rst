@@ -5,6 +5,7 @@ Specification
 
     Encoding <encoding>
     Insert <insert>
+    Ingest <ingest>
     Delete <delete>
     Check <check>
     TCP bulk insert <tcp_bulk>

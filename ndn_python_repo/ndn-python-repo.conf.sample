@@ -6,6 +6,18 @@ repo_config:
   # which prefix to register/unregister
   register_root: False
 
+# Direct ingest is disabled unless ingest_security is configured.
+# Ingest command Interests are validated against an LVS trust schema, fetching the
+# signing certificate chain up to the trust anchor. One CA trust anchor may authorize
+# multiple producers through the LVS schema; their certificate chains must end at it.
+# The trust anchor may be a binary or base64-encoded certificate. The trust schema is
+# normally a compiled LVS binary schema; LVS text is also accepted and compiled at startup.
+# Tilde and environment variables in both paths are expanded. A sample text schema is
+# provided in ingest.lvs.sample.
+# ingest_security:
+#   trust_anchor: '~/.ndn/trust/trust-anchor.ndncert'
+#   trust_schema: '/etc/ndn-python-repo/ingest.lvsb'
+
 db_config:
   # choose one among sqlite3, leveldb, and mongodb
   db_type: 'sqlite3'

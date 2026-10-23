@@ -7,6 +7,9 @@ These Data are issued via Pub-Sub protocol.
 Each ``RepoCommandParam`` and ``RepoCommandRes`` contains
 multiple ``ObjParam`` and ``ObjStatus``, resp.
 
+The :doc:`ingest` command instead carries an ``ObjParam`` structure as the
+Interest's application parameters, rather than as Pub-Sub Data Content.
+
 Current protocol does not support compatibility among different versions. All TLV-TYPE numbers are critical.
 
 These structures are defined as follows:

@@ -1,12 +1,17 @@
 import asyncio as aio
+import base64
 import filecmp
 import multiprocessing
+from datetime import datetime, timezone
+from Cryptodome.PublicKey import ECC
 from ndn.app import NDNApp
-from ndn.encoding import Name
-from ndn.security import KeychainDigest
+from ndn.app_support.security_v2 import self_sign, derive_cert
+from ndn.encoding import Name, Component, ContentType
+from ndn.security import KeychainDigest, DigestSha256Signer, Sha256WithEcdsaSigner
 from ndn.types import InterestNack, InterestTimeout
-from ndn_python_repo.clients import GetfileClient, PutfileClient, DeleteClient, CommandChecker
-from ndn_python_repo.command import RepoCommandParam, ObjParam, RepoStatCode
+from ndn_python_repo.clients import GetfileClient, PutfileClient, DeleteClient, CommandChecker, IngestClient
+from ndn_python_repo.clients.ingest import _CommandSigner
+from ndn_python_repo.command import RepoCommandParam, ObjParam, RepoStatCode, EmbName
 from ndn_python_repo.utils import PubSub
 import os
 import platform
@@ -20,6 +25,41 @@ sqlite3_path = os.path.join(tempfile.mkdtemp(), 'sqlite3_test.db')
 repo_name = 'testrepo'
 register_root = False
 port = 7377
+
+
+def create_ingest_pki():
+    """Create a trust anchor, a producer certificate it signs, and an LVS schema for ingest."""
+    tmp_dir = tempfile.mkdtemp()
+    root_key = ECC.generate(curve='P-256')
+    root_key_name = Name.from_str('/test-root/KEY/root')
+    root_cert_name, root_cert = self_sign(
+        root_key_name, root_key.public_key().export_key(format='DER'),
+        Sha256WithEcdsaSigner(root_key_name, root_key.export_key(format='DER')))
+    producer_key = ECC.generate(curve='P-256')
+    producer_cert_name, producer_cert = derive_cert(
+        Name.from_str('/ingest_client/KEY/producer'), 'root',
+        producer_key.public_key().export_key(format='DER'),
+        Sha256WithEcdsaSigner(root_cert_name, root_key.export_key(format='DER')),
+        datetime.now(timezone.utc), 3600)
+
+    anchor_path = os.path.join(tmp_dir, 'anchor.ndncert')
+    with open(anchor_path, 'wb') as f:
+        f.write(base64.b64encode(bytes(root_cert)))
+    schema_path = os.path.join(tmp_dir, 'ingest.lvs')
+    with open(schema_path, 'w') as f:
+        f.write(f'''
+#KEY: "KEY"/_/_/_
+#root: "test-root"/#KEY
+#producer: "ingest_client"/#KEY <= #root
+#ingest: "{repo_name}"/"ingest"/_ <= #producer
+''')
+    signer = Sha256WithEcdsaSigner(producer_cert_name, producer_key.export_key(format='DER'))
+    return anchor_path, schema_path, producer_cert_name, bytes(producer_cert), signer
+
+
+(ingest_anchor_path, ingest_schema_path,
+ producer_cert_name, producer_cert, producer_signer) = create_ingest_pki()
+
 inline_cfg = f"""
 ---
 repo_config:
@@ -35,6 +75,9 @@ db_config:
     db: test_python_repo
     collection: ndn_data
     uri: mongodb://127.0.0.1:27017/
+ingest_security:
+  trust_anchor: {ingest_anchor_path}
+  trust_schema: {ingest_schema_path}
 tcp_bulk_insert:
   addr: 0.0.0.0
   port: {port}
@@ -90,6 +133,11 @@ class RepoTestSuite(object):
     async def run(self):
         pass
 
+    async def serve_producer_cert(self):
+        """Serve the producer certificate so the repo can fetch the ingest signing chain."""
+        await self.app.register(producer_cert_name,
+                                lambda int_name, _p, _a: self.app.put_raw_packet(producer_cert))
+
 
 class TestBasic(RepoTestSuite):
     async def run(self):
@@ -114,6 +162,121 @@ class TestBasic(RepoTestSuite):
         # cleanup
         self.files_to_cleanup.append(filepath1)
         self.files_to_cleanup.append(filepath2)
+        self.app.shutdown()
+
+
+class TestIngest(RepoTestSuite):
+    async def run(self):
+        await aio.sleep(2)  # wait for repo to startup
+        data_name = uuid.uuid4().hex.upper()[0:6]
+        content = b'foobar'
+
+        await self.serve_producer_cert()
+
+        # ingest a single Data packet
+        ic = IngestClient(self.app, Name.from_str('/ingest_client'), Name.from_str(repo_name))
+        success = await ic.ingest_data(Name.from_str(data_name), content,
+                                       register_prefix=Name.from_str(data_name),
+                                       signer=producer_signer)
+        assert success
+
+        # fetch it back from the repo and check content
+        _, _, fetched_content = await self.app.express_interest(Name.from_str(data_name))
+        assert bytes(fetched_content) == content
+
+        self.app.shutdown()
+
+
+class TestIngestSegmented(RepoTestSuite):
+    async def run(self):
+        await aio.sleep(2)  # wait for repo to startup
+        data_name = Name.from_str(uuid.uuid4().hex.upper()[0:6])
+        segments = [b'segment-zero', b'segment-one', b'segment-two']
+        final_block_id = Component.from_segment(len(segments) - 1)
+
+        encoded_segments = {}
+        for seq, content in enumerate(segments):
+            seg_name = data_name + [Component.from_segment(seq)]
+            encoded_segments[Name.to_str(seg_name)] = self.app.prepare_data(
+                seg_name, content, final_block_id=final_block_id)
+
+        def on_interest(int_name, _int_param, _app_param):
+            name_str = Name.to_str(int_name)
+            if name_str in encoded_segments:
+                self.app.put_raw_packet(encoded_segments[name_str])
+
+        await self.app.register(data_name, on_interest)
+        await self.serve_producer_cert()
+
+        # ingest a segmented object, letting end_block_id auto-detect from final_block_id
+        cmd_param = ObjParam()
+        cmd_param.name = data_name
+        cmd_param.start_block_id = 0
+        cmd_param.register_prefix = EmbName.from_name(data_name)
+
+        int_name = Name.from_str(repo_name) + Name.from_str('ingest')
+        _, meta_info, _ = await self.app.express_interest(
+            int_name, cmd_param.encode(), can_be_prefix=False, lifetime=10000,
+            signer=_CommandSigner(producer_signer))
+        assert meta_info.content_type != ContentType.NACK
+
+        # fetch each segment back from the repo and check content
+        for seq, content in enumerate(segments):
+            _, _, fetched_content = await self.app.express_interest(data_name + [Component.from_segment(seq)])
+            assert bytes(fetched_content) == content
+
+        self.app.shutdown()
+
+
+class TestIngestNack(RepoTestSuite):
+    async def run(self):
+        await aio.sleep(2)  # wait for repo to startup
+        int_name = Name.from_str(repo_name) + Name.from_str('ingest')
+        await self.serve_producer_cert()
+
+        # unsigned parameterized Interests are explicitly rejected
+        cmd_param = ObjParam()
+        cmd_param.name = Name.from_str(uuid.uuid4().hex.upper()[0:6])
+        _, meta_info, _ = await self.app.express_interest(
+            int_name, cmd_param.encode(), can_be_prefix=False, lifetime=1000, no_signature=True)
+        assert meta_info.content_type == ContentType.NACK
+
+        # Interests not signed by a key the trust schema authorizes are dropped, not answered
+        cmd_param = ObjParam()
+        cmd_param.name = Name.from_str(uuid.uuid4().hex.upper()[0:6])
+        try:
+            await self.app.express_interest(
+                int_name, cmd_param.encode(), can_be_prefix=False, lifetime=1000,
+                signer=DigestSha256Signer(for_interest=True))
+            assert False, 'repo replied to an unauthorized ingest command'
+        except InterestTimeout:
+            pass
+
+        # single Data packet that nobody serves: repo must NACK, not stay silent
+        cmd_param = ObjParam()
+        cmd_param.name = Name.from_str(uuid.uuid4().hex.upper()[0:6])
+        nack_name, meta_info, _ = await self.app.express_interest(
+            int_name, cmd_param.encode(), can_be_prefix=False, lifetime=10000,
+            signer=_CommandSigner(producer_signer))
+        assert meta_info.content_type == ContentType.NACK
+
+        # resending the same command is a new signed Interest with a new name
+        retry_name, meta_info, _ = await self.app.express_interest(
+            int_name, cmd_param.encode(), can_be_prefix=False, lifetime=10000,
+            signer=_CommandSigner(producer_signer))
+        assert meta_info.content_type == ContentType.NACK
+        assert retry_name != nack_name
+
+        # segmented object with auto-detected end where no segment can be fetched:
+        # zero segments stored must not be acknowledged as success
+        cmd_param = ObjParam()
+        cmd_param.name = Name.from_str(uuid.uuid4().hex.upper()[0:6])
+        cmd_param.start_block_id = 0
+        _, meta_info, _ = await self.app.express_interest(
+            int_name, cmd_param.encode(), can_be_prefix=False, lifetime=10000,
+            signer=_CommandSigner(producer_signer))
+        assert meta_info.content_type == ContentType.NACK
+
         self.app.shutdown()
 
 

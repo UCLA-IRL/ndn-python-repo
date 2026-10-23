@@ -1,0 +1,33 @@
+// Sample LVS trust schema for direct ingest.
+//
+// Set ingest_security.trust_schema in the repo config to a copy of this file,
+// and replace the names below with the names in your actual NDN certificates.
+//
+// The repo accepts an ingest command only if:
+//   1. the command name matches #ingest,
+//   2. the command is signed by a certificate that matches #producer, and
+//   3. that certificate chains up to the trust anchor (#root).
+// Commands that fail any check are dropped without a reply.
+
+// Certificate name suffix: KEY/<key-id>/<issuer-id>/<version>
+#KEY: "KEY"/_/_/_
+
+// Trust anchor certificate, e.g. /example/KEY/<key-id>/self/<version>.
+// Must match the certificate set in ingest_security.trust_anchor.
+#root: "example"/#KEY
+
+// Producer certificates issued by the trust anchor.
+// "producer" is a pattern variable, so any producer one level under /example
+// is accepted: /example/producer1, /example/producer2, /example/gps, and so on.
+// Use a quoted component instead (e.g. "producer1") to allow only that producer.
+#producer: "example"/producer/#KEY <= #root
+
+// Ingest command Interest: /<repo_name>/ingest/<params-sha256>.
+// "testrepo" is the repo_name in ndn-python-repo.conf.sample; the final _ matches
+// the params-sha256 component. The command must be signed by a producer key.
+#ingest: "testrepo"/"ingest"/_ <= #producer
+
+// To also accept producers two levels deep (e.g. /example/site/producer1),
+// add another rule and allow both as signers:
+//   #producer_deep: "example"/_/_/#KEY <= #root
+//   #ingest: "testrepo"/"ingest"/_ <= #producer | #producer_deep
