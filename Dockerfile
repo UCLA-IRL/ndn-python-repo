@@ -1,4 +1,6 @@
-FROM python:3.10-alpine AS ndn-python-repo
+# syntax=docker/dockerfile:1
+
+FROM python:3.13-alpine AS ndn-python-repo
 
 COPY . /repo
 
