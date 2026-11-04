@@ -3,7 +3,6 @@ import asyncio as aio
 from ndn.app import NDNApp
 from ndn.encoding import Name
 from ndn.transport.dummy_face import DummyFace
-from ndn.security import KeychainDigest
 from ndn_python_repo.utils.concurrent_fetcher import concurrent_fetcher
 
 
@@ -16,8 +15,7 @@ class ConcurrentFetcherTestSuite(object):
 
     async def comain(self):
         face = DummyFace(self.face_proc)
-        keychain = KeychainDigest()
-        self.app = NDNApp(face, keychain)
+        self.app = NDNApp(face)
         face.app = self.app
         await self.app.main_loop(after_start=self.app_main())
     

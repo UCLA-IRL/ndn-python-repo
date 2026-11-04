@@ -6,7 +6,8 @@ from ndn.security import KeychainDigest
 from ndn_python_repo.clients import SyncClient
 
 async def run_leave_sync_client(app: NDNApp, **kwargs):
-    client = SyncClient(app=app, prefix=kwargs['client_prefix'], repo_name=kwargs['repo_name'])
+    client = SyncClient(app=app, prefix=kwargs['client_prefix'], repo_name=kwargs['repo_name'],
+                        keychain=KeychainDigest())
     await client.leave_sync(sync_prefix=kwargs['sync_prefix'])
     app.shutdown()
 
@@ -25,7 +26,7 @@ def main():
                         datefmt='%Y-%m-%d %H:%M:%S',
                         level=logging.DEBUG)
 
-    app = NDNApp(face=None, keychain=KeychainDigest())
+    app = NDNApp()
     try:
         app.run_forever(
             after_start=run_leave_sync_client(app, repo_name=Name.from_str(args.repo_name),

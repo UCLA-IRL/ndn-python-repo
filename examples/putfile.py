@@ -22,7 +22,8 @@ async def run_putfile_client(app: NDNApp, **kwargs):
     """
     client = PutfileClient(app=app,
                            prefix=kwargs['client_prefix'],
-                           repo_name=kwargs['repo_name'])
+                           repo_name=kwargs['repo_name'],
+                           keychain=KeychainDigest())
     
     # Set pubsub to register ``check_prefix`` directly, so all prefixes under ``check_prefix`` will
     # be handled with interest filters. This reduces the number of registered prefixes at NFD, when
@@ -77,7 +78,7 @@ def main():
     if args.forwarding_hint:
         args.forwarding_hint = Name.from_str(args.forwarding_hint)
 
-    app = NDNApp(face=None, keychain=KeychainDigest())
+    app = NDNApp()
     try:
         app.run_forever(
             after_start=run_putfile_client(app,

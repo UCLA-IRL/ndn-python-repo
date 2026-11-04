@@ -2,6 +2,7 @@ import asyncio as aio
 import logging
 from ndn.app import NDNApp
 from ndn.encoding import NonStrictName
+from ndn.security.validator import sha256_digest_checker
 from ndn.types import InterestNack, InterestTimeout
 from typing import Optional
 from ..command import ObjParam, RepoStatCode
@@ -82,10 +83,10 @@ async def fetch_single_data(app: NDNApp, storage: Storage, name: NonStrictName,
     n_retries = 3
     while n_retries > 0:
         try:
-            data_name, _, _, data_bytes = await app.express_interest(
-                name, need_raw_packet=True, can_be_prefix=False, lifetime=2000,
+            data_name, _, context = await app.express(
+                name, sha256_digest_checker, can_be_prefix=False, lifetime=2000,
                 forwarding_hint=forwarding_hint)
-            storage.put_data_packet(data_name, data_bytes)
+            storage.put_data_packet(data_name, bytes(context['raw_packet']))
             return 1
         except InterestNack as e:
             logging.info(f'Nacked with reason={e.reason}')

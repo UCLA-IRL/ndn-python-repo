@@ -5,7 +5,7 @@
     @Date   2019-11-01
 """
 
-from typing import TypeVar
+import dataclasses as dc
 import ndn.encoding as enc
 
 __all__ = [
@@ -58,66 +58,64 @@ class RepoStatCode:
     NOT_FOUND = 404
 
 
-TEmbName = TypeVar('TEmbName', bound='EmbName')
-
-
-class EmbName(enc.TlvModel):
-    name = enc.NameField()
+@dc.dataclass
+class EmbName:
+    name: enc.NDNName = enc.tlv_field(enc.Name.TYPE_NAME, default=None)
 
     @staticmethod
-    def from_name(name: enc.NonStrictName) -> TEmbName:
-        ret = EmbName()
-        ret.name = name
-        return ret
+    def from_name(name: enc.NonStrictName) -> 'EmbName':
+        return EmbName(name=name)
 
 
-class ObjParam(enc.TlvModel):
-    name = enc.NameField()
-    forwarding_hint = enc.ModelField(RepoTypeNumber.FORWARDING_HINT, enc.Links)
-    start_block_id = enc.UintField(RepoTypeNumber.START_BLOCK_ID)
-    end_block_id = enc.UintField(RepoTypeNumber.END_BLOCK_ID)
-    register_prefix = enc.ModelField(RepoTypeNumber.REGISTER_PREFIX, EmbName)
+@dc.dataclass
+class ObjParam:
+    name: enc.NDNName = enc.tlv_field(enc.Name.TYPE_NAME, default=None)
+    forwarding_hint: enc.Links | None = enc.tlv_field(RepoTypeNumber.FORWARDING_HINT, default=None)
+    start_block_id: int | None = enc.tlv_field(RepoTypeNumber.START_BLOCK_ID, default=None)
+    end_block_id: int | None = enc.tlv_field(RepoTypeNumber.END_BLOCK_ID, default=None)
+    register_prefix: EmbName | None = enc.tlv_field(RepoTypeNumber.REGISTER_PREFIX, default=None)
 
 
-class SyncParam(enc.TlvModel):
-    sync_prefix = enc.ModelField(RepoTypeNumber.SYNC_PREFIX, EmbName)
-    register_prefix = enc.ModelField(RepoTypeNumber.REGISTER_PREFIX, EmbName)
-    data_name_dedupe = enc.BoolField(RepoTypeNumber.SYNC_DATA_NAME_DEDUPE)
-    reset = enc.BoolField(RepoTypeNumber.SYNC_RESET)
-    # forwarding_hint = enc.ModelField(RepoTypeNumber.FORWARDING_HINT, enc.Links)
-    # sync_prefix = enc.ModelField(RepoTypeNumber.REGISTER_PREFIX, EmbName)
+@dc.dataclass
+class SyncParam:
+    sync_prefix: EmbName | None = enc.tlv_field(RepoTypeNumber.SYNC_PREFIX, default=None)
+    register_prefix: EmbName | None = enc.tlv_field(RepoTypeNumber.REGISTER_PREFIX, default=None)
+    data_name_dedupe: bool = enc.tlv_field(RepoTypeNumber.SYNC_DATA_NAME_DEDUPE, default=False)
+    reset: bool = enc.tlv_field(RepoTypeNumber.SYNC_RESET, default=False)
 
 
-class RepoCommandParam(enc.TlvModel):
-    objs = enc.RepeatedField(enc.ModelField(RepoTypeNumber.OBJECT_PARAM, ObjParam))
-    sync_groups = enc.RepeatedField(
-        enc.ModelField(RepoTypeNumber.SYNC_PARAM, SyncParam)
-    )
+@dc.dataclass
+class RepoCommandParam:
+    objs: list[ObjParam] = enc.tlv_field(RepoTypeNumber.OBJECT_PARAM, default_factory=list)
+    sync_groups: list[SyncParam] = enc.tlv_field(RepoTypeNumber.SYNC_PARAM, default_factory=list)
 
 
-class RepoStatQuery(enc.TlvModel):
-    request_no = enc.BytesField(RepoTypeNumber.REQUEST_NO)
+@dc.dataclass
+class RepoStatQuery:
+    request_no: bytes | None = enc.tlv_field(RepoTypeNumber.REQUEST_NO, default=None)
 
 
-class ObjStatus(enc.TlvModel):
-    name = enc.NameField()
-    status_code = enc.UintField(RepoTypeNumber.STATUS_CODE)
-    insert_num = enc.UintField(RepoTypeNumber.INSERT_NUM)
-    delete_num = enc.UintField(RepoTypeNumber.DELETE_NUM)
+@dc.dataclass
+class ObjStatus:
+    name: enc.NDNName = enc.tlv_field(enc.Name.TYPE_NAME, default=None)
+    status_code: int | None = enc.tlv_field(RepoTypeNumber.STATUS_CODE, default=None)
+    insert_num: int | None = enc.tlv_field(RepoTypeNumber.INSERT_NUM, default=None)
+    delete_num: int | None = enc.tlv_field(RepoTypeNumber.DELETE_NUM, default=None)
 
 
-class SyncStatus(enc.TlvModel):
-    name = enc.NameField()
-    status_code = enc.UintField(RepoTypeNumber.STATUS_CODE)
+@dc.dataclass
+class SyncStatus:
+    name: enc.NDNName = enc.tlv_field(enc.Name.TYPE_NAME, default=None)
+    status_code: int | None = enc.tlv_field(RepoTypeNumber.STATUS_CODE, default=None)
 
 
-class RepoCommandRes(enc.TlvModel):
-    status_code = enc.UintField(RepoTypeNumber.STATUS_CODE)
-    objs = enc.RepeatedField(enc.ModelField(RepoTypeNumber.OBJECT_RESULT, ObjStatus))
-    sync_groups = enc.RepeatedField(
-        enc.ModelField(RepoTypeNumber.SYNC_RESULT, SyncStatus)
-    )
+@dc.dataclass
+class RepoCommandRes:
+    status_code: int | None = enc.tlv_field(RepoTypeNumber.STATUS_CODE, default=None)
+    objs: list[ObjStatus] = enc.tlv_field(RepoTypeNumber.OBJECT_RESULT, default_factory=list)
+    sync_groups: list[SyncStatus] = enc.tlv_field(RepoTypeNumber.SYNC_RESULT, default_factory=list)
 
 
-class RepeatedNames(enc.TlvModel):
-    names = enc.RepeatedField(enc.NameField())
+@dc.dataclass
+class RepeatedNames:
+    names: list[enc.NDNName] = enc.tlv_field(enc.Name.TYPE_NAME, default_factory=list)

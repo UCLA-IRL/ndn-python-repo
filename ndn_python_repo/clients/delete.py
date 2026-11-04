@@ -15,23 +15,27 @@ from .command_checker import CommandChecker
 from ..utils import PubSub
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name, NonStrictName
+from ndn.encoding import Name, NonStrictName, tlv_encode
+from ndn.security import Keychain
 from typing import Optional
 from hashlib import sha256
 
 
 class DeleteClient(object):
-    def __init__(self, app: NDNApp, prefix: NonStrictName, repo_name: NonStrictName):
+    def __init__(self, app: NDNApp, prefix: NonStrictName, repo_name: NonStrictName,
+                 keychain: Optional[Keychain] = None):
         """
         This client deletes data packets from the remote repo.
 
         :param app: NDNApp.
         :param repo_name: NonStrictName. Routable name to remote repo.
+        :param keychain: Keychain. Signs the delete command and check Interests. If omitted, the\
+            default keychain is loaded when first needed.
         """
         self.app = app
         self.prefix = prefix
         self.repo_name = Name.normalize(repo_name)
-        self.pb = PubSub(self.app, self.prefix)
+        self.pb = PubSub(self.app, self.prefix, keychain=keychain)
         self.logger = logging.getLogger(__name__)
 
     async def delete_file(self, prefix: NonStrictName, start_block_id: int = 0,
@@ -65,7 +69,7 @@ class DeleteClient(object):
         cmd_obj.register_prefix = EmbName()
         cmd_obj.register_prefix.name = register_prefix
 
-        cmd_param_bytes = bytes(cmd_param.encode())
+        cmd_param_bytes = bytes(tlv_encode(cmd_param))
         request_no = sha256(cmd_param_bytes).digest()
 
         # publish msg to repo's delete topic
@@ -92,7 +96,7 @@ class DeleteClient(object):
         :return: Number of deleted packets.
         """
         # fixme: why is check_prefix never used?
-        checker = CommandChecker(self.app)
+        checker = CommandChecker(self.app, self.pb.keychain)
         n_retries = 3
         while n_retries > 0:
             response = await checker.check_delete(self.repo_name, request_no)

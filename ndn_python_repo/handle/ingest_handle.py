@@ -7,10 +7,11 @@
 # an application-level NACK if the command failed. Both replies are signed
 # by the repo.
 #
-# The ingest Interest is a signed Interest carrying SignatureTime and
-# SignatureNonce. Its params-sha256 name component covers the parameters and
-# the signature, so every command (including a resend) has a distinct name
-# and each reply answers exactly one Interest name.
+# The ingest Interest itself is unsigned. Its ApplicationParameters carry the
+# command as a signed Data packet, named /<repo_name>/ingest/<timestamp>/<nonce>.
+# The params-sha256 name component covers that Data packet, so every command
+# (including a resend) has a distinct name and each reply answers exactly one
+# Interest name.
 #
 # @Author regmisuravi@gmail.com
 # @Date   2026-06-30
@@ -22,11 +23,12 @@ import logging
 import os
 from pathlib import Path
 
-from ndn.app import NDNApp
+from ndn.app import NDNApp, ReplyFunc, Validator, ValidResult
 from ndn.app_support.light_versec import Checker, LvsModel, TypeNumber, compile_lvs, lvs_validator
-from ndn.encoding import Name, NonStrictName, ContentType
+from ndn.encoding import Name, NonStrictName, Component, ContentType, parse_data, tlv_parse
+from ndn.security import Keychain
 from ndn.security.validator.cascade_validator import MemoryKeyStorage
-from ndn.types import Validator
+from ndn.utils import timestamp
 from .read_handle import ReadHandle
 from .utils import fetch_object
 from ..command import ObjParam, RepoStatCode
@@ -36,9 +38,9 @@ from typing import Optional
 
 def create_ingest_validator(app: NDNApp, security_config: Optional[dict]) -> Optional[Validator]:
     """
-    Create the validator for ingest command Interests from the ``ingest_security`` config section.
+    Create the validator for ingest commands from the ``ingest_security`` config section.
 
-    The command Interest is checked against an LVS trust schema, and the signing certificate
+    The signed command Data is checked against an LVS trust schema, and the signing certificate
     chain is fetched from the network and validated up to the configured trust anchor.
 
     :param app: NDNApp. Used to fetch certificates in the signing chain.
@@ -75,27 +77,32 @@ class DirectIngestHandle:
     Repo-side handler for the direct ingest protocol.
     Listens on <repo_name>/ingest, and processes each command as a single Interest/Data
 
-    1. Producer sends a signed Interest to <repo_name>/ingest/params-sha256=<digest>,
-       with AppParam = ObjParam { name, forwarding_hint, ... }.
-    2. Repo fetches and stores the requested Data, as in insert.
+    1. Producer sends an unsigned Interest to <repo_name>/ingest/params-sha256=<digest>,
+       with AppParam = a signed Data packet named <repo_name>/ingest/<timestamp>/<nonce>,
+       whose Content is ObjParam { name, forwarding_hint, ... }.
+    2. Repo validates the command Data, then fetches and stores the requested Data, as in insert.
     3. Repo replies to the original ingest Interest with an empty signed Data packet,
        or with an application-level NACK (ContentType=NACK) if the command failed.
     """
 
-    DEFAULT_INTEREST_LIFETIME_MS = 4000  # NDN default when InterestLifetime is absent
     REPLY_MARGIN_MS = 500  # reply this long before the ingest Interest expires
 
     def __init__(self, app: NDNApp, storage: Storage, config: dict, read_handle: ReadHandle,
-                 interest_validator: Optional[Validator] = None):
+                 command_validator: Optional[Validator] = None, keychain: Optional[Keychain] = None):
         self.app     = app
         self.storage = storage
         self.config  = config
         self.prefix  = None
+        self.ingest_prefix = None
         self._registered_prefixes = set()
         self.m_read_handle = read_handle
-        self.interest_validator = interest_validator
+        self.command_validator = command_validator
         # Replies are signed with the repo's default key, so the producer can validate them
-        self.signer = app.keychain.get_signer({}) if interest_validator is not None else None
+        self.signer = None
+        if command_validator is not None:
+            if keychain is None:
+                keychain = NDNApp.default_keychain()
+            self.signer = keychain.get_signer({})
 
     async def listen(self, prefix: NonStrictName):
         """
@@ -104,77 +111,93 @@ class DirectIngestHandle:
 
         :param prefix: NonStrictName. The repo's name prefix.
         """
-        if self.interest_validator is None:
+        if self.command_validator is None:
             logging.warning('Direct ingest is disabled: ingest_security is not configured')
             return
 
         self.prefix   = Name.normalize(prefix)
-        ingest_prefix = self.prefix + Name.from_str('ingest')
-        await self.app.register(
-            ingest_prefix,
-            self._on_insert_interest,
-            validator=self.interest_validator,
-            need_sig_ptrs=True,
-        )
-        logging.info(f'DirectIngestHandle listening on {Name.to_str(ingest_prefix)}')
+        self.ingest_prefix = self.prefix + Name.from_str('ingest')
+        self.app.attach_handler(self.ingest_prefix, self._on_insert_interest, self._accept_unsigned_interest)
+        await self.app.register(self.ingest_prefix)
+        logging.info(f'DirectIngestHandle listening on {Name.to_str(self.ingest_prefix)}')
+
+    @staticmethod
+    async def _accept_unsigned_interest(_name, sig_ptrs, _context) -> ValidResult:
+        """
+        The command is authorized by the signed Data it carries, which ``_process_command``
+        validates, so the ingest Interest itself must be unsigned.
+        """
+        if sig_ptrs.signature_info is None:
+            return ValidResult.ALLOW_BYPASS
+        return ValidResult.FAIL
 
     # Ingest Interest entry point.
 
-    def _on_insert_interest(self, int_name, int_param, app_param, sig_ptrs=None):
+    def _on_insert_interest(self, int_name, app_param, reply: ReplyFunc, context):
         """
-        Check the command, and start fetching only if it is well-formed.
-        Rejected commands are answered here, without creating a task.
+        Parse the command Data, and start validating it only if it is well-formed.
+        A command that is not a Data packet named <repo_name>/ingest/<timestamp>/<nonce>
+        violates the protocol, and is dropped without a reply.
         """
-        if sig_ptrs is None or sig_ptrs.signature_info is None:
-            logging.warning(f'ingest.reject.unsigned {Name.to_str(int_name)}')
-            self._reply_nack(int_name)
+        try:
+            cmd_name, _, content, sig_ptrs = parse_data(app_param)
+        except Exception as e:
+            logging.warning(f'ingest.drop.malformed {Name.to_str(int_name)}: {e}')
             return
-        if sig_ptrs.signature_info.signature_time is None:
-            logging.warning(f'ingest.reject.missing_sig_time {Name.to_str(int_name)}')
-            self._reply_nack(int_name)
+        if not (len(cmd_name) == len(self.ingest_prefix) + 2
+                and Name.is_prefix(self.ingest_prefix, cmd_name)
+                and Component.get_type(cmd_name[-2]) == Component.TYPE_TIMESTAMP):
+            logging.warning(f'ingest.drop.bad_command_name {Name.to_str(cmd_name)}')
             return
-        if sig_ptrs.signature_info.signature_nonce is None:
-            logging.warning(f'ingest.reject.missing_sig_nonce {Name.to_str(int_name)}')
-            self._reply_nack(int_name)
+
+        aio.create_task(self._process_command(int_name, cmd_name, content, sig_ptrs, reply, context))
+
+    async def _process_command(self, int_name, cmd_name, content, sig_ptrs, reply: ReplyFunc, context):
+        """
+        Validate the command Data with ``command_validator``, then process the ObjParam it carries.
+        Commands that fail validation are dropped without a reply, before fetching any Data.
+        """
+        if await self.command_validator(cmd_name, sig_ptrs, context) != ValidResult.PASS:
+            logging.warning(f'ingest.drop.unvalidated {Name.to_str(cmd_name)}')
             return
 
         try:
-            param = ObjParam.parse(app_param)
+            param = tlv_parse(ObjParam, content)
         except Exception as e:
             logging.warning(f'ingest.parse.fail: {e}')
-            self._reply_nack(int_name)
+            self._reply_nack(int_name, reply)
             return
 
-        logging.info(f'ingest.received {Name.to_str(int_name)}')
-        aio.create_task(self._process_insert(int_name, int_param, param))
+        logging.info(f'ingest.received {Name.to_str(cmd_name)}')
+        await self._process_insert(int_name, param, reply, context['deadline'])
 
-    async def _process_insert(self, int_name, int_param, param: ObjParam):
+    async def _process_insert(self, int_name, param: ObjParam, reply: ReplyFunc, deadline: int):
         """
         Fetch and store the requested Data, then reply to int_name with an empty
         Data packet as acknowledgement, or with an application-level NACK
         (ContentType=NACK) on failure.
+
+        :param deadline: the ingest Interest's expiry, as a timestamp in milliseconds.
         """
-        # Fetch, bounded by the ingest Interest's lifetime so that the reply
+        # Fetch, bounded by the ingest Interest's deadline so that the reply
         # (ack or NACK) still reaches the producer before its PIT entry expires.
-        lifetime = (int_param.lifetime if int_param and int_param.lifetime is not None
-                    else self.DEFAULT_INTEREST_LIFETIME_MS)
-        deadline_s = max(lifetime - self.REPLY_MARGIN_MS, 0) / 1000.0
+        deadline_s = max(deadline - timestamp() - self.REPLY_MARGIN_MS, 0) / 1000.0
         try:
             status_code, insert_num = await aio.wait_for(
                 fetch_object(self.app, self.storage, param), timeout=deadline_s)
         except aio.TimeoutError:
             logging.error(f'ingest.fetch.deadline {Name.to_str(int_name)} deadline={deadline_s}s')
-            self._reply_nack(int_name)
+            self._reply_nack(int_name, reply)
             return
 
         if status_code == RepoStatCode.MALFORMED:
             logging.warning(f'ingest.malformed {Name.to_str(int_name)}')
-            self._reply_nack(int_name)
+            self._reply_nack(int_name, reply)
             return
         data_name = Name.to_str(param.name)
         if status_code != RepoStatCode.COMPLETED:
             logging.error(f'ingest.fetch.fail {data_name} inserted={insert_num}')
-            self._reply_nack(int_name)
+            self._reply_nack(int_name, reply)
             return
 
         logging.info(f'ingest.data.saved {data_name} count={insert_num}')
@@ -188,13 +211,13 @@ class DirectIngestHandle:
                 logging.info(f'ingest.prefix.registered {prefix_str}')
 
         # Ack
-        self.app.put_data(int_name, None, signer=self.signer)
+        reply(self.app.make_data(int_name, None, self.signer))
         logging.info(f'ingest.ack.sent data={data_name}')
 
-    def _reply_nack(self, int_name):
+    def _reply_nack(self, int_name, reply: ReplyFunc):
         """
         Reply to the ingest Interest with an application-level NACK, so the
         producer learns about the failure without waiting for its Interest to time out.
         """
-        self.app.put_data(int_name, None, content_type=ContentType.NACK, signer=self.signer)
+        reply(self.app.make_data(int_name, None, self.signer, content_type=ContentType.NACK))
         logging.info(f'ingest.nack.sent {Name.to_str(int_name)}')

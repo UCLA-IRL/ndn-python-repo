@@ -14,26 +14,31 @@ from ..command import RepoCommandParam, SyncParam, EmbName
 from ..utils import PubSub
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import Name, NonStrictName
+from ndn.encoding import Name, NonStrictName, tlv_encode
+from ndn.security import Keychain
 import os
 import platform
 from hashlib import sha256
+from typing import Optional
 
 class SyncClient(object):
 
-    def __init__(self, app: NDNApp, prefix: NonStrictName, repo_name: NonStrictName):
+    def __init__(self, app: NDNApp, prefix: NonStrictName, repo_name: NonStrictName,
+                 keychain: Optional[Keychain] = None):
         """
         A client to sync the repo.
 
         :param app: NDNApp.
         :param prefix: NonStrictName. The name of this client
         :param repo_name: NonStrictName. Routable name to remote repo.
+        :param keychain: Keychain. Signs the sync commands. If omitted, the default keychain is\
+            loaded when first needed.
         """
         self.app = app
         self.prefix = prefix
         self.repo_name = Name.normalize(repo_name)
         self.encoded_packets = {}
-        self.pb = PubSub(self.app, self.prefix)
+        self.pb = PubSub(self.app, self.prefix, keychain=keychain)
         self.pb.base_prefix = self.prefix
 
         # https://bugs.python.org/issue35219
@@ -52,7 +57,7 @@ class SyncClient(object):
         cmd_sync.reset = reset
         
         cmd_param.sync_groups = [cmd_sync]
-        cmd_param_bytes = bytes(cmd_param.encode())
+        cmd_param_bytes = bytes(tlv_encode(cmd_param))
 
         # publish msg to repo's join topic
         await self.pb.wait_for_ready()
@@ -69,7 +74,7 @@ class SyncClient(object):
         cmd_sync = SyncParam()
         cmd_sync.sync_prefix = EmbName.from_name(sync_prefix)
         cmd_param.sync_groups = [cmd_sync]
-        cmd_param_bytes = bytes(cmd_param.encode())
+        cmd_param_bytes = bytes(tlv_encode(cmd_param))
 
         # publish msg to repo's leave topic
         await self.pb.wait_for_ready()

@@ -6,11 +6,12 @@ from datetime import datetime, timezone
 from Cryptodome.PublicKey import ECC
 from ndn.app import NDNApp
 from ndn.app_support.security_v2 import self_sign, derive_cert
-from ndn.encoding import Name, Component, ContentType
+from ndn.encoding import Name, Component, ContentType, tlv_encode
 from ndn.security import KeychainDigest, DigestSha256Signer, Sha256WithEcdsaSigner
+from ndn.security.validator import sha256_digest_checker
 from ndn.types import InterestNack, InterestTimeout
 from ndn_python_repo.clients import GetfileClient, PutfileClient, DeleteClient, CommandChecker, IngestClient
-from ndn_python_repo.clients.ingest import _CommandSigner
+from ndn_python_repo.clients.ingest import make_ingest_command
 from ndn_python_repo.command import RepoCommandParam, ObjParam, RepoStatCode, EmbName
 from ndn_python_repo.utils import PubSub
 import os
@@ -51,7 +52,7 @@ def create_ingest_pki():
 #KEY: "KEY"/_/_/_
 #root: "test-root"/#KEY
 #producer: "ingest_client"/#KEY <= #root
-#ingest: "{repo_name}"/"ingest"/_ <= #producer
+#ingest: "{repo_name}"/"ingest"/_/_ <= #producer
 ''')
     signer = Sha256WithEcdsaSigner(producer_cert_name, producer_key.export_key(format='DER'))
     return anchor_path, schema_path, producer_cert_name, bytes(producer_cert), signer
@@ -106,7 +107,9 @@ class RepoTestSuite(object):
         self.files_to_cleanup.append(sqlite3_path)
         self.repo_proc = subprocess.Popen(['ndn-python-repo', '-c', tmp_cfg_path])
 
-        self.app = NDNApp(face=None, keychain=KeychainDigest())
+        self.keychain = KeychainDigest()
+        self.signer = self.keychain.get_signer({})
+        self.app = NDNApp()
         self.app.run_forever(after_start=self.run())
 
     def cleanup(self):
@@ -133,10 +136,28 @@ class RepoTestSuite(object):
     async def run(self):
         pass
 
+    async def express_interest(self, name, app_param=None, signer=None, **kwargs):
+        """Express an Interest and return (name, meta_info, content)."""
+        data_name, content, context = await self.app.express(
+            name, sha256_digest_checker, app_param, signer, **kwargs)
+        return data_name, context['meta_info'], content
+
+    async def serve(self, name, handler):
+        """Attach an Interest handler and register its prefix."""
+        self.app.attach_handler(name, handler, sha256_digest_checker)
+        await self.app.register(name)
+
     async def serve_producer_cert(self):
         """Serve the producer certificate so the repo can fetch the ingest signing chain."""
-        await self.app.register(producer_cert_name,
-                                lambda int_name, _p, _a: self.app.put_raw_packet(producer_cert))
+        await self.serve(producer_cert_name,
+                         lambda _int_name, _app_param, reply, _context: reply(producer_cert))
+
+    async def ingest(self, cmd_param, signer=producer_signer, lifetime=10000):
+        """Send an ingest command, as a signed Data carried by an unsigned Interest."""
+        int_name = Name.from_str(repo_name) + Name.from_str('ingest')
+        return await self.express_interest(
+            int_name, make_ingest_command(repo_name, cmd_param, signer),
+            can_be_prefix=False, lifetime=lifetime)
 
 
 class TestBasic(RepoTestSuite):
@@ -146,7 +167,8 @@ class TestBasic(RepoTestSuite):
         filepath2 = uuid.uuid4().hex.upper()[0:6]
 
         # put
-        pc = PutfileClient(self.app, Name.from_str('/putfile_client'), Name.from_str(repo_name))
+        pc = PutfileClient(self.app, Name.from_str('/putfile_client'), Name.from_str(repo_name),
+                           keychain=self.keychain)
         insert_num = await pc.insert_file(filepath1, Name.from_str(filepath2), segment_size=8000,
             freshness_period=0, cpu_count=multiprocessing.cpu_count())
         # get
@@ -155,7 +177,8 @@ class TestBasic(RepoTestSuite):
         # diff
         assert filecmp.cmp(filepath1, filepath2)
         # delete
-        dc = DeleteClient(self.app, Name.from_str('/delete_client'), Name.from_str(repo_name))
+        dc = DeleteClient(self.app, Name.from_str('/delete_client'), Name.from_str(repo_name),
+                          keychain=self.keychain)
         delete_num = await dc.delete_file(Name.from_str(filepath2))
         print("Insert: {}, delete: {}".format(insert_num, delete_num))
         assert insert_num == delete_num
@@ -174,14 +197,15 @@ class TestIngest(RepoTestSuite):
         await self.serve_producer_cert()
 
         # ingest a single Data packet
-        ic = IngestClient(self.app, Name.from_str('/ingest_client'), Name.from_str(repo_name))
+        ic = IngestClient(self.app, Name.from_str('/ingest_client'), Name.from_str(repo_name),
+                          keychain=self.keychain)
         success = await ic.ingest_data(Name.from_str(data_name), content,
                                        register_prefix=Name.from_str(data_name),
                                        signer=producer_signer)
         assert success
 
         # fetch it back from the repo and check content
-        _, _, fetched_content = await self.app.express_interest(Name.from_str(data_name))
+        _, _, fetched_content = await self.express_interest(Name.from_str(data_name))
         assert bytes(fetched_content) == content
 
         self.app.shutdown()
@@ -197,15 +221,15 @@ class TestIngestSegmented(RepoTestSuite):
         encoded_segments = {}
         for seq, content in enumerate(segments):
             seg_name = data_name + [Component.from_segment(seq)]
-            encoded_segments[Name.to_str(seg_name)] = self.app.prepare_data(
-                seg_name, content, final_block_id=final_block_id)
+            encoded_segments[Name.to_str(seg_name)] = self.app.make_data(
+                seg_name, content, self.signer, final_block_id=final_block_id)
 
-        def on_interest(int_name, _int_param, _app_param):
+        def on_interest(int_name, _app_param, reply, _context):
             name_str = Name.to_str(int_name)
             if name_str in encoded_segments:
-                self.app.put_raw_packet(encoded_segments[name_str])
+                reply(encoded_segments[name_str])
 
-        await self.app.register(data_name, on_interest)
+        await self.serve(data_name, on_interest)
         await self.serve_producer_cert()
 
         # ingest a segmented object, letting end_block_id auto-detect from final_block_id
@@ -214,15 +238,12 @@ class TestIngestSegmented(RepoTestSuite):
         cmd_param.start_block_id = 0
         cmd_param.register_prefix = EmbName.from_name(data_name)
 
-        int_name = Name.from_str(repo_name) + Name.from_str('ingest')
-        _, meta_info, _ = await self.app.express_interest(
-            int_name, cmd_param.encode(), can_be_prefix=False, lifetime=10000,
-            signer=_CommandSigner(producer_signer))
+        _, meta_info, _ = await self.ingest(cmd_param)
         assert meta_info.content_type != ContentType.NACK
 
         # fetch each segment back from the repo and check content
         for seq, content in enumerate(segments):
-            _, _, fetched_content = await self.app.express_interest(data_name + [Component.from_segment(seq)])
+            _, _, fetched_content = await self.express_interest(data_name + [Component.from_segment(seq)])
             assert bytes(fetched_content) == content
 
         self.app.shutdown()
@@ -234,36 +255,31 @@ class TestIngestNack(RepoTestSuite):
         int_name = Name.from_str(repo_name) + Name.from_str('ingest')
         await self.serve_producer_cert()
 
-        # unsigned parameterized Interests are explicitly rejected
+        # Commands that violate the protocol or fail validation are dropped, not answered:
+        # a bare ObjParam instead of a command Data, a command Data not signed by a key the
+        # trust schema authorizes, and a command carried by a signed Interest
         cmd_param = ObjParam()
         cmd_param.name = Name.from_str(uuid.uuid4().hex.upper()[0:6])
-        _, meta_info, _ = await self.app.express_interest(
-            int_name, cmd_param.encode(), can_be_prefix=False, lifetime=1000, no_signature=True)
-        assert meta_info.content_type == ContentType.NACK
-
-        # Interests not signed by a key the trust schema authorizes are dropped, not answered
-        cmd_param = ObjParam()
-        cmd_param.name = Name.from_str(uuid.uuid4().hex.upper()[0:6])
-        try:
-            await self.app.express_interest(
-                int_name, cmd_param.encode(), can_be_prefix=False, lifetime=1000,
-                signer=DigestSha256Signer(for_interest=True))
-            assert False, 'repo replied to an unauthorized ingest command'
-        except InterestTimeout:
-            pass
+        for app_param, signer in (
+                (tlv_encode(cmd_param), None),
+                (make_ingest_command(repo_name, cmd_param, DigestSha256Signer()), None),
+                (make_ingest_command(repo_name, cmd_param, producer_signer),
+                 DigestSha256Signer(for_interest=True))):
+            try:
+                await self.express_interest(int_name, app_param, signer,
+                                            can_be_prefix=False, lifetime=1000)
+                assert False, 'repo replied to an invalid ingest command'
+            except InterestTimeout:
+                pass
 
         # single Data packet that nobody serves: repo must NACK, not stay silent
         cmd_param = ObjParam()
         cmd_param.name = Name.from_str(uuid.uuid4().hex.upper()[0:6])
-        nack_name, meta_info, _ = await self.app.express_interest(
-            int_name, cmd_param.encode(), can_be_prefix=False, lifetime=10000,
-            signer=_CommandSigner(producer_signer))
+        nack_name, meta_info, _ = await self.ingest(cmd_param)
         assert meta_info.content_type == ContentType.NACK
 
-        # resending the same command is a new signed Interest with a new name
-        retry_name, meta_info, _ = await self.app.express_interest(
-            int_name, cmd_param.encode(), can_be_prefix=False, lifetime=10000,
-            signer=_CommandSigner(producer_signer))
+        # resending the same command is a new command Data, so a new Interest name
+        retry_name, meta_info, _ = await self.ingest(cmd_param)
         assert meta_info.content_type == ContentType.NACK
         assert retry_name != nack_name
 
@@ -272,9 +288,7 @@ class TestIngestNack(RepoTestSuite):
         cmd_param = ObjParam()
         cmd_param.name = Name.from_str(uuid.uuid4().hex.upper()[0:6])
         cmd_param.start_block_id = 0
-        _, meta_info, _ = await self.app.express_interest(
-            int_name, cmd_param.encode(), can_be_prefix=False, lifetime=10000,
-            signer=_CommandSigner(producer_signer))
+        _, meta_info, _ = await self.ingest(cmd_param)
         assert meta_info.content_type == ContentType.NACK
 
         self.app.shutdown()
@@ -285,14 +299,14 @@ class TestBundle(RepoTestSuite):
         await aio.sleep(2)  # wait for repo to startup
 
         # respond to interest from repo
-        def on_int_1(int_name, _int_param, _app_param):
-            self.app.put_data(int_name, b'foo', freshness_period=1000)
+        def on_int_1(int_name, _app_param, reply, _context):
+            reply(self.app.make_data(int_name, b'foo', self.signer, freshness_period=1000))
 
-        def on_int_2(int_name, _int_param, _app_param):
-            self.app.put_data(int_name, b'bar', freshness_period=1000)
+        def on_int_2(int_name, _app_param, reply, _context):
+            reply(self.app.make_data(int_name, b'bar', self.signer, freshness_period=1000))
 
-        await self.app.register('test_foo', on_int_1)
-        await self.app.register('test_bar', on_int_2)
+        await self.serve('test_foo', on_int_1)
+        await self.serve('test_bar', on_int_2)
 
         # construct insert parameter
         cmd_param = RepoCommandParam()
@@ -308,17 +322,17 @@ class TestBundle(RepoTestSuite):
         cmd_param.objs[1].end_block_id = None
         cmd_param.objs[1].register_prefix = None
 
-        cmd_param_bytes = bytes(cmd_param.encode())
+        cmd_param_bytes = bytes(tlv_encode(cmd_param))
         request_no = sha256(cmd_param_bytes).digest()
 
         # issue command
-        pb = PubSub(self.app, Name.from_str('/putfile_client'))
+        pb = PubSub(self.app, Name.from_str('/putfile_client'), keychain=self.keychain)
         await pb.wait_for_ready()
         is_success = await pb.publish(Name.from_str(repo_name) + Name.from_str('insert'), cmd_param_bytes)
         assert is_success
 
         # insert_num should be (1, 1)
-        checker = CommandChecker(self.app)
+        checker = CommandChecker(self.app, self.keychain)
         n_retries = 5
         while n_retries > 0:
             response = await checker.check_insert(Name.from_str(repo_name), request_no)
@@ -333,9 +347,9 @@ class TestBundle(RepoTestSuite):
             await aio.sleep(1)
 
         # content should be 'foobar'
-        _, _, content = await self.app.express_interest(Name.from_str('/test_foo/seg=0'))
+        _, _, content = await self.express_interest(Name.from_str('/test_foo/seg=0'))
         assert bytes(content).decode() == 'foo'
-        _, _, content = await self.app.express_interest('/test_bar', can_be_prefix=True)
+        _, _, content = await self.express_interest('/test_bar', can_be_prefix=True)
         assert bytes(content).decode() == 'bar'
 
         self.app.shutdown()
@@ -348,7 +362,8 @@ class TestLargeFile(RepoTestSuite):
         filepath2 = uuid.uuid4().hex.upper()[0:6]
 
         # put file
-        pc = PutfileClient(self.app, Name.from_str('/putfile_client'), Name.from_str(repo_name))
+        pc = PutfileClient(self.app, Name.from_str('/putfile_client'), Name.from_str(repo_name),
+                           keychain=self.keychain)
         await pc.insert_file(filepath1, Name.from_str(filepath2), segment_size=8000,
                              freshness_period=0, cpu_count=multiprocessing.cpu_count())
         # get file
@@ -368,9 +383,9 @@ class TestSingleDataInsert(RepoTestSuite):
         await aio.sleep(2)  # wait for repo to startup
 
         # respond to interest from repo
-        def on_int(int_name, _int_param, _app_param):
-            self.app.put_data(int_name, b'foobar', freshness_period=1000)
-        await self.app.register('test_name', on_int)
+        def on_int(int_name, _app_param, reply, _context):
+            reply(self.app.make_data(int_name, b'foobar', self.signer, freshness_period=1000))
+        await self.serve('test_name', on_int)
 
         # construct insert parameter
         cmd_param = RepoCommandParam()
@@ -382,16 +397,16 @@ class TestSingleDataInsert(RepoTestSuite):
         cmd_obj.end_block_id = None
         cmd_obj.register_prefix = None
 
-        cmd_param_bytes = bytes(cmd_param.encode())
+        cmd_param_bytes = bytes(tlv_encode(cmd_param))
         request_no = sha256(cmd_param_bytes).digest()
 
-        pb = PubSub(self.app, Name.from_str('/putfile_client'))
+        pb = PubSub(self.app, Name.from_str('/putfile_client'), keychain=self.keychain)
         await pb.wait_for_ready()
         is_success = await pb.publish(Name.from_str(repo_name) + Name.from_str('insert'), cmd_param_bytes)
         assert is_success
 
         # insert_num should be 1
-        checker = CommandChecker(self.app)
+        checker = CommandChecker(self.app, self.keychain)
         n_retries = 3
         while n_retries > 0:
             response = await checker.check_insert(Name.from_str(repo_name), request_no)
@@ -409,7 +424,7 @@ class TestSingleDataInsert(RepoTestSuite):
 class TestFlags(RepoTestSuite):
     async def fetch(self, int_name, must_be_fresh, can_be_prefix):
         try:
-            data_name, meta_info, content = await self.app.express_interest(
+            data_name, meta_info, content = await self.express_interest(
                 int_name, must_be_fresh=must_be_fresh, can_be_prefix=can_be_prefix, lifetime=1000)
             return content
         except (InterestTimeout, InterestNack):
@@ -420,7 +435,8 @@ class TestFlags(RepoTestSuite):
 
         filepath = self.create_tmp_file()
         filename = '/TestFlags/file'
-        pc = PutfileClient(self.app, Name.from_str('/putfile_client'), Name.from_str(repo_name))
+        pc = PutfileClient(self.app, Name.from_str('/putfile_client'), Name.from_str(repo_name),
+                           keychain=self.keychain)
         await pc.insert_file(filepath, Name.from_str(filename), segment_size=8000,
                              freshness_period=0, cpu_count=multiprocessing.cpu_count())
 
@@ -439,9 +455,9 @@ class TestNoneMetaInfo(RepoTestSuite):
         await aio.sleep(2)  # wait for repo to startup
 
         # respond to interest from repo
-        def on_int(int_name, _int_param, _app_param):
-            self.app.put_data(int_name, b'foobar', meta_info=None)
-        await self.app.register('test_name', on_int)
+        def on_int(int_name, _app_param, reply, _context):
+            reply(self.app.make_data(int_name, b'foobar', self.signer, meta_info=None))
+        await self.serve('test_name', on_int)
 
         # construct insert parameter
         cmd_param = RepoCommandParam()
@@ -453,16 +469,16 @@ class TestNoneMetaInfo(RepoTestSuite):
         cmd_obj.end_block_id = None
         cmd_obj.register_prefix = None
 
-        cmd_param_bytes = bytes(cmd_param.encode())
+        cmd_param_bytes = bytes(tlv_encode(cmd_param))
         request_no = sha256(cmd_param_bytes).digest()
 
-        pb = PubSub(self.app, Name.from_str('/putfile_client'))
+        pb = PubSub(self.app, Name.from_str('/putfile_client'), keychain=self.keychain)
         await pb.wait_for_ready()
         is_success = await pb.publish(Name.from_str(repo_name) + Name.from_str('insert'), cmd_param_bytes)
         assert is_success
 
         # insert_num should be 1
-        checker = CommandChecker(self.app)
+        checker = CommandChecker(self.app, self.keychain)
         n_retries = 3
         while n_retries > 0:
             response = await checker.check_insert(Name.from_str(repo_name), request_no)
@@ -496,8 +512,8 @@ class TestNoneMetaInfo(RepoTestSuite):
 #         writer.close()
 #
 #         # content should be 'foobar'
-#         _, _, content = await self.app.express_interest(Name.from_str('/test/0'))
+#         _, _, content = await self.express_interest(Name.from_str('/test/0'))
 #         assert content.tobytes().decode() == 'foobar'
-#         _, _, content = await self.app.express_interest('/test', can_be_prefix=True)
+#         _, _, content = await self.express_interest('/test', can_be_prefix=True)
 #         assert content.tobytes().decode() == 'foobar'
 #         self.app.shutdown()

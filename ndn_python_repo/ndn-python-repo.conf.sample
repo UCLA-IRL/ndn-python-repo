@@ -7,7 +7,7 @@ repo_config:
   register_root: False
 
 # Direct ingest is disabled unless ingest_security is configured.
-# Ingest command Interests are validated against an LVS trust schema, fetching the
+# Signed ingest commands are validated against an LVS trust schema, fetching the
 # signing certificate chain up to the trust anchor. One CA trust anchor may authorize
 # multiple producers through the LVS schema; their certificate chains must end at it.
 # The trust anchor may be a binary or base64-encoded certificate. The trust schema is
