@@ -12,7 +12,7 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 import asyncio as aio
 import logging
 from ndn.app import NDNApp, Validator
-from ndn.encoding import Name, NonStrictName, Links, ContentType, Signer, tlv_encode
+from ndn.encoding import Name, NonStrictName, Component, Links, ContentType, MetaInfo, Signer, make_data, tlv_encode
 from ndn.security import Keychain
 from ndn.security.validator import sha256_digest_checker
 from ndn.types import InterestNack, InterestTimeout, ValidationFailure
@@ -21,25 +21,19 @@ from ..command import ObjParam, EmbName
 from typing import Optional
 
 
-class _CommandSigner(Signer):
+def make_ingest_command(repo_name: NonStrictName, cmd_param: ObjParam, signer: Signer) -> bytes:
     """
-    Wraps a Signer and adds SignatureTime and SignatureNonce, which the repo
-    requires on ingest command Interests.
+    Make the signed Data packet that carries an ingest command, named
+    <repo_name>/ingest/<timestamp>/<nonce> so that every command is distinct.
+
+    :param repo_name: NonStrictName. Routable name to remote repo.
+    :param cmd_param: ObjParam. The command.
+    :param signer: Signer whose certificate is authorized by the repo's trust schema.
+    :return: the encoded command Data packet.
     """
-
-    def __init__(self, signer: Signer):
-        self.signer = signer
-
-    def write_signature_info(self, signature_info):
-        self.signer.write_signature_info(signature_info)
-        signature_info.signature_time = timestamp()
-        signature_info.signature_nonce = gen_nonce_64()
-
-    def get_signature_value_size(self):
-        return self.signer.get_signature_value_size()
-
-    def write_signature_value(self, wire, contents):
-        return self.signer.write_signature_value(wire, contents)
+    cmd_name = Name.normalize(repo_name) + Name.from_str('ingest') + [
+        Component.from_timestamp(timestamp() * 1000), Component.from_number(gen_nonce_64(), Component.TYPE_GENERIC)]
+    return bytes(make_data(cmd_name, MetaInfo(), tlv_encode(cmd_param), signer=signer))
 
 
 class IngestClient(object):
@@ -122,17 +116,17 @@ class IngestClient(object):
         int_name = self.repo_name + Name.from_str('ingest')
         if signer is None:
             signer = self._get_keychain().get_signer({})
-        signer = _CommandSigner(signer)
         if validator is None:
             validator = sha256_digest_checker
         n_retries = 3
         while n_retries > 0:
             try:
-                # Each attempt is a new signed Interest: SignatureTime and SignatureNonce are
-                # covered by params-sha256, so a resend never reuses a name the repo replied to.
+                # Each attempt carries a new command Data, whose timestamp and nonce are covered
+                # by params-sha256, so a resend never reuses a name the repo replied to.
+                # The command Data is signed; the Interest carrying it is not.
                 _, _, context = await self.app.express(
-                    int_name, validator, tlv_encode(cmd_param), signer,
-                    can_be_prefix=False, lifetime=10000)
+                    int_name, validator, make_ingest_command(self.repo_name, cmd_param, signer),
+                    signer=None, can_be_prefix=False, lifetime=10000)
                 meta_info = context['meta_info']
                 if meta_info is not None and meta_info.content_type == ContentType.NACK:
                     self.logger.info(f'Ingest of {Name.to_str(data_name)} rejected by repo')

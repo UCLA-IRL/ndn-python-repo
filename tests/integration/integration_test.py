@@ -6,13 +6,12 @@ from datetime import datetime, timezone
 from Cryptodome.PublicKey import ECC
 from ndn.app import NDNApp
 from ndn.app_support.security_v2 import self_sign, derive_cert
-from ndn.encoding import Name, Component, ContentType, InterestParam, make_interest, tlv_encode
+from ndn.encoding import Name, Component, ContentType, tlv_encode
 from ndn.security import KeychainDigest, DigestSha256Signer, Sha256WithEcdsaSigner
 from ndn.security.validator import sha256_digest_checker
 from ndn.types import InterestNack, InterestTimeout
-from ndn.utils import gen_nonce
 from ndn_python_repo.clients import GetfileClient, PutfileClient, DeleteClient, CommandChecker, IngestClient
-from ndn_python_repo.clients.ingest import _CommandSigner
+from ndn_python_repo.clients.ingest import make_ingest_command
 from ndn_python_repo.command import RepoCommandParam, ObjParam, RepoStatCode, EmbName
 from ndn_python_repo.utils import PubSub
 import os
@@ -53,7 +52,7 @@ def create_ingest_pki():
 #KEY: "KEY"/_/_/_
 #root: "test-root"/#KEY
 #producer: "ingest_client"/#KEY <= #root
-#ingest: "{repo_name}"/"ingest"/_ <= #producer
+#ingest: "{repo_name}"/"ingest"/_/_ <= #producer
 ''')
     signer = Sha256WithEcdsaSigner(producer_cert_name, producer_key.export_key(format='DER'))
     return anchor_path, schema_path, producer_cert_name, bytes(producer_cert), signer
@@ -153,6 +152,13 @@ class RepoTestSuite(object):
         await self.serve(producer_cert_name,
                          lambda _int_name, _app_param, reply, _context: reply(producer_cert))
 
+    async def ingest(self, cmd_param, signer=producer_signer, lifetime=10000):
+        """Send an ingest command, as a signed Data carried by an unsigned Interest."""
+        int_name = Name.from_str(repo_name) + Name.from_str('ingest')
+        return await self.express_interest(
+            int_name, make_ingest_command(repo_name, cmd_param, signer),
+            can_be_prefix=False, lifetime=lifetime)
+
 
 class TestBasic(RepoTestSuite):
     async def run(self):
@@ -232,10 +238,7 @@ class TestIngestSegmented(RepoTestSuite):
         cmd_param.start_block_id = 0
         cmd_param.register_prefix = EmbName.from_name(data_name)
 
-        int_name = Name.from_str(repo_name) + Name.from_str('ingest')
-        _, meta_info, _ = await self.express_interest(
-            int_name, tlv_encode(cmd_param), can_be_prefix=False, lifetime=10000,
-            signer=_CommandSigner(producer_signer))
+        _, meta_info, _ = await self.ingest(cmd_param)
         assert meta_info.content_type != ContentType.NACK
 
         # fetch each segment back from the repo and check content
@@ -252,37 +255,31 @@ class TestIngestNack(RepoTestSuite):
         int_name = Name.from_str(repo_name) + Name.from_str('ingest')
         await self.serve_producer_cert()
 
-        # unsigned parameterized Interests are explicitly rejected
+        # Commands that violate the protocol or fail validation are dropped, not answered:
+        # a bare ObjParam instead of a command Data, a command Data not signed by a key the
+        # trust schema authorizes, and a command carried by a signed Interest
         cmd_param = ObjParam()
         cmd_param.name = Name.from_str(uuid.uuid4().hex.upper()[0:6])
-        int_param = InterestParam(can_be_prefix=False, lifetime=1000, nonce=gen_nonce())
-        wire, final_name = make_interest(int_name, int_param, tlv_encode(cmd_param), need_final_name=True)
-        _, _, context = await self.app.express_raw_interest(final_name, int_param, wire, sha256_digest_checker)
-        assert context['meta_info'].content_type == ContentType.NACK
-
-        # Interests not signed by a key the trust schema authorizes are dropped, not answered
-        cmd_param = ObjParam()
-        cmd_param.name = Name.from_str(uuid.uuid4().hex.upper()[0:6])
-        try:
-            await self.express_interest(
-                int_name, tlv_encode(cmd_param), can_be_prefix=False, lifetime=1000,
-                signer=DigestSha256Signer(for_interest=True))
-            assert False, 'repo replied to an unauthorized ingest command'
-        except InterestTimeout:
-            pass
+        for app_param, signer in (
+                (tlv_encode(cmd_param), None),
+                (make_ingest_command(repo_name, cmd_param, DigestSha256Signer()), None),
+                (make_ingest_command(repo_name, cmd_param, producer_signer),
+                 DigestSha256Signer(for_interest=True))):
+            try:
+                await self.express_interest(int_name, app_param, signer,
+                                            can_be_prefix=False, lifetime=1000)
+                assert False, 'repo replied to an invalid ingest command'
+            except InterestTimeout:
+                pass
 
         # single Data packet that nobody serves: repo must NACK, not stay silent
         cmd_param = ObjParam()
         cmd_param.name = Name.from_str(uuid.uuid4().hex.upper()[0:6])
-        nack_name, meta_info, _ = await self.express_interest(
-            int_name, tlv_encode(cmd_param), can_be_prefix=False, lifetime=10000,
-            signer=_CommandSigner(producer_signer))
+        nack_name, meta_info, _ = await self.ingest(cmd_param)
         assert meta_info.content_type == ContentType.NACK
 
-        # resending the same command is a new signed Interest with a new name
-        retry_name, meta_info, _ = await self.express_interest(
-            int_name, tlv_encode(cmd_param), can_be_prefix=False, lifetime=10000,
-            signer=_CommandSigner(producer_signer))
+        # resending the same command is a new command Data, so a new Interest name
+        retry_name, meta_info, _ = await self.ingest(cmd_param)
         assert meta_info.content_type == ContentType.NACK
         assert retry_name != nack_name
 
@@ -291,9 +288,7 @@ class TestIngestNack(RepoTestSuite):
         cmd_param = ObjParam()
         cmd_param.name = Name.from_str(uuid.uuid4().hex.upper()[0:6])
         cmd_param.start_block_id = 0
-        _, meta_info, _ = await self.express_interest(
-            int_name, tlv_encode(cmd_param), can_be_prefix=False, lifetime=10000,
-            signer=_CommandSigner(producer_signer))
+        _, meta_info, _ = await self.ingest(cmd_param)
         assert meta_info.content_type == ContentType.NACK
 
         self.app.shutdown()

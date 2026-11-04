@@ -22,12 +22,12 @@
 // Use a quoted component instead (e.g. "producer1") to allow only that producer.
 #producer: "example"/producer/#KEY <= #root
 
-// Ingest command Interest: /<repo_name>/ingest/<params-sha256>.
-// "testrepo" is the repo_name in ndn-python-repo.conf.sample; the final _ matches
-// the params-sha256 component. The command must be signed by a producer key.
-#ingest: "testrepo"/"ingest"/_ <= #producer
+// Ingest command Data: /<repo_name>/ingest/<timestamp>/<nonce>, carried by the ingest Interest.
+// "testrepo" is the repo_name in ndn-python-repo.conf.sample; the final two _ match
+// the timestamp and nonce components. The command must be signed by a producer key.
+#ingest: "testrepo"/"ingest"/_/_ <= #producer
 
 // To also accept producers two levels deep (e.g. /example/site/producer1),
 // add another rule and allow both as signers:
 //   #producer_deep: "example"/_/_/#KEY <= #root
-//   #ingest: "testrepo"/"ingest"/_ <= #producer | #producer_deep
+//   #ingest: "testrepo"/"ingest"/_/_ <= #producer | #producer_deep

@@ -82,7 +82,7 @@ async def async_main(app: NDNApp, config):
     read_handle = ReadHandle(app, storage, config)
     ingest_validator = create_ingest_validator(app, config.get('ingest_security'))
     ingest_handle = DirectIngestHandle(
-        app, storage, config, read_handle, interest_validator=ingest_validator, keychain=keychain)
+        app, storage, config, read_handle, command_validator=ingest_validator, keychain=keychain)
     write_handle = WriteCommandHandle(app, storage, pb, ingest_handle, read_handle, config)
     sync_handle = SyncCommandHandle(app, storage, pb, read_handle, config)
     delete_handle = DeleteCommandHandle(app, storage, pb, read_handle, config)

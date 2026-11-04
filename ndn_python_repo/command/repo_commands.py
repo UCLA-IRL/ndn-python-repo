@@ -82,8 +82,6 @@ class SyncParam:
     register_prefix: EmbName | None = enc.tlv_field(RepoTypeNumber.REGISTER_PREFIX, default=None)
     data_name_dedupe: bool = enc.tlv_field(RepoTypeNumber.SYNC_DATA_NAME_DEDUPE, default=False)
     reset: bool = enc.tlv_field(RepoTypeNumber.SYNC_RESET, default=False)
-    # forwarding_hint: enc.Links | None = enc.tlv_field(RepoTypeNumber.FORWARDING_HINT, default=None)
-    # sync_prefix: EmbName | None = enc.tlv_field(RepoTypeNumber.REGISTER_PREFIX, default=None)
 
 
 @dc.dataclass
