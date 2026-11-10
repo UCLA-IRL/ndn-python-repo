@@ -10,9 +10,10 @@ from base64 import b64decode, b64encode
 from typing import Callable
 from ndn.app import NDNApp
 from ndn.app_support.svs import StateVecWrapper, SvsState
-from ndn.encoding import Name, NonStrictName, DecodeError, FormalName, BinaryStr, InterestParam, parse_interest, \
-    parse_tl_num, UintField
+from ndn.encoding import Name, NonStrictName, DecodeError, FormalName, BinaryStr, parse_interest, \
+    parse_tl_num, tlv_parse
 from ndn.encoding.ndn_format_0_3 import TypeNumber
+from ndn.security.validator import sha256_digest_checker
 from ndn.utils import gen_nonce
 
 OnMissingDataFunc = Callable[["PassiveSvs"], None]
@@ -74,17 +75,16 @@ class PassiveSvs:
             else:
                 # that's it!
                 wire = bytearray(interest_wire)
-                nonce = UintField(TypeNumber.NONCE, fixed_len=4)
-                markers = {}
-                nonce.encoded_length(interest_param.nonce, markers)
-                nonce.encode_into(interest_param.nonce, markers, wire, wire_ptr)
+                value_start = wire_ptr + typ_len + siz_len
+                wire[value_start:value_start + 4] = interest_param.nonce.to_bytes(4, 'big')
                 break
         logging.info(f'Sending buffered interest: {Name.to_str(final_name)}')
-        # do not await for this
-        self.ndn_app.express_raw_interest(final_name, interest_param, wire)
+        # Sync Interests are not answered with Data
+        self.ndn_app.express_raw_interest(final_name, interest_param, wire, sha256_digest_checker,
+                                          no_response=True)
 
-    def sync_handler(self, name: FormalName, _param: InterestParam, _app_param: BinaryStr | None,
-                     raw_packet: BinaryStr) -> None:
+    def sync_handler(self, name: FormalName, _app_param: BinaryStr | None, _reply, context) -> None:
+        raw_packet = context['raw_packet']
         if len(name) != len(self.base_prefix) + 2:
             logging.error(f'Received invalid Sync Interest: {Name.to_str(name)}')
             return
@@ -96,7 +96,7 @@ class PassiveSvs:
             logging.info(f'Drop unsigned or improperly signed Sync Snterests')
             return
         try:
-            remote_sv_pkt = StateVecWrapper.parse(name[-2]).val
+            remote_sv_pkt = tlv_parse(StateVecWrapper, name[-2]).val
         except (DecodeError, IndexError) as e:
             logging.error(f'Unable to decode state vector [{Name.to_str(name)}]: {e}')
             return
@@ -156,11 +156,12 @@ class PassiveSvs:
             raise RuntimeError(f'Sync is already running @[{Name.to_str(self.base_prefix)}]')
         self.running = True
         self.ndn_app = ndn_app
-        self.ndn_app.route(self.base_prefix, need_raw_packet=True)(self.sync_handler)
+        self.ndn_app.route(self.base_prefix, sha256_digest_checker)(self.sync_handler)
 
     async def stop(self):
         if not self.running:
             return
         self.running = False
+        self.ndn_app.detach_handler(self.base_prefix)
         await self.ndn_app.unregister(self.base_prefix)
         self.logger.info("Passive SVS stopped.")

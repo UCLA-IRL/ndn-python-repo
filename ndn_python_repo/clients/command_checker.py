@@ -12,19 +12,24 @@ sys.path.insert(1, os.path.join(sys.path[0], '..'))
 import logging
 from typing import Optional
 from ndn.app import NDNApp
-from ndn.encoding import Name, NonStrictName, DecodeError
+from ndn.encoding import Name, NonStrictName, DecodeError, tlv_encode, tlv_parse
+from ndn.security import Keychain
+from ndn.security.validator import sha256_digest_checker
 from ndn.types import InterestNack, InterestTimeout
 from ..command.repo_commands import RepoStatQuery, RepoCommandRes
 
 
 class CommandChecker(object):
-    def __init__(self, app: NDNApp):
+    def __init__(self, app: NDNApp, keychain: Optional[Keychain] = None):
         """
         This client sends check interests to the repo.
 
         :param app: NDNApp.
+        :param keychain: Keychain. Signs the check Interests with its default key. If omitted,\
+            the default keychain is loaded when first needed.
         """
         self.app = app
+        self.keychain = keychain
         self.logger = logging.getLogger(__name__)
     
     async def check_insert(self, repo_name: NonStrictName, request_no: bytes) -> RepoCommandRes:
@@ -58,15 +63,18 @@ class CommandChecker(object):
         """
         cmd_param = RepoStatQuery()
         cmd_param.request_no = request_no
-        cmd_param_bytes = cmd_param.encode()
+        cmd_param_bytes = tlv_encode(cmd_param)
+        if self.keychain is None:
+            self.keychain = NDNApp.default_keychain()
 
         name = Name.normalize(repo_name)
         name += Name.from_str(method + ' check')
 
         try:
             self.logger.info(f'Expressing interest: {Name.to_str(name)}')
-            data_name, meta_info, content = await self.app.express_interest(
-                name, cmd_param_bytes, must_be_fresh=True, can_be_prefix=False, lifetime=1000)
+            data_name, content, _ = await self.app.express(
+                name, sha256_digest_checker, cmd_param_bytes, self.keychain.get_signer({}),
+                must_be_fresh=True, can_be_prefix=False, lifetime=1000)
             self.logger.info(f'Received data name: {Name.to_str(data_name)}')
         except InterestNack as e:
             self.logger.info(f'Nacked with reason={e.reason}')
@@ -76,7 +84,7 @@ class CommandChecker(object):
             return None
 
         try:
-            cmd_response = RepoCommandRes.parse(content)
+            cmd_response = tlv_parse(RepoCommandRes, content)
             return cmd_response
         except DecodeError as exc:
             self.logger.warning(f'Response blob decoding failed for {exc}')

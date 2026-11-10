@@ -10,6 +10,7 @@ import logging
 from ndn.app import NDNApp
 from ndn.types import InterestNack, InterestTimeout, InterestCanceled
 from ndn.encoding import Name, NonStrictName, Component
+from ndn.security.validator import sha256_digest_checker
 from typing import Optional
 
 class IdNamingConv:
@@ -74,8 +75,10 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_id: int,
                 return
             try:
                 logger.info('Express Interest: {}'.format(Name.to_str(int_name)))
-                data_name, meta_info, content, data_bytes = await app.express_interest(
-                    int_name, need_raw_packet=True, can_be_prefix=False, lifetime=1000, **kwargs)
+                data_name, content, context = await app.express(
+                    int_name, sha256_digest_checker, can_be_prefix=False, lifetime=1000, **kwargs)
+                meta_info = context['meta_info']
+                data_bytes = bytes(context['raw_packet'])
 
                 # Save data and update final_id
                 logging.info('Received data: {}'.format(Name.to_str(data_name)))

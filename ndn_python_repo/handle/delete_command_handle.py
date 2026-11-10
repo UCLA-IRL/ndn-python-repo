@@ -1,6 +1,7 @@
 import asyncio as aio
 import logging
 from ndn.app import NDNApp
+from ndn.security.validator import sha256_digest_checker
 from ndn.encoding import Name, NonStrictName, Component
 from typing import Optional
 from . import ReadHandle, CommandHandle
@@ -45,7 +46,8 @@ class DeleteCommandHandle(CommandHandle):
         self.pb.subscribe(self.prefix + Name.from_str('delete'), self._on_delete_msg)
 
         # listen on delete check interests
-        self.app.set_interest_filter(self.prefix + Name.from_str('delete check'), self._on_check_interest)
+        self.app.attach_handler(self.prefix + Name.from_str('delete check'), self._on_check_interest,
+                                sha256_digest_checker)
 
     def _on_delete_msg(self, msg):
         cmd_param, request_no = self.parse_msg(msg)

@@ -1,6 +1,7 @@
 import asyncio as aio
 import logging
 from ndn.app import NDNApp
+from ndn.security.validator import sha256_digest_checker
 from ndn.encoding import Name, NonStrictName
 from . import ReadHandle, CommandHandle
 from .ingest_handle import DirectIngestHandle
@@ -49,7 +50,8 @@ class WriteCommandHandle(CommandHandle):
         self.pb.subscribe(self.prefix + Name.from_str('insert'), self._on_insert_msg)
 
         # listen on insert check interests
-        self.app.set_interest_filter(self.prefix + Name.from_str('insert check'), self._on_check_interest)
+        self.app.attach_handler(self.prefix + Name.from_str('insert check'), self._on_check_interest,
+                                sha256_digest_checker)
         
         # direct ingest protocol
         if self.m_ingest_handle is not None:

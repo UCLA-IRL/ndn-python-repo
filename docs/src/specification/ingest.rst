@@ -9,11 +9,13 @@ for Interests directly, and each command is a single Interest/Data exchange.
 
 1. The repo registers an Interest filter on ``/<repo_name>/ingest``.
 
-2. The producer sends a signed Interest under ``/<repo_name>/ingest`` carrying an ``ObjParam``
-   as its application parameters. The InterestSignatureInfo must contain ``SignatureTime``
-   and ``SignatureNonce``. Since the ``params-sha256=<digest>`` name component covers both the
-   parameters and the signature, every command Interest has a distinct name, even when it
-   carries the same parameters as an earlier one. ``ObjParam`` has the following fields:
+2. The producer sends an unsigned Interest under ``/<repo_name>/ingest``. Its application
+   parameters are a signed Data packet, the *command Data*, encoded with its outer TLV and
+   named ``/<repo_name>/ingest/<timestamp>/<nonce>``, where ``<timestamp>`` is a Timestamp
+   name component and ``<nonce>`` is a random component. The command Data carries an
+   ``ObjParam`` as its Content. Since the ``params-sha256=<digest>`` name component covers the
+   command Data, every command Interest has a distinct name, even when it carries the same
+   ``ObjParam`` as an earlier one. ``ObjParam`` has the following fields:
 
    * ``name``: either a Data packet name, or a name prefix of segmented Data packets.
    * ``forwarding_hint`` (Optional): forwarding hint used to fetch ``name``, same
@@ -32,7 +34,7 @@ for Interests directly, and each command is a single Interest/Data exchange.
 
 5. If the command fails, the repo replies to the original ingest Interest with an empty
    Data packet whose ``ContentType`` is ``NACK``. The producer may retry by sending the
-   command again as a new signed Interest, which has a new name. There is no status/check
+   command again with a new command Data, so the Interest has a new name. There is no status/check
    protocol for ingest (contrast with :doc:`check`, available for :doc:`insert` and
    :doc:`delete`).
 
@@ -50,16 +52,17 @@ anchor certificate and a `Light VerSec (LVS)
 <https://python-ndn.readthedocs.io/en/latest/src/lvs/lvs.html>`_ trust schema in the
 ``ingest_security`` section of its configuration file. For each ingest Interest, the repo:
 
-* replies with a NACK if the Interest is unsigned, or if its InterestSignatureInfo lacks
-  ``SignatureTime`` or ``SignatureNonce``;
-* checks the full Interest name, including the ``params-sha256`` component, and the
-  KeyLocator against the trust schema;
+* drops the Interest if it is signed, if its application parameters are not a Data packet,
+  or if that Data is not named ``/<repo_name>/ingest/<timestamp>/<nonce>``. These commands
+  violate the protocol, so the repo does not reply to them;
+* checks the command Data name and its KeyLocator against the trust schema;
 * fetches the certificate named by the KeyLocator, and each issuer certificate in turn, until
   it reaches the trust anchor, checking every certificate against the trust schema;
 * verifies each signature along the chain.
 
-Interests that fail validation are dropped without a reply, before the repo fetches or stores
-any Data. The KeyLocator must therefore name a certificate (not a key) that the repo can
+Commands that fail validation are dropped without a reply, before the repo fetches or stores
+any Data. A command whose Content is not a valid ``ObjParam`` passes validation but is
+answered with a NACK. The KeyLocator must therefore name a certificate (not a key) that the repo can
 fetch. If ``ingest_security`` is not configured, the repo does not register
 ``/<repo_name>/ingest`` and the protocol is disabled. Other repo protocols are not affected
 by this configuration.
@@ -94,13 +97,13 @@ ingest commands to ``/repo``::
     #root: "example"/#KEY
     #producer_a: "example"/"producer-a"/#KEY <= #root
     #producer_b: "example"/"producer-b"/#KEY <= #root
-    #ingest: "repo"/"ingest"/_ <= #producer_a | #producer_b
+    #ingest: "repo"/"ingest"/_/_ <= #producer_a | #producer_b
 
 Replace the example names and component patterns with the names in the actual NDN certificates.
 ``#root`` must match the configured trust-anchor certificate, each producer rule must match
 the corresponding producer certificate name, and each producer rule must be listed as an
-allowed signer of ``#ingest``. The final ``_`` in ``#ingest`` matches the
-``params-sha256`` component. A producer certificate may be fetched only if its certificate
+allowed signer of ``#ingest``. The final two ``_`` in ``#ingest`` match the
+``<timestamp>`` and ``<nonce>`` components of the command Data name. A producer certificate may be fetched only if its certificate
 name is routable from the repo.
 
 .. note::
@@ -108,6 +111,6 @@ name is routable from the repo.
    :doc:`insert`, and are lost on repo restart. Also, unlike :doc:`insert`, the repo does not
    check whether ``name`` overlaps with its own ``/<repo_name>`` namespace. The trust schema
    authorizes the command Interest signer only; it does not restrict which ``name`` an
-   authorized producer may ingest. ``SignatureTime`` and ``SignatureNonce`` are currently
-   required to be present, but the repo does not enforce a time window or detect nonce
+   authorized producer may ingest. The ``<timestamp>`` and ``<nonce>`` components are
+   currently required to be present, but the repo does not enforce a time window or detect
    replays. Certificate validity periods are also not checked by python-ndn's chain validator.

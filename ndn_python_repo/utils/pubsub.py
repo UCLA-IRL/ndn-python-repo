@@ -13,11 +13,14 @@
 
 
 import asyncio as aio
+import dataclasses as dc
 import logging
 from ndn.app import NDNApp
-from ndn.encoding import TlvModel, ModelField, NameField, BytesField
-from ndn.encoding import Name, NonStrictName, Component, InterestParam
+import ndn.encoding as enc
+from ndn.encoding import Name, NonStrictName, Component, Signer
 from ndn.name_tree import NameTrie
+from ndn.security import Keychain
+from ndn.security.validator import sha256_digest_checker
 from ndn.types import InterestNack, InterestTimeout
 import os
 
@@ -26,7 +29,8 @@ class PubSub(object):
     # TODO: prefix has wrong type notation
     # Probably Optional[FormalName]. Need investigation.
     # Please do not call with unnormalized name.
-    def __init__(self, app: NDNApp, prefix: NonStrictName=None, forwarding_hint: NonStrictName=None):
+    def __init__(self, app: NDNApp, prefix: NonStrictName=None, forwarding_hint: NonStrictName=None,
+                 keychain: Keychain=None):
         """
         Initialize a ``PubSub`` instance with identity ``prefix`` and can be reached at \
             ``forwarding_hint``.
@@ -39,8 +43,11 @@ class PubSub(object):
             registration error.
         :param forwarding_hint: NonStrictName. When working as publisher, if ``prefix`` is not\
             reachable, the subscriber can use ``forwarding_hint`` to reach the publisher.
+        :param keychain: Keychain. Signs published msg Data and notify Interests with its default\
+            key. If omitted, the default keychain is loaded when first needed.
         """
         self.app = app
+        self.keychain = keychain
         self.publisher_prefix = prefix
         self.forwarding_hint = forwarding_hint
         self.base_prefix = None
@@ -71,6 +78,14 @@ class PubSub(object):
         """
         self.base_prefix = prefix
 
+    def get_signer(self) -> Signer:
+        """
+        Get the signer of the default key in this ``PubSub``'s keychain.
+        """
+        if self.keychain is None:
+            self.keychain = NDNApp.default_keychain()
+        return self.keychain.get_signer({})
+
     async def wait_for_ready(self):
         """
         Need to be called to wait for pub-sub to be ready.
@@ -81,15 +96,15 @@ class PubSub(object):
 
         if self.base_prefix is not None:
             try:
-                await self.app.register(self.base_prefix, func=None)
+                await self.app.register(self.base_prefix)
             except ValueError:
                 pass
         
         try:
-            if self.base_prefix is not None and Name.is_prefix(self.base_prefix, self.publisher_prefix + ['msg']):
-                self.app.set_interest_filter(self.publisher_prefix + ['msg'], self._on_msg_interest)
-            else:
-                await self.app.register(self.publisher_prefix + ['msg'], self._on_msg_interest)
+            msg_prefix = self.publisher_prefix + ['msg']
+            self.app.attach_handler(msg_prefix, self._on_msg_interest, sha256_digest_checker)
+            if self.base_prefix is None or not Name.is_prefix(self.base_prefix, msg_prefix):
+                await self.app.register(msg_prefix)
         except ValueError:
             # duplicate registration
             pass
@@ -130,7 +145,7 @@ class PubSub(object):
         nonce = os.urandom(4)
         # wrap msg in a data packet named /<publisher_prefix>/msg/<topic>/nonce
         data_name = Name.normalize(self.publisher_prefix + ['msg'] + topic + [Component.from_bytes(nonce)])
-        self.published_data[data_name] = self.app.prepare_data(data_name, msg)
+        self.published_data[data_name] = self.app.make_data(data_name, msg, self.get_signer())
 
         # prepare notify interest
         int_name = topic + ['notify']
@@ -149,8 +164,9 @@ class PubSub(object):
         while n_retries > 0:
             try:
                 self.logger.debug(f'sending notify interest: {Name.to_str(int_name)}')
-                _, _, _ = await self.app.express_interest(
-                    int_name, app_param.encode(), must_be_fresh=False, can_be_prefix=False)
+                _, _, _ = await self.app.express(
+                    int_name, sha256_digest_checker, enc.tlv_encode(app_param), self.get_signer(),
+                    must_be_fresh=False, can_be_prefix=False)
                 is_success = True
                 break
             except InterestNack as e:
@@ -176,33 +192,32 @@ class PubSub(object):
         topic = Name.normalize(topic)
         self.topic_to_cb[topic] = cb
         to_register = topic + ['notify']
+        self.app.attach_handler(to_register, self._on_notify_interest, sha256_digest_checker)
         if self.base_prefix is not None and Name.is_prefix(self.base_prefix, to_register):
-            self.app.set_interest_filter(to_register, self._on_notify_interest)
             self.logger.info(f'Subscribing to topic (with interest filter): {Name.to_str(topic)}')
         else:
-            await self.app.register(to_register, self._on_notify_interest)
+            await self.app.register(to_register)
             self.logger.info(f'Subscribing to topic: {Name.to_str(topic)}')
 
-    def _on_notify_interest(self, int_name, int_param, app_param):
-        aio.ensure_future(self._process_notify_interest(int_name, int_param, app_param))
+    def _on_notify_interest(self, int_name, app_param, reply, context):
+        aio.ensure_future(self._process_notify_interest(int_name, app_param, reply))
 
-    async def _process_notify_interest(self, int_name, int_param, app_param):
+    async def _process_notify_interest(self, int_name, app_param, reply):
         """
         Async helper for ``_on_notify_interest()``.
         """
-        # fixme: why isn't int_param used?
         self.logger.debug(f'received notify interest: {Name.to_str(int_name)}')
         topic = int_name[:-2]   # remove digest and `notify`
 
         # parse notify interest
-        app_param = NotifyAppParam.parse(app_param)
+        app_param = enc.tlv_parse(NotifyAppParam, app_param)
         publisher_prefix = app_param.publisher_prefix
-        notify_nonce = app_param.notify_nonce
+        notify_nonce = bytes(app_param.notify_nonce)
         publisher_fwd_hint = app_param.publisher_fwd_hint
-        int_param = InterestParam()
+        forwarding_hint = []
         if publisher_fwd_hint:
             # support only 1 forwarding hint now
-            int_param.forwarding_hint = [(0x0, publisher_fwd_hint.name)]
+            forwarding_hint = [publisher_fwd_hint.name]
 
         # send msg interest, retransmit 3 times
         msg_int_name = publisher_prefix + ['msg'] + topic + [Component.from_bytes(notify_nonce)]
@@ -219,8 +234,8 @@ class PubSub(object):
         while n_retries > 0:
             try:
                 self.logger.debug(f'sending msg interest: {Name.to_str(msg_int_name)}')
-                data_name, meta_info, msg = await self.app.express_interest(
-                    msg_int_name, int_param=int_param)
+                data_name, msg, _ = await self.app.express(
+                    msg_int_name, sha256_digest_checker, forwarding_hint=forwarding_hint)
                 break
             except InterestNack as e:
                 self.logger.debug(f'Nacked with reason: {e.reason}')
@@ -238,20 +253,19 @@ class PubSub(object):
 
         # acknowledge notify interest with an empty data packet
         self.logger.debug(f'acknowledging notify interest {Name.to_str(int_name)}')
-        self.app.put_data(int_name, None)
+        reply(self.app.make_data(int_name, None, self.get_signer()))
 
-    def _on_msg_interest(self, int_name, int_param, app_param):
-        aio.ensure_future(self._process_msg_interest(int_name, int_param, app_param))
+    def _on_msg_interest(self, int_name, app_param, reply, context):
+        aio.ensure_future(self._process_msg_interest(int_name, reply))
 
-    async def _process_msg_interest(self, int_name, int_param, app_param):
+    async def _process_msg_interest(self, int_name, reply):
         """
         Async helper for ``_on_msg_interest()``.
         The msg interest has the format of ``/<publisher_prefix>/msg/<topic>/<nonce>``.
         """
-        # fixme: neither int_param nor app_param are used here
         self.logger.debug(f'received msg interest: {Name.to_str(int_name)}')
         if int_name in self.published_data:
-            self.app.put_raw_packet(self.published_data[int_name])
+            reply(self.published_data[int_name])
             self.logger.debug(f'reply msg with name {Name.to_str(int_name)}')
         else:
             self.logger.debug(f'no matching msg with name {Name.to_str(int_name)}')
@@ -274,13 +288,15 @@ class PubSub(object):
             self.nonce_processed.remove(notify_nonce)
 
 
-class ForwardingHint(TlvModel):
-    name = NameField()
+@dc.dataclass
+class ForwardingHint:
+    name: enc.NDNName = enc.tlv_field(Name.TYPE_NAME, default=None)
 
-class NotifyAppParam(TlvModel):
+@dc.dataclass
+class NotifyAppParam:
     """
     Used to serialize application parameters for PubSub notify interest.
     """
-    publisher_prefix = NameField()
-    notify_nonce = BytesField(128)
-    publisher_fwd_hint = ModelField(211, ForwardingHint)
+    publisher_prefix: enc.NDNName = enc.tlv_field(Name.TYPE_NAME, default=None)
+    notify_nonce: bytes | None = enc.tlv_field(128, default=None)
+    publisher_fwd_hint: ForwardingHint | None = enc.tlv_field(211, default=None)
