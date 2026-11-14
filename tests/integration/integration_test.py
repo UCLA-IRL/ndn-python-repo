@@ -14,7 +14,6 @@ from ndn_python_repo.clients.ingest import _CommandSigner
 from ndn_python_repo.command import RepoCommandParam, ObjParam, RepoStatCode, EmbName
 from ndn_python_repo.utils import PubSub
 import os
-import platform
 import subprocess
 import tempfile
 import uuid
@@ -69,7 +68,7 @@ db_config:
   db_type: sqlite3
   sqlite3:
     path: {sqlite3_path}
-  leveldb: 
+  leveldb:
     dir: ~/.ndn/ndn-python-repo/leveldb/
   mongodb:
     db: test_python_repo
@@ -85,16 +84,13 @@ tcp_bulk_insert:
   prefixes:
   - /test
 logging_config:
-  level: INFO 
+  level: INFO
 """
 
 
 class RepoTestSuite(object):
 
     def test_main(self):
-        # could not get NFD running on travis macos, skipping ...
-        if os.getenv('TRAVIS') and platform.system() == 'Darwin':
-            return
         self.startup()
         self.cleanup()
 
