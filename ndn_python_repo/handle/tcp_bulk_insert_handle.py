@@ -8,9 +8,9 @@ from ndn.encoding import Name, read_tl_num_from_stream, parse_data
 from ndn.encoding import TypeNumber, FormalName
 
 
-class TcpBulkInsertHandle(object):
+class TcpBulkInsertHandle:
 
-    class TcpBulkInsertClient(object):
+    class TcpBulkInsertClient:
         """
         An instance of this nested class will be created for every new connection.
         """
@@ -104,7 +104,7 @@ class TcpBulkInsertHandle(object):
         else:
             coro = aio.start_server(self.start_receive, server_addr, server_port, loop=event_loop)
             server = event_loop.run_until_complete(coro)
-            self.logger.info('TCP insertion handle serving on {}'.format(server.sockets[0].getsockname()))
+            self.logger.info(f'TCP insertion handle serving on {server.sockets[0].getsockname()}')
 
     async def start_receive(self, reader, writer):
         """

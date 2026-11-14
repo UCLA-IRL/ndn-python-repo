@@ -16,11 +16,10 @@ from ..utils import PubSub
 import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name, NonStrictName
-from typing import Optional
 from hashlib import sha256
 
 
-class DeleteClient(object):
+class DeleteClient:
     def __init__(self, app: NDNApp, prefix: NonStrictName, repo_name: NonStrictName):
         """
         This client deletes data packets from the remote repo.
@@ -36,8 +35,8 @@ class DeleteClient(object):
 
     async def delete_file(self, prefix: NonStrictName, start_block_id: int = 0,
                           end_block_id: int = None,
-                          register_prefix: Optional[NonStrictName] = None,
-                          check_prefix: Optional[NonStrictName] = None) -> int:
+                          register_prefix: NonStrictName | None = None,
+                          check_prefix: NonStrictName | None = None) -> int:
         """
         Delete from repo packets between "<name_at_repo>/<start_block_id>" and\
             "<name_at_repo>/<end_block_id>" inclusively.

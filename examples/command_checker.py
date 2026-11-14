@@ -21,7 +21,7 @@ async def run_check(app: NDNApp, **kwargs):
     response = await client.check_insert(kwargs['repo_name'], kwargs['process_id'])
     if response:
         status_code = response.status_code
-        print('Status Code: {}'.format(status_code))
+        print(f'Status Code: {status_code}')
     app.shutdown()
 
 

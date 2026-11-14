@@ -31,10 +31,9 @@ from .read_handle import ReadHandle
 from .utils import fetch_object
 from ..command import ObjParam, RepoStatCode
 from ..storage import Storage
-from typing import Optional
 
 
-def create_ingest_validator(app: NDNApp, security_config: Optional[dict]) -> Optional[Validator]:
+def create_ingest_validator(app: NDNApp, security_config: dict | None) -> Validator | None:
     """
     Create the validator for ingest command Interests from the ``ingest_security`` config section.
 
@@ -86,7 +85,7 @@ class DirectIngestHandle:
     REPLY_MARGIN_MS = 500  # reply this long before the ingest Interest expires
 
     def __init__(self, app: NDNApp, storage: Storage, config: dict, read_handle: ReadHandle,
-                 interest_validator: Optional[Validator] = None):
+                 interest_validator: Validator | None = None):
         self.app     = app
         self.storage = storage
         self.config  = config
@@ -162,7 +161,7 @@ class DirectIngestHandle:
         try:
             status_code, insert_num = await aio.wait_for(
                 fetch_object(self.app, self.storage, param), timeout=deadline_s)
-        except aio.TimeoutError:
+        except TimeoutError:
             logging.error(f'ingest.fetch.deadline {Name.to_str(int_name)} deadline={deadline_s}s')
             self._reply_nack(int_name)
             return

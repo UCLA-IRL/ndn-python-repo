@@ -22,7 +22,7 @@ from ndn.types import InterestNack, InterestTimeout
 import os
 
 
-class PubSub(object):
+class PubSub:
     # TODO: prefix has wrong type notation
     # Probably Optional[FormalName]. Need investigation.
     # Please do not call with unnormalized name.

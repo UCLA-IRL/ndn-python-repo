@@ -7,7 +7,7 @@ from ndn.security import KeychainDigest
 from ndn_python_repo.utils.concurrent_fetcher import concurrent_fetcher
 
 
-class ConcurrentFetcherTestSuite(object):
+class ConcurrentFetcherTestSuite:
     """
     Abstract test fixture to simulate packet send and recv.
     """

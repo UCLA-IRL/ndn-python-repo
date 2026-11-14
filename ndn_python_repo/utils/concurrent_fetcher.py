@@ -10,7 +10,6 @@ import logging
 from ndn.app import NDNApp
 from ndn.types import InterestNack, InterestTimeout, InterestCanceled
 from ndn.encoding import Name, NonStrictName, Component
-from typing import Optional
 
 class IdNamingConv:
     SEGMENT = 1
@@ -18,7 +17,7 @@ class IdNamingConv:
     NUMBER = 3
 
 async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_id: int,
-                             end_id: Optional[int], semaphore: aio.Semaphore, **kwargs):
+                             end_id: int | None, semaphore: aio.Semaphore, **kwargs):
     """
     An async-generator to fetch data packets between "`name`/`start_id`" and "`name`/`end_id`"\
         concurrently.
@@ -73,12 +72,12 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_id: int,
                 received_or_fail.set()
                 return
             try:
-                logger.info('Express Interest: {}'.format(Name.to_str(int_name)))
+                logger.info(f'Express Interest: {Name.to_str(int_name)}')
                 data_name, meta_info, content, data_bytes = await app.express_interest(
                     int_name, need_raw_packet=True, can_be_prefix=False, lifetime=1000, **kwargs)
 
                 # Save data and update final_id
-                logging.info('Received data: {}'.format(Name.to_str(data_name)))
+                logging.info(f'Received data: {Name.to_str(data_name)}')
                 if name_conv == IdNamingConv.SEGMENT and \
                     meta_info is not None and \
                     meta_info.final_block_id is not None:

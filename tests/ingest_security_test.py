@@ -1,6 +1,6 @@
 import asyncio as aio
 import base64
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock
 
@@ -41,7 +41,7 @@ def pki(tmp_path):
         prod_key, prod_pub, prod_priv = make_key(producer_name)
         prod_cert_name, prod_cert = derive_cert(
             prod_key, 'root', prod_pub, Sha256WithEcdsaSigner(root_cert_name, root_priv),
-            datetime.now(timezone.utc), 3600)
+            datetime.now(UTC), 3600)
         producer_signers.append(Sha256WithEcdsaSigner(prod_cert_name, prod_priv))
         certs[Name.to_bytes(prod_cert_name)] = bytes(prod_cert)
 

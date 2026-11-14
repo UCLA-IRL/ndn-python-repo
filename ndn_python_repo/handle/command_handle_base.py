@@ -11,7 +11,7 @@ from ..utils import PubSub
 
 from hashlib import sha256
 
-class CommandHandle(object):
+class CommandHandle:
     """
     Interface for command interest handles
     """
@@ -26,7 +26,7 @@ class CommandHandle(object):
         raise NotImplementedError
 
     def _on_check_interest(self, int_name, _int_param, app_param):
-        self.logger.info('on_check_interest(): {}'.format(Name.to_str(int_name)))
+        self.logger.info(f'on_check_interest(): {Name.to_str(int_name)}')
 
         response = None
         request_no = None

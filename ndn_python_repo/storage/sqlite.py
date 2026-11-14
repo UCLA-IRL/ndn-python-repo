@@ -1,6 +1,5 @@
 import os
 import sqlite3
-from typing import Optional
 from .storage_base import Storage
 
 
@@ -45,7 +44,7 @@ class SqliteStorage(Storage):
             (key, value, expire_time_ms))
         self.conn.commit()
 
-    def _put_batch(self, keys: list[bytes], values: list[bytes], expire_time_mss:list[Optional[int]]):
+    def _put_batch(self, keys: list[bytes], values: list[bytes], expire_time_mss:list[int | None]):
         """
         Batch insert.
 
@@ -58,7 +57,7 @@ class SqliteStorage(Storage):
             zip(keys, values, expire_time_mss))
         self.conn.commit()
 
-    def _get(self, key: bytes, can_be_prefix=False, must_be_fresh=False) -> Optional[bytes]:
+    def _get(self, key: bytes, can_be_prefix=False, must_be_fresh=False) -> bytes | None:
         """
         Get value from sqlite3.
 

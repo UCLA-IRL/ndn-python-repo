@@ -5,7 +5,7 @@ from ndn.encoding import Name
 from ..storage import Storage
 
 
-class ReadHandle(object):
+class ReadHandle:
     """
     ReadCommandHandle processes ordinary interests, and return corresponding data if exists.
     """

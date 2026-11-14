@@ -13,7 +13,7 @@ def get_yaml(path=None):
             with resource.open('r', encoding='utf-8') as file:
                 config = yaml.safe_load(file)
         else:
-            with open(path, 'r', encoding='utf-8') as file:
+            with open(path, encoding='utf-8') as file:
                 config = yaml.safe_load(file)
     except FileNotFoundError:
         raise FileNotFoundError(f'could not find config file: {path}') from None
