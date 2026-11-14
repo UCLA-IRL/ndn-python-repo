@@ -6,7 +6,7 @@ from .storage import *
 from .handle import *
 
 
-class Repo(object):
+class Repo:
     def __init__(self, app: NDNApp, storage: Storage, read_handle: ReadHandle,
                  write_handle: WriteCommandHandle, delete_handle: DeleteCommandHandle,
                  sync_handle: SyncCommandHandle, tcp_bulk_insert_handle: TcpBulkInsertHandle, config: dict):

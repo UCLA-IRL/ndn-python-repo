@@ -16,7 +16,7 @@ from ndn.encoding import Name, NonStrictName
 from ..utils.concurrent_fetcher import concurrent_fetcher
 
 
-class GetfileClient(object):
+class GetfileClient:
     """
     This client fetches a file from the repo, and save it to working directory.
     """
@@ -49,7 +49,7 @@ class GetfileClient(object):
         # If the file already exists locally and overwrite=False, retrieving the file makes no
         # sense.
         if os.path.isfile(local_filename) and not overwrite:
-            raise FileExistsError("{} already exists".format(local_filename))
+            raise FileExistsError(f"{local_filename} already exists")
 
 
         semaphore = aio.Semaphore(10)

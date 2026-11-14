@@ -3,13 +3,12 @@ import logging
 from ndn.app import NDNApp
 from ndn.encoding import NonStrictName
 from ndn.types import InterestNack, InterestTimeout
-from typing import Optional
 from ..command import ObjParam, RepoStatCode
 from ..storage import Storage
 from ..utils import concurrent_fetcher
 
 
-def normalize_block_ids(obj: ObjParam) -> tuple[bool, Optional[int], Optional[int]]:
+def normalize_block_ids(obj: ObjParam) -> tuple[bool, int | None, int | None]:
     """
     Normalize insert parameter, or reject the param if it's invalid.
     :param obj: The object to fetch.
@@ -70,7 +69,7 @@ async def fetch_object(app: NDNApp, storage: Storage, obj: ObjParam) -> tuple[Re
 
 
 async def fetch_single_data(app: NDNApp, storage: Storage, name: NonStrictName,
-                            forwarding_hint: Optional[list[NonStrictName]]):
+                            forwarding_hint: list[NonStrictName] | None):
     """
     Fetch one Data packet.
     :param app: NDNApp.
@@ -98,7 +97,7 @@ async def fetch_single_data(app: NDNApp, storage: Storage, name: NonStrictName,
 
 
 async def fetch_segmented_data(app: NDNApp, storage: Storage, name: NonStrictName, start_block_id: int,
-                               end_block_id: Optional[int], forwarding_hint: Optional[list[NonStrictName]]):
+                               end_block_id: int | None, forwarding_hint: list[NonStrictName] | None):
     """
     Fetch segmented Data packets.
     :param app: NDNApp.

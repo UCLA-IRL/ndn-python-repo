@@ -16,7 +16,6 @@ from ndn.encoding import Name, NonStrictName, Links, ContentType, Signer
 from ndn.types import InterestNack, InterestTimeout, ValidationFailure, Validator
 from ndn.utils import timestamp, gen_nonce_64
 from ..command import ObjParam, EmbName
-from typing import Optional
 
 
 class _CommandSigner(Signer):
@@ -40,7 +39,7 @@ class _CommandSigner(Signer):
         return self.signer.write_signature_value(wire, contents)
 
 
-class IngestClient(object):
+class IngestClient:
     """
     A client to ingest a single Data packet into the repo using the direct
     ingest protocol. Unlike ``PutfileClient``, this does not shard content
@@ -70,10 +69,10 @@ class IngestClient(object):
             self.logger.info(f'Data does not exist: {name_str}')
 
     async def ingest_data(self, data_name: NonStrictName, content: bytes, freshness_period: int = 0,
-                          forwarding_hint: Optional[NonStrictName] = None,
-                          register_prefix: Optional[NonStrictName] = None,
-                          signer: Optional[Signer] = None,
-                          validator: Optional[Validator] = None) -> bool:
+                          forwarding_hint: NonStrictName | None = None,
+                          register_prefix: NonStrictName | None = None,
+                          signer: Signer | None = None,
+                          validator: Validator | None = None) -> bool:
         """
         Ingest a single Data packet into the remote repo.
 

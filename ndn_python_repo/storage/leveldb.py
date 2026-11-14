@@ -2,7 +2,6 @@ import os
 import pickle
 import plyvel # fixme: my ide tells me this doesn't exist
 from .storage_base import Storage
-from typing import Optional
 
 
 class LevelDBStorage(Storage):
@@ -33,7 +32,7 @@ class LevelDBStorage(Storage):
         """
         self.db.put(key, pickle.dumps((value, expire_time_ms)))
 
-    def _put_batch(self, keys: list[bytes], values: list[bytes], expire_time_mss:list[Optional[int]]):
+    def _put_batch(self, keys: list[bytes], values: list[bytes], expire_time_mss:list[int | None]):
         """
         Batch insert.
 

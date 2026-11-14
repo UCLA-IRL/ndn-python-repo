@@ -2,7 +2,7 @@ import asyncio as aio
 import base64
 import filecmp
 import multiprocessing
-from datetime import datetime, timezone
+from datetime import datetime, UTC
 from Cryptodome.PublicKey import ECC
 from ndn.app import NDNApp
 from ndn.app_support.security_v2 import self_sign, derive_cert
@@ -14,7 +14,6 @@ from ndn_python_repo.clients.ingest import _CommandSigner
 from ndn_python_repo.command import RepoCommandParam, ObjParam, RepoStatCode, EmbName
 from ndn_python_repo.utils import PubSub
 import os
-import platform
 import subprocess
 import tempfile
 import uuid
@@ -40,7 +39,7 @@ def create_ingest_pki():
         Name.from_str('/ingest_client/KEY/producer'), 'root',
         producer_key.public_key().export_key(format='DER'),
         Sha256WithEcdsaSigner(root_cert_name, root_key.export_key(format='DER')),
-        datetime.now(timezone.utc), 3600)
+        datetime.now(UTC), 3600)
 
     anchor_path = os.path.join(tmp_dir, 'anchor.ndncert')
     with open(anchor_path, 'wb') as f:
@@ -69,7 +68,7 @@ db_config:
   db_type: sqlite3
   sqlite3:
     path: {sqlite3_path}
-  leveldb: 
+  leveldb:
     dir: ~/.ndn/ndn-python-repo/leveldb/
   mongodb:
     db: test_python_repo
@@ -85,16 +84,13 @@ tcp_bulk_insert:
   prefixes:
   - /test
 logging_config:
-  level: INFO 
+  level: INFO
 """
 
 
-class RepoTestSuite(object):
+class RepoTestSuite:
 
     def test_main(self):
-        # could not get NFD running on travis macos, skipping ...
-        if os.getenv('TRAVIS') and platform.system() == 'Darwin':
-            return
         self.startup()
         self.cleanup()
 
@@ -157,7 +153,7 @@ class TestBasic(RepoTestSuite):
         # delete
         dc = DeleteClient(self.app, Name.from_str('/delete_client'), Name.from_str(repo_name))
         delete_num = await dc.delete_file(Name.from_str(filepath2))
-        print("Insert: {}, delete: {}".format(insert_num, delete_num))
+        print(f"Insert: {insert_num}, delete: {delete_num}")
         assert insert_num == delete_num
         # cleanup
         self.files_to_cleanup.append(filepath1)
