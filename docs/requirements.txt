@@ -1,6 +1,6 @@
-sphinx-autodoc-typehints>=1.10.2
-sphinx-rtd-theme>=0.4.3
-python-ndn>=0.2b2.post1
-PyYAML>=5.1.2
-plyvel>=1.2.0
-pymongo>=3.10.1
+plyvel>=1.5.1,<2
+pymongo>=4.20.0,<5
+python-ndn>=0.5.2,<0.6
+PyYAML>=6.0.3,<7
+sphinx-autodoc-typehints>=3.6.1,<4
+sphinx-rtd-theme>=3.1.0,<4
