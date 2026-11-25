@@ -10,14 +10,13 @@ import sys
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
 import logging
-from typing import Optional
 from ndn.app import NDNApp
 from ndn.encoding import Name, NonStrictName, DecodeError
 from ndn.types import InterestNack, InterestTimeout
 from ..command.repo_commands import RepoStatQuery, RepoCommandRes
 
 
-class CommandChecker(object):
+class CommandChecker:
     def __init__(self, app: NDNApp):
         """
         This client sends check interests to the repo.
@@ -48,7 +47,7 @@ class CommandChecker(object):
         return await self._check('delete', repo_name, request_no)
 
     async def _check(self, method: str, repo_name: NonStrictName,
-                     request_no: bytes) -> Optional[RepoCommandRes]:
+                     request_no: bytes) -> RepoCommandRes | None:
         """
         Return parsed insert check response message.
 

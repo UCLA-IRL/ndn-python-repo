@@ -2,7 +2,6 @@ import asyncio as aio
 import logging
 from ndn.app import NDNApp
 from ndn.encoding import Name, NonStrictName, Component
-from typing import Optional
 from . import ReadHandle, CommandHandle
 from ..command import RepoCommandRes, RepoCommandParam, ObjParam, ObjStatus, RepoStatCode
 from ..storage import Storage
@@ -26,7 +25,7 @@ class DeleteCommandHandle(CommandHandle):
         :param read_handle: ReadHandle. This param is necessary because DeleteCommandHandle need to
             unregister prefixes.
         """
-        super(DeleteCommandHandle, self).__init__(app, storage, pb, config)
+        super().__init__(app, storage, pb, config)
         self.m_read_handle = read_handle
         self.prefix = None
         self.register_root = config['repo_config']['register_root']
@@ -132,7 +131,7 @@ class DeleteCommandHandle(CommandHandle):
         # Remove process state after some time
         await self._delete_process_state_after(request_no, 60)
 
-    async def _perform_storage_delete(self, prefix, start_block_id: int, end_block_id: Optional[int]) -> int:
+    async def _perform_storage_delete(self, prefix, start_block_id: int, end_block_id: int | None) -> int:
         """
         Delete data packets between [start_block_id, end_block_id]. If end_block_id is None, delete
         all continuous data packets from start_block_id.

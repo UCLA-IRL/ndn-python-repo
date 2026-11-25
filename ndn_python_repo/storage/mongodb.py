@@ -1,7 +1,6 @@
 import base64
 from pymongo import MongoClient, ReplaceOne
 from .storage_base import Storage
-from typing import Optional
 
 
 class MongoDBStorage(Storage):
@@ -46,7 +45,7 @@ class MongoDBStorage(Storage):
         }
         self.c_collection.replace_one({'key': key}, replace, upsert=True)
 
-    def _put_batch(self, keys: list[bytes], values: list[bytes], expire_time_mss:list[Optional[int]]):
+    def _put_batch(self, keys: list[bytes], values: list[bytes], expire_time_mss:list[int | None]):
         """
         Batch insert.
 
@@ -64,7 +63,7 @@ class MongoDBStorage(Storage):
             }, upsert=True))
         self.c_collection.bulk_write(replaces, ordered=False)
 
-    def _get(self, key: bytes, can_be_prefix=False, must_be_fresh=False) -> Optional[bytes]:
+    def _get(self, key: bytes, can_be_prefix=False, must_be_fresh=False) -> bytes | None:
         """
         Get document from MongoDB.
 

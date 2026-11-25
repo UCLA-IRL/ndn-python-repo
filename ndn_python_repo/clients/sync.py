@@ -19,7 +19,7 @@ import os
 import platform
 from hashlib import sha256
 
-class SyncClient(object):
+class SyncClient:
 
     def __init__(self, app: NDNApp, prefix: NonStrictName, repo_name: NonStrictName):
         """

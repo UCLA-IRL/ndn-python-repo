@@ -4,7 +4,7 @@ from ndn_python_repo.storage import SqliteStorage
 import time
 
 
-class StorageTestFixture(object):
+class StorageTestFixture:
     """
     Abstract test cases for all storage types.
     """

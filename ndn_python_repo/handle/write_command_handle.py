@@ -7,7 +7,6 @@ from .ingest_handle import DirectIngestHandle
 from ..command import RepoCommandRes, RepoCommandParam, ObjParam, ObjStatus, RepoStatCode
 from ..utils import PubSub
 from ..storage import Storage
-from typing import Optional
 from .utils import normalize_block_ids, fetch_object
 
 
@@ -17,7 +16,7 @@ class WriteCommandHandle(CommandHandle):
     store them into the database.
     TODO: Add validator
     """
-    def __init__(self, app: NDNApp, storage: Storage, pb: PubSub, ingest_handle: Optional[DirectIngestHandle], read_handle: ReadHandle,
+    def __init__(self, app: NDNApp, storage: Storage, pb: PubSub, ingest_handle: DirectIngestHandle | None, read_handle: ReadHandle,
                  config: dict):
         """
         Write handle need to keep a reference to write handle to register new prefixes.
@@ -29,7 +28,7 @@ class WriteCommandHandle(CommandHandle):
         :param ingest_handle: DirectIngestHandle or None. If provided, registers the direct ingest
             protocol alongside the legacy pub-sub insert protocol.
         """
-        super(WriteCommandHandle, self).__init__(app, storage, pb, config)
+        super().__init__(app, storage, pb, config)
         self.m_read_handle = read_handle
         self.m_ingest_handle = ingest_handle
         self.prefix = None

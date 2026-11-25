@@ -21,7 +21,6 @@ from ndn.encoding import Name, NonStrictName, Component, Links
 import os
 import platform
 from hashlib import sha256
-from typing import Optional
 
 
 if not os.environ.get('READTHEDOCS'):
@@ -46,7 +45,7 @@ if not os.environ.get('READTHEDOCS'):
         return bytes(packet)
 
 
-class PutfileClient(object):
+class PutfileClient:
 
     def __init__(self, app: NDNApp, prefix: NonStrictName, repo_name: NonStrictName):
         """
@@ -99,7 +98,7 @@ class PutfileClient(object):
 
         with multiprocessing.Pool(processes=cpu_count) as p:
             self.encoded_packets[Name.to_str(name_at_repo)] = p.starmap(_create_packets, packet_params)
-        self.logger.info("Prepared {} data for {}".format(seg_cnt, Name.to_str(name_at_repo)))
+        self.logger.info(f"Prepared {seg_cnt} data for {Name.to_str(name_at_repo)}")
 
     def _on_interest(self, int_name, _int_param, _app_param):
         # use segment number to index into the encoded packets array
@@ -115,9 +114,9 @@ class PutfileClient(object):
 
     async def insert_file(self, file_path: str, name_at_repo: NonStrictName, segment_size: int,
                           freshness_period: int, cpu_count: int,
-                          forwarding_hint: Optional[NonStrictName]=None,
-                          register_prefix: Optional[NonStrictName]=None,
-                          check_prefix: Optional[NonStrictName]=None) -> int:
+                          forwarding_hint: NonStrictName | None=None,
+                          register_prefix: NonStrictName | None=None,
+                          check_prefix: NonStrictName | None=None) -> int:
         """
         Insert a file to remote repo.
 

@@ -7,7 +7,7 @@
 
 import logging
 from base64 import b64decode, b64encode
-from typing import Callable
+from collections.abc import Callable
 from ndn.app import NDNApp
 from ndn.app_support.svs import StateVecWrapper, SvsState
 from ndn.encoding import Name, NonStrictName, DecodeError, FormalName, BinaryStr, InterestParam, parse_interest, \

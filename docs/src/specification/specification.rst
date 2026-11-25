@@ -9,5 +9,7 @@ Specification
     Delete <delete>
     Check <check>
     TCP bulk insert <tcp_bulk>
+    Sync <sync>
     Sync Group Join <sync_join>
     Sync Group Leave <sync_leave>
+    Security <security>

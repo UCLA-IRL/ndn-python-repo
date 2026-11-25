@@ -40,7 +40,7 @@ class SyncCommandHandle(CommandHandle):
         :param read_handle: ReadHandle. This param is necessary, because WriteCommandHandle need to
             call ReadHandle.listen() to register new prefixes.
         """
-        super(SyncCommandHandle, self).__init__(app, storage, pb, config)
+        super().__init__(app, storage, pb, config)
         self.m_read_handle = read_handle
         self.prefix = None
         self.register_root = config["repo_config"]["register_root"]
