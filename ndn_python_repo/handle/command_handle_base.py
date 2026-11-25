@@ -1,8 +1,8 @@
 import asyncio as aio
 import logging
 import json
-from ndn.app import NDNApp
-from ndn.encoding import Name, NonStrictName, FormalName, Component
+from ndn.app import NDNApp, ReplyFunc
+from ndn.encoding import Name, NonStrictName, FormalName, Component, tlv_encode, tlv_parse
 from ndn.encoding.tlv_model import DecodeError
 
 from ..command import RepoStatQuery, RepoCommandRes, RepoStatCode, RepeatedNames, RepoCommandParam
@@ -25,7 +25,7 @@ class CommandHandle(object):
     async def listen(self, prefix: Name):
         raise NotImplementedError
 
-    def _on_check_interest(self, int_name, _int_param, app_param):
+    def _on_check_interest(self, int_name, app_param, reply, _context):
         self.logger.info('on_check_interest(): {}'.format(Name.to_str(int_name)))
 
         response = None
@@ -33,10 +33,10 @@ class CommandHandle(object):
         try:
             if not app_param:
                 raise DecodeError('Missing Parameters')
-            parameter = RepoStatQuery.parse(app_param)
-            request_no = parameter.request_no
-            if request_no is None:
+            parameter = tlv_parse(RepoStatQuery, app_param)
+            if parameter.request_no is None:
                 raise DecodeError('Missing Request No.')
+            request_no = bytes(parameter.request_no)
         except (DecodeError, IndexError, RuntimeError) as exc:
             response = RepoCommandRes()
             response.status_code = RepoStatCode.MALFORMED
@@ -48,14 +48,14 @@ class CommandHandle(object):
             self.logger.warning(f'Process does not exist for id={request_no}')
 
         if response is None:
-            self.reply_with_response(int_name, self.m_processes[request_no])
+            self.reply_with_response(int_name, reply, self.m_processes[request_no])
         else:
-            self.reply_with_response(int_name, response)
+            self.reply_with_response(int_name, reply, response)
 
-    def reply_with_response(self, int_name, response: RepoCommandRes):
+    def reply_with_response(self, int_name, reply: ReplyFunc, response: RepoCommandRes):
         self.logger.info(f'Reply to command: {Name.to_str(int_name)} w/ code={response.status_code}')
-        response_bytes = response.encode()
-        self.app.put_data(int_name, response_bytes, freshness_period=1000)
+        response_bytes = tlv_encode(response)
+        reply(self.app.make_data(int_name, response_bytes, self.pb.get_signer(), freshness_period=1000))
 
     async def _delete_process_state_after(self, process_id: bytes, delay: int):
         """
@@ -67,7 +67,7 @@ class CommandHandle(object):
 
     def parse_msg(self, msg):
         try:
-            cmd_param = RepoCommandParam.parse(msg)
+            cmd_param = tlv_parse(RepoCommandParam, msg)
             request_no = sha256(bytes(msg)).digest()
             if not cmd_param.objs:
                 raise DecodeError('Missing objects')
@@ -94,14 +94,14 @@ class CommandHandle(object):
         names_msg = RepeatedNames()
         ret = storage._get(set_name.encode('utf-8'))
         if ret:
-            names_msg = RepeatedNames.parse(ret)
+            names_msg = tlv_parse(RepeatedNames, ret)
 
         name = Name.normalize(name)
         if name in names_msg.names:
             return True
         else:
             names_msg.names.append(name)
-            names_msg_bytes = names_msg.encode()
+            names_msg_bytes = tlv_encode(names_msg)
             storage._put(set_name.encode('utf-8'), bytes(names_msg_bytes))
             return False
     
@@ -115,7 +115,7 @@ class CommandHandle(object):
         """
         ret = storage._get(set_name.encode('utf-8'))
         if ret:
-            names_msg = RepeatedNames.parse(ret)
+            names_msg = tlv_parse(RepeatedNames, ret)
             return names_msg.names
         else:
             return []
@@ -133,12 +133,12 @@ class CommandHandle(object):
         names_msg = RepeatedNames()
         ret = storage._get(set_name.encode('utf-8'))
         if ret:
-            names_msg = RepeatedNames.parse(ret)
+            names_msg = tlv_parse(RepeatedNames, ret)
         
         name = Name.normalize(name)
         if name in names_msg.names:
             names_msg.names.remove(Name.normalize(name))
-            names_msg_bytes = names_msg.encode()
+            names_msg_bytes = tlv_encode(names_msg)
             storage._put(set_name.encode('utf-8'), bytes(names_msg_bytes))
             return True
         else:

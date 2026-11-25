@@ -3,7 +3,7 @@ import logging
 from hashlib import sha256
 
 from ndn.app import NDNApp
-from ndn.encoding import Component, DecodeError, Name, NonStrictName, parse_data
+from ndn.encoding import Component, DecodeError, Name, NonStrictName, parse_data, tlv_parse
 
 from ..command import (
     RepoCommandParam,
@@ -79,7 +79,7 @@ class SyncCommandHandle(CommandHandle):
 
     def _on_sync_msg(self, msg):
         try:
-            cmd_param = RepoCommandParam.parse(msg)
+            cmd_param = tlv_parse(RepoCommandParam, msg)
             request_no = sha256(bytes(msg)).digest()
             if not cmd_param.sync_groups:
                 raise DecodeError("Missing sync groups")
@@ -100,7 +100,7 @@ class SyncCommandHandle(CommandHandle):
 
     def _on_leave_msg(self, msg):
         try:
-            cmd_param = RepoCommandParam.parse(msg)
+            cmd_param = tlv_parse(RepoCommandParam, msg)
             request_no = sha256(bytes(msg)).digest()
             if not cmd_param.sync_groups:
                 raise DecodeError("Missing sync groups")

@@ -17,7 +17,9 @@ from ..utils import PubSub
 import logging
 import multiprocessing
 from ndn.app import NDNApp
-from ndn.encoding import Name, NonStrictName, Component, Links
+from ndn.encoding import Name, NonStrictName, Component, Links, tlv_encode
+from ndn.security import Keychain
+from ndn.security.validator import sha256_digest_checker
 import os
 import platform
 from hashlib import sha256
@@ -26,41 +28,45 @@ from typing import Optional
 
 if not os.environ.get('READTHEDOCS'):
     # I don't think global variable is good design
-    app_to_create_packet = None   # used for _create_packets only
+    keychain_to_create_packet = None   # used for _create_packets only
 
     def _create_packets(name, content, freshness_period, final_block_id):
         """
-        Worker for parallelize prepare_data().
+        Worker for parallelize make_data().
         This function has to be defined at the top level, so that it can be pickled and used
         by multiprocessing.
         """
-        # The keychain's sqlite3 connection is not thread-safe. Create a new NDNApp instance for
+        # The keychain's sqlite3 connection is not thread-safe. Load the keychain in
         # each process, so that each process gets a separate sqlite3 connection
-        global app_to_create_packet
-        if app_to_create_packet is None:
-            app_to_create_packet = NDNApp()
+        global keychain_to_create_packet
+        if keychain_to_create_packet is None:
+            keychain_to_create_packet = NDNApp.default_keychain()
 
-        packet = app_to_create_packet.prepare_data(name, content,
-                                                   freshness_period=freshness_period,
-                                                   final_block_id=final_block_id)
+        packet = NDNApp.make_data(name, content, keychain_to_create_packet.get_signer({}),
+                                  freshness_period=freshness_period,
+                                  final_block_id=final_block_id)
         return bytes(packet)
 
 
 class PutfileClient(object):
 
-    def __init__(self, app: NDNApp, prefix: NonStrictName, repo_name: NonStrictName):
+    def __init__(self, app: NDNApp, prefix: NonStrictName, repo_name: NonStrictName,
+                 keychain: Optional[Keychain] = None):
         """
         A client to insert files into the repo.
 
         :param app: NDNApp.
         :param prefix: NonStrictName. The name of this client
         :param repo_name: NonStrictName. Routable name to remote repo.
+        :param keychain: Keychain. Signs the insert command and check Interests. If omitted, the\
+            default keychain is loaded when first needed. Data segments are always signed with\
+            the default keychain.
         """
         self.app = app
         self.prefix = prefix
         self.repo_name = Name.normalize(repo_name)
         self.encoded_packets = {}
-        self.pb = PubSub(self.app, self.prefix)
+        self.pb = PubSub(self.app, self.prefix, keychain=keychain)
         self.pb.base_prefix = self.prefix
         self.logger = logging.getLogger(__name__)
 
@@ -101,14 +107,14 @@ class PutfileClient(object):
             self.encoded_packets[Name.to_str(name_at_repo)] = p.starmap(_create_packets, packet_params)
         self.logger.info("Prepared {} data for {}".format(seg_cnt, Name.to_str(name_at_repo)))
 
-    def _on_interest(self, int_name, _int_param, _app_param):
+    def _on_interest(self, int_name, _app_param, reply, _context):
         # use segment number to index into the encoded packets array
         self.logger.info(f'On interest: {Name.to_str(int_name)}')
         seq = Component.to_number(int_name[-1])
         name_wo_seq = Name.to_str(int_name[:-1])
         if name_wo_seq in self.encoded_packets and 0 <= seq < len(self.encoded_packets[name_wo_seq]):
             encoded_packets = self.encoded_packets[name_wo_seq]
-            self.app.put_raw_packet(encoded_packets[seq])
+            reply(encoded_packets[seq])
             self.logger.info(f'Serve data: {Name.to_str(int_name)}')
         else:
             self.logger.info(f'Data does not exist: {Name.to_str(int_name)}')
@@ -143,12 +149,11 @@ class PutfileClient(object):
 
         # If the uploaded file has the client's name as prefix, set an interest filter
         # for handling corresponding Interests from the repo
-        if Name.is_prefix(self.prefix, name_at_repo):
-            self.app.set_interest_filter(name_at_repo, self._on_interest)
-        else:
+        self.app.attach_handler(name_at_repo, self._on_interest, sha256_digest_checker)
+        if not Name.is_prefix(self.prefix, name_at_repo):
             # Otherwise, register the file name as prefix for responding interests from the repo
             self.logger.info(f'Register prefix for file upload: {Name.to_str(name_at_repo)}')
-            await self.app.register(name_at_repo, self._on_interest)
+            await self.app.register(name_at_repo)
 
         # construct insert cmd msg
         cmd_param = RepoCommandParam()
@@ -165,7 +170,7 @@ class PutfileClient(object):
         cmd_obj.register_prefix = EmbName()
         cmd_obj.register_prefix.name = register_prefix
 
-        cmd_param_bytes = bytes(cmd_param.encode())
+        cmd_param_bytes = bytes(tlv_encode(cmd_param))
         request_no = sha256(cmd_param_bytes).digest()
 
         # publish msg to repo's insert topic
@@ -192,7 +197,7 @@ class PutfileClient(object):
         :return: int number of inserted packets.
         """
         # fixme: why is check_prefix not used?
-        checker = CommandChecker(self.app)
+        checker = CommandChecker(self.app, self.pb.keychain)
         n_retries = 5
         while n_retries > 0:
             response = await checker.check_insert(self.repo_name, request_no)

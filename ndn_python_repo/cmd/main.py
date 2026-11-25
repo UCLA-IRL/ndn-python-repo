@@ -3,6 +3,7 @@ import logging
 import importlib.metadata
 import sys
 from ndn.app import NDNApp
+from ndn.encoding import Name
 from ndn_python_repo import *
 
 
@@ -76,12 +77,16 @@ def config_logging(config: dict):
 
 async def async_main(app: NDNApp, config):
     storage = create_storage(config['db_config'])
+    keychain = NDNApp.default_keychain()
+    identity = config['repo_config'].get('identity')
+    sign_args = {'identity': Name.from_str(identity)} if identity else {}
 
-    pb = PubSub(app)
+    pb = PubSub(app, keychain=keychain, sign_args=sign_args)
     read_handle = ReadHandle(app, storage, config)
     ingest_validator = create_ingest_validator(app, config.get('ingest_security'))
     ingest_handle = DirectIngestHandle(
-        app, storage, config, read_handle, interest_validator=ingest_validator)
+        app, storage, config, read_handle, command_validator=ingest_validator, keychain=keychain,
+        sign_args=sign_args)
     write_handle = WriteCommandHandle(app, storage, pb, ingest_handle, read_handle, config)
     sync_handle = SyncCommandHandle(app, storage, pb, read_handle, config)
     delete_handle = DeleteCommandHandle(app, storage, pb, read_handle, config)

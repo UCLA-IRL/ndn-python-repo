@@ -8,7 +8,8 @@ from ndn_python_repo.clients import SyncClient
 
 
 async def run_sync_client(app: NDNApp, **kwargs):
-    client = SyncClient(app=app, prefix=kwargs['client_prefix'], repo_name=kwargs['repo_name'])
+    client = SyncClient(app=app, prefix=kwargs['client_prefix'], repo_name=kwargs['repo_name'],
+                        keychain=KeychainDigest())
     await client.join_sync(sync_prefix=kwargs['sync_prefix'], register_prefix=kwargs['register_prefix'], 
                            data_name_dedupe=kwargs['data_name_dedupe'],
                            reset=kwargs['reset'])
@@ -35,7 +36,7 @@ def main():
                         datefmt='%Y-%m-%d %H:%M:%S',
                         level=logging.DEBUG)
 
-    app = NDNApp(face=None, keychain=KeychainDigest())
+    app = NDNApp()
     register_prefix = None
     if args.register_prefix:
         register_prefix = Name.from_str(args.register_prefix)
