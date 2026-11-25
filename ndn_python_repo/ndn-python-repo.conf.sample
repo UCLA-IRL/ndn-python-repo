@@ -13,10 +13,14 @@ repo_config:
 # The trust anchor may be a binary or base64-encoded certificate. The trust schema is
 # normally a compiled LVS binary schema; LVS text is also accepted and compiled at startup.
 # Tilde and environment variables in both paths are expanded. A sample text schema is
-# provided in ingest.lvs.sample.
+# provided in ingest.lvs.sample. Certificates listed in certificates are validated at
+# startup instead of being fetched; each must be issued by the trust anchor or by a
+# certificate listed before it.
 # ingest_security:
 #   trust_anchor: '~/.ndn/trust/trust-anchor.ndncert'
 #   trust_schema: '/etc/ndn-python-repo/ingest.lvsb'
+#   certificates:
+#   - '~/.ndn/trust/producer.ndncert'
 
 db_config:
   # choose one among sqlite3, leveldb, and mongodb

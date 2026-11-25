@@ -80,6 +80,13 @@ both paths are expanded::
     ingest_security:
       trust_anchor: '~/.ndn/trust/trust-anchor.ndncert'
       trust_schema: '/etc/ndn-python-repo/ingest.lvsb'
+      certificates:
+      - '~/.ndn/trust/producer.ndncert'
+
+``certificates`` is optional. The repo validates each listed certificate at startup, with
+the same checks as a fetched certificate, and uses it without fetching it. Each one must be
+issued by the trust anchor or by a certificate listed before it. This lets the repo validate
+commands from producers whose certificates are not routable from the repo.
 
 ``trust_schema`` is normally the LVS binary format, compiled from the trust schema at a
 central location and distributed to each repo. As an alternative, it may be LVS text, which

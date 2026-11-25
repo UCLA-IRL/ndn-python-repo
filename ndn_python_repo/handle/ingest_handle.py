@@ -27,7 +27,7 @@ from ndn.app import NDNApp, ReplyFunc, Validator, ValidResult
 from ndn.app_support.light_versec import Checker, LvsModel, TypeNumber, compile_lvs, lvs_validator
 from ndn.encoding import Name, NonStrictName, Component, ContentType, parse_data, tlv_parse
 from ndn.security import Keychain
-from ndn.security.validator.cascade_validator import MemoryKeyStorage
+from ndn.security.validator.cascade_validator import CascadeChecker, MemoryKeyStorage
 from ndn.utils import timestamp
 from .read_handle import ReadHandle
 from .utils import fetch_object
@@ -36,12 +36,48 @@ from ..storage import Storage
 from typing import Optional
 
 
+def _read_cert_file(path: str) -> bytes:
+    """Read a binary or base64-encoded certificate, expanding tilde and environment variables in path."""
+    cert_file = Path(os.path.expanduser(os.path.expandvars(path))).read_bytes()
+    if cert_file.startswith(b'\x06'):
+        return cert_file
+    return base64.b64decode(b''.join(cert_file.split()), validate=True)
+
+
+def _preload_certificates(checker: Checker, trust_anchor: bytes, cert_paths: list,
+                          storage: MemoryKeyStorage):
+    """
+    Validate the configured certificates offline, and save their keys in storage, so the
+    validator does not fetch them. Each certificate must be issued by the trust anchor or
+    by a certificate listed before it, and must be authorized by the trust schema.
+    """
+    anchor_name, anchor_key, _ = CascadeChecker._parse_certificate(trust_anchor)
+    issuer_keys = {Name.to_bytes(anchor_name): anchor_key}
+    for path in cert_paths:
+        wire = _read_cert_file(path)
+        cert_name, key_bits, expires_at = CascadeChecker._parse_certificate(wire)
+        _, _, _, sig_ptrs = parse_data(wire)
+        issuer_name = sig_ptrs.signature_info.key_locator.name
+        issuer_key = issuer_keys.get(Name.to_bytes(issuer_name))
+        if issuer_key is None:
+            raise ValueError(f'Certificate {Name.to_str(cert_name)} is not issued by the trust anchor '
+                             'or an earlier certificate')
+        if not checker.check(cert_name, issuer_name):
+            raise ValueError(f'Certificate {Name.to_str(cert_name)} is not authorized by the trust schema')
+        if not CascadeChecker._verify_sig(issuer_key, sig_ptrs):
+            raise ValueError(f'Certificate {Name.to_str(cert_name)} has an invalid signature')
+        storage.save_with_expiration(cert_name, key_bits, expires_at)
+        issuer_keys[Name.to_bytes(cert_name)] = key_bits
+        logging.info(f'ingest.cert.preloaded {Name.to_str(cert_name)}')
+
+
 def create_ingest_validator(app: NDNApp, security_config: Optional[dict]) -> Optional[Validator]:
     """
     Create the validator for ingest commands from the ``ingest_security`` config section.
 
     The signed command Data is checked against an LVS trust schema, and the signing certificate
-    chain is fetched from the network and validated up to the configured trust anchor.
+    chain is validated up to the configured trust anchor. Certificates listed in
+    ``certificates`` are validated at startup; the rest of the chain is fetched from the network.
 
     :param app: NDNApp. Used to fetch certificates in the signing chain.
     :param security_config: the ``ingest_security`` config section, or None.
@@ -55,12 +91,7 @@ def create_ingest_validator(app: NDNApp, security_config: Optional[dict]) -> Opt
     if not anchor_path or not schema_path:
         raise ValueError('ingest_security requires both trust_anchor and trust_schema')
 
-    resolved_anchor = Path(os.path.expanduser(os.path.expandvars(anchor_path)))
-    anchor_file = resolved_anchor.read_bytes()
-    if anchor_file.startswith(b'\x06'):
-        trust_anchor = anchor_file
-    else:
-        trust_anchor = base64.b64decode(b''.join(anchor_file.split()), validate=True)
+    trust_anchor = _read_cert_file(anchor_path)
     resolved_schema = Path(os.path.expanduser(os.path.expandvars(schema_path)))
     schema_file = resolved_schema.read_bytes()
     if schema_file.startswith(bytes([TypeNumber.VERSION])):
@@ -69,7 +100,11 @@ def create_ingest_validator(app: NDNApp, security_config: Optional[dict]) -> Opt
     else:
         lvs_model = compile_lvs(schema_file.decode())
 
-    return lvs_validator(Checker(lvs_model, {}), app, trust_anchor, MemoryKeyStorage())
+    checker = Checker(lvs_model, {})
+    storage = MemoryKeyStorage()
+    validator = lvs_validator(checker, app, trust_anchor, storage)
+    _preload_certificates(checker, trust_anchor, security_config.get('certificates') or [], storage)
+    return validator
 
 
 class DirectIngestHandle:

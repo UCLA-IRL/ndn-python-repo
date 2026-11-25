@@ -46,6 +46,7 @@ def pki(tmp_path):
             datetime.now(timezone.utc), 3600)
         producer_signers.append(Sha256WithEcdsaSigner(prod_cert_name, prod_priv))
         certs[Name.to_bytes(prod_cert_name)] = bytes(prod_cert)
+        (tmp_path / f'{producer_name.split("/")[1]}.ndncert').write_bytes(bytes(prod_cert))
 
     anchor_path = tmp_path / 'anchor.ndncert'
     anchor_path.write_bytes(base64.b64encode(bytes(root_cert)))
@@ -149,6 +150,36 @@ def test_ingest_validator_fetches_chain_and_accepts_authorized_producer(pki):
     for signer in (producer_a_signer, producer_b_signer):
         assert validate(validator, '/repo', signer)
     assert app.express.await_count == 2
+
+
+def test_ingest_validator_uses_preloaded_certificate_without_fetching(pki, tmp_path):
+    app, config, producer_a_signer, producer_b_signer, _ = pki
+    cert_path = tmp_path / 'producer-a.ndncert'
+    cert_path.write_bytes(base64.b64encode(cert_path.read_bytes()))
+    validator = create_ingest_validator(app, {**config, 'certificates': [str(cert_path)]})
+
+    assert validate(validator, '/repo', producer_a_signer)
+    app.express.assert_not_awaited()
+
+    # Certificates that are not preloaded are still fetched
+    assert validate(validator, '/repo', producer_b_signer)
+    assert app.express.await_count == 1
+
+
+def test_ingest_security_rejects_invalid_preloaded_certificate(pki, tmp_path):
+    app, config, _, _, _ = pki
+
+    # Issued by the trust anchor, but not authorized by the LVS schema
+    with pytest.raises(ValueError, match='not authorized'):
+        create_ingest_validator(app, {**config, 'certificates': [str(tmp_path / 'producer-c.ndncert')]})
+
+    # Self-signed, not issued by the trust anchor
+    key_name, pub, priv = make_key('/producer-a/KEY')
+    _, self_signed = self_sign(key_name, pub, Sha256WithEcdsaSigner(key_name, priv))
+    cert_path = tmp_path / 'self-signed.ndncert'
+    cert_path.write_bytes(bytes(self_signed))
+    with pytest.raises(ValueError, match='not issued'):
+        create_ingest_validator(app, {**config, 'certificates': [str(cert_path)]})
 
 
 def test_ingest_security_accepts_lvs_binary_schema(pki, tmp_path):
