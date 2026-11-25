@@ -30,9 +30,11 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_id: int,
     :param end_id: Optional[int]. The end segment number. If not specified, continue fetching\
         until an interest receives timeout or nack or 3 times.
     :param semaphore: aio.Semaphore. Semaphore used to fetch data.
+    :param validator: Validator for fetched Data. Defaults to ``sha256_digest_checker``.
     :return: Yield ``(FormalName, MetaInfo, Content, RawPacket)`` tuples in order.
     """
     name_conv = IdNamingConv.SEGMENT
+    validator = kwargs.pop('validator', None) or sha256_digest_checker
     max_retries = 15
     if 'name_conv' in kwargs:
         name_conv = kwargs['name_conv']
@@ -76,7 +78,7 @@ async def concurrent_fetcher(app: NDNApp, name: NonStrictName, start_id: int,
             try:
                 logger.info('Express Interest: {}'.format(Name.to_str(int_name)))
                 data_name, content, context = await app.express(
-                    int_name, sha256_digest_checker, can_be_prefix=False, lifetime=1000, **kwargs)
+                    int_name, validator, can_be_prefix=False, lifetime=1000, **kwargs)
                 meta_info = context['meta_info']
                 data_bytes = bytes(context['raw_packet'])
 

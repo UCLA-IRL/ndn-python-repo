@@ -123,7 +123,8 @@ class DirectIngestHandle:
     REPLY_MARGIN_MS = 500  # reply this long before the ingest Interest expires
 
     def __init__(self, app: NDNApp, storage: Storage, config: dict, read_handle: ReadHandle,
-                 command_validator: Optional[Validator] = None, keychain: Optional[Keychain] = None):
+                 command_validator: Optional[Validator] = None, keychain: Optional[Keychain] = None,
+                 sign_args: Optional[dict] = None):
         self.app     = app
         self.storage = storage
         self.config  = config
@@ -132,12 +133,12 @@ class DirectIngestHandle:
         self._registered_prefixes = set()
         self.m_read_handle = read_handle
         self.command_validator = command_validator
-        # Replies are signed with the repo's default key, so the producer can validate them
+        # Replies are signed with the repo's key (selected by sign_args), so the producer can validate them
         self.signer = None
         if command_validator is not None:
             if keychain is None:
                 keychain = NDNApp.default_keychain()
-            self.signer = keychain.get_signer({})
+            self.signer = keychain.get_signer(sign_args or {})
 
     async def listen(self, prefix: NonStrictName):
         """

@@ -5,6 +5,8 @@ repo_config:
   # if true, the repo registers the root prefix. If false, client needs to tell repo
   # which prefix to register/unregister
   register_root: False
+  # optional: identity the repo signs with. Default: the keychain's default identity
+  # identity: '/testrepo'
 
 # Direct ingest is disabled unless ingest_security is configured.
 # Signed ingest commands are validated against an LVS trust schema, fetching the

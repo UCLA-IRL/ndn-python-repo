@@ -30,7 +30,7 @@ class PubSub(object):
     # Probably Optional[FormalName]. Need investigation.
     # Please do not call with unnormalized name.
     def __init__(self, app: NDNApp, prefix: NonStrictName=None, forwarding_hint: NonStrictName=None,
-                 keychain: Keychain=None):
+                 keychain: Keychain=None, sign_args: dict=None):
         """
         Initialize a ``PubSub`` instance with identity ``prefix`` and can be reached at \
             ``forwarding_hint``.
@@ -45,9 +45,12 @@ class PubSub(object):
             reachable, the subscriber can use ``forwarding_hint`` to reach the publisher.
         :param keychain: Keychain. Signs published msg Data and notify Interests with its default\
             key. If omitted, the default keychain is loaded when first needed.
+        :param sign_args: dict. Arguments to ``Keychain.get_signer``, e.g. ``{'identity': ...}``.\
+            If omitted, the keychain's default key is used.
         """
         self.app = app
         self.keychain = keychain
+        self.sign_args = sign_args or {}
         self.publisher_prefix = prefix
         self.forwarding_hint = forwarding_hint
         self.base_prefix = None
@@ -80,11 +83,11 @@ class PubSub(object):
 
     def get_signer(self) -> Signer:
         """
-        Get the signer of the default key in this ``PubSub``'s keychain.
+        Get the signer selected by ``sign_args`` in this ``PubSub``'s keychain.
         """
         if self.keychain is None:
             self.keychain = NDNApp.default_keychain()
-        return self.keychain.get_signer({})
+        return self.keychain.get_signer(self.sign_args)
 
     async def wait_for_ready(self):
         """
